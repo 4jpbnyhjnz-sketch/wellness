@@ -82,11 +82,19 @@
   .score-track{flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
   .score-fill{height:100%;border-radius:3px}
   .score-num{width:16px;text-align:right;font-weight:600;font-family:'JetBrains Mono',monospace;font-size:11px}
-  .player-indicators{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-  .indicator-pill{display:flex;flex-direction:column;align-items:center;flex:1;min-width:80px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:7px 10px;gap:2px}
-  .indicator-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);white-space:nowrap}
-  .indicator-value{font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.1}
-  .indicator-sub{font-size:9px;color:var(--text2)}
+  .player-indicators{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .indicator-pill{display:flex;flex-direction:column;align-items:center;flex:1;min-width:72px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:6px 8px;gap:2px}
+  .indicator-label{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);white-space:nowrap;text-align:center}
+  .indicator-value{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.1}
+  .indicator-sub{font-size:9px;color:var(--text2);text-align:center}
+  .player-alerts{margin-bottom:8px;display:flex;flex-direction:column;gap:3px}
+  .player-alert{font-size:10px;padding:3px 8px;border-radius:5px;display:flex;align-items:center;gap:5px;font-weight:500;line-height:1.3}
+  .player-alert.vigilance{background:rgba(245,166,35,.12);color:#f5a623;border:1px solid rgba(245,166,35,.25)}
+  .player-alert.discussion{background:rgba(232,86,74,.12);color:#ff7b6b;border:1px solid rgba(232,86,74,.25)}
+  .player-alert.critique{background:rgba(192,57,43,.2);color:#ff4d4d;border:1px solid rgba(192,57,43,.4);font-weight:700}
+  .persist-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px;margin-bottom:8px}
+  .persist-badge.warn{background:rgba(245,166,35,.15);color:#f5a623;border:1px solid rgba(245,166,35,.3)}
+  .persist-badge.danger{background:rgba(232,86,74,.15);color:#e8564a;border:1px solid rgba(232,86,74,.35)}
   .absent-section{background:rgba(232,86,74,.06);border:1px solid rgba(232,86,74,.2);border-radius:12px;padding:16px 20px;margin-bottom:20px}
   .absent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
   .absent-title{font-size:13px;font-weight:600;color:#f5a0a0;display:flex;align-items:center;gap:8px}
@@ -255,25 +263,52 @@ function processData(rows) {
       ab: roster.filter(p => !present.has(p)).sort()
     };
   }
-  // Pré-calculer la moyenne des scores Hooper des 21 derniers jours par joueur et par date
+  // Pré-calculer indicateurs par joueur et par date
   const sortedDates = Object.keys(out).sort((a,b) => a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join('')));
-  // playerAvg21[date][playerName] = moyenne score Hooper sur les 21 jours précédents (hors jour J)
-  const playerAvg21 = {};
+
+  const playerAvg21 = {};   // moyenne 21j
+  const playerAvg3  = {};   // moyenne 3j (court terme)
+  const playerPersist = {}; // nb jours consécutifs dégradés
+
   for (let i = 0; i < sortedDates.length; i++) {
     const d = sortedDates[i];
     playerAvg21[d] = {};
-    // Fenêtre : les 21 jours calendaires précédant d (exclu)
-    const win = sortedDates.slice(Math.max(0, i - 21), i);
+    playerAvg3[d]  = {};
+    playerPersist[d] = {};
+
+    const win21 = sortedDates.slice(Math.max(0, i - 21), i);
+    const win3  = sortedDates.slice(Math.max(0, i - 3),  i);
+
     for (const player of roster) {
-      const scores = [];
-      for (const wd of win) {
-        const row = (wellnessRowsByDate[wd] || []).find(r => r.n === player);
-        if (row) scores.push(row.S);
+      // --- avg 21j ---
+      const scores21 = win21.map(wd => (wellnessRowsByDate[wd]||[]).find(r=>r.n===player)?.S).filter(v=>v!=null);
+      playerAvg21[d][player] = scores21.length >= 3 ? Math.round(scores21.reduce((a,b)=>a+b,0)/scores21.length*100)/100 : null;
+
+      // --- avg 3j ---
+      const scores3 = win3.map(wd => (wellnessRowsByDate[wd]||[]).find(r=>r.n===player)?.S).filter(v=>v!=null);
+      playerAvg3[d][player] = scores3.length >= 1 ? Math.round(scores3.reduce((a,b)=>a+b,0)/scores3.length*100)/100 : null;
+
+      // --- persistance : compter jours consécutifs dégradés jusqu'à et incl. jour J ---
+      let streak = 0;
+      for (let j = i; j >= 0; j--) {
+        const pd = sortedDates[j];
+        const row = (wellnessRowsByDate[pd]||[]).find(r=>r.n===player);
+        if (!row) break; // absence = on arrête le streak
+        const fa = Math.min(100, Math.max(0, ((35 - row.S) / 30) * 100));
+        // écart vs norme individuelle (21j précédant pd)
+        const norm21scores = sortedDates.slice(Math.max(0,j-21),j).map(wd=>(wellnessRowsByDate[wd]||[]).find(r=>r.n===player)?.S).filter(v=>v!=null);
+        const norm21 = norm21scores.length>=3 ? norm21scores.reduce((a,b)=>a+b,0)/norm21scores.length : null;
+        const ecartNorm = norm21 ? ((row.S - norm21)/norm21)*100 : 0;
+        if (fa < 60 || ecartNorm > 10) streak++;
+        else break;
       }
-      playerAvg21[d][player] = scores.length >= 3 ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length * 100)/100 : null;
+      playerPersist[d][player] = streak;
     }
   }
+
   out._playerAvg21 = playerAvg21;
+  out._playerAvg3  = playerAvg3;
+  out._playerPersist = playerPersist;
   return { out, total: rows.length - 1, roster };
 }
 
@@ -293,9 +328,13 @@ async function loadData() {
     const rows = parseCSV(text);
     setProgress(80, 'Calcul des statistiques…');
     const { out, total, roster } = processData(rows);
-    const playerAvg21 = out._playerAvg21; delete out._playerAvg21;
+    const playerAvg21  = out._playerAvg21;  delete out._playerAvg21;
+    const playerAvg3   = out._playerAvg3;   delete out._playerAvg3;
+    const playerPersist= out._playerPersist; delete out._playerPersist;
     WD = out;
-    window.PLAYER_AVG21 = playerAvg21;
+    window.PLAYER_AVG21   = playerAvg21;
+    window.PLAYER_AVG3    = playerAvg3;
+    window.PLAYER_PERSIST = playerPersist;
     ALLDAYS = Object.keys(WD).sort((a,b) => a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join('')));
     setProgress(100, 'Prêt !');
     document.getElementById('stats-badge').textContent = `📊 ${total} entrées · ${ALLDAYS.length} jours · ${roster.length} joueurs`;
@@ -378,47 +417,101 @@ function render() {
 
   if (agg.r) {
     const sorted = [...agg.r].sort((a,b)=>b.S-a.S);
-    const avg21Map = (window.PLAYER_AVG21 || {})[d] || {};
+    const avg21Map   = (window.PLAYER_AVG21   || {})[d] || {};
+    const avg3Map    = (window.PLAYER_AVG3    || {})[d] || {};
+    const persistMap = (window.PLAYER_PERSIST || {})[d] || {};
+
     document.getElementById('players-grid').innerHTML = sorted.map(r => {
       const c = sommeColor(r.S);
       const pct = v => Math.min(100,(v/7)*100).toFixed(1);
 
-      // Forme absolue : ((35 - S) / 30) × 100, clampé 0-100
+      // ── Forme absolue ──────────────────────────────────────
       const formeAbs = Math.min(100, Math.max(0, ((35 - r.S) / 30) * 100));
       const formeColor = formeAbs >= 70 ? '#2ecc8a' : formeAbs >= 40 ? '#f5a623' : '#e8564a';
 
-      // Écart vs moyenne 21 derniers jours
+      // ── Écart vs 21 jours ──────────────────────────────────
       const avg21 = avg21Map[r.n];
-      let ecartHTML = '';
+      let ecart21HTML = '';
       if (avg21 != null) {
-        const ecart = ((r.S - avg21) / avg21) * 100;
-        const ecartSign = ecart > 0 ? '+' : '';
-        // positif = plus dégradé que d'habitude → rouge ; négatif = meilleur → vert
-        const ecartColor = ecart > 5 ? '#e8564a' : ecart < -5 ? '#2ecc8a' : '#8b90a7';
-        const ecartArrow = ecart > 5 ? '↑' : ecart < -5 ? '↓' : '→';
-        ecartHTML = `<div class="indicator-pill">
-          <span class="indicator-label">vs 21 jours</span>
-          <span class="indicator-value" style="color:${ecartColor}">${ecartSign}${ecart.toFixed(0)}%</span>
-          <span class="indicator-sub" style="color:${ecartColor}">${ecartArrow} moy. ${avg21.toFixed(1)}</span>
+        const e = ((r.S - avg21) / avg21) * 100;
+        const sign = e > 0 ? '+' : '';
+        const col = e > 5 ? '#e8564a' : e < -5 ? '#2ecc8a' : '#8b90a7';
+        const arr = e > 5 ? '↑' : e < -5 ? '↓' : '→';
+        ecart21HTML = `<div class="indicator-pill">
+          <span class="indicator-label">vs 21 j</span>
+          <span class="indicator-value" style="color:${col}">${sign}${e.toFixed(0)}%</span>
+          <span class="indicator-sub" style="color:${col}">${arr} moy.${avg21.toFixed(1)}</span>
         </div>`;
       } else {
-        ecartHTML = `<div class="indicator-pill">
-          <span class="indicator-label">vs 21 jours</span>
+        ecart21HTML = `<div class="indicator-pill">
+          <span class="indicator-label">vs 21 j</span>
           <span class="indicator-value" style="color:var(--text2)">–</span>
-          <span class="indicator-sub">données insuf.</span>
+          <span class="indicator-sub">insuf.</span>
         </div>`;
       }
+
+      // ── Variation court terme vs 3 jours ───────────────────
+      const avg3 = avg3Map[r.n];
+      let ecart3HTML = '';
+      if (avg3 != null) {
+        const e = ((r.S - avg3) / avg3) * 100;
+        const sign = e > 0 ? '+' : '';
+        const col = e > 10 ? '#e8564a' : e > 5 ? '#f5a623' : e < -5 ? '#2ecc8a' : '#8b90a7';
+        const arr = e > 5 ? '↑' : e < -5 ? '↓' : '→';
+        ecart3HTML = `<div class="indicator-pill">
+          <span class="indicator-label">vs 3 j</span>
+          <span class="indicator-value" style="color:${col}">${sign}${e.toFixed(0)}%</span>
+          <span class="indicator-sub" style="color:${col}">${arr} moy.${avg3.toFixed(1)}</span>
+        </div>`;
+      } else {
+        ecart3HTML = `<div class="indicator-pill">
+          <span class="indicator-label">vs 3 j</span>
+          <span class="indicator-value" style="color:var(--text2)">–</span>
+          <span class="indicator-sub">insuf.</span>
+        </div>`;
+      }
+
+      // ── Persistance ────────────────────────────────────────
+      const streak = persistMap[r.n] || 0;
+      let persistHTML = '';
+      if (streak >= 3) {
+        const cls = streak >= 5 ? 'danger' : 'warn';
+        const icon = streak >= 5 ? '🔴' : '🟡';
+        persistHTML = `<div class="persist-badge ${cls}">${icon} ${streak} j consécutifs dégradés</div>`;
+      }
+
+      // ── Alertes individuelles ──────────────────────────────
+      const alerts = [];
+      // Sommeil, Fatigue, Stress : 5=vigilance, 6=discussion, 7=critique
+      const prioritaires = [['Sommeil', r.s], ['Fatigue', r.f], ['Stress', r.t]];
+      for (const [lbl, val] of prioritaires) {
+        if (val === 7) alerts.push({cls:'critique', icon:'🚨', txt:`${lbl} critique (${val}/7)`});
+        else if (val === 6) alerts.push({cls:'discussion', icon:'⚠️', txt:`${lbl} : discussion recommandée (${val}/7)`});
+        else if (val === 5) alerts.push({cls:'vigilance', icon:'👁', txt:`${lbl} : vigilance (${val}/7)`});
+      }
+      // Courbatures : 6=vigilance, 7=discussion
+      const courbatures = [['Corb. haut', r.H], ['Corb. bas', r.B]];
+      for (const [lbl, val] of courbatures) {
+        if (val === 7) alerts.push({cls:'discussion', icon:'⚠️', txt:`${lbl} : discussion recommandée (${val}/7)`});
+        else if (val === 6) alerts.push({cls:'vigilance', icon:'👁', txt:`${lbl} : vigilance (${val}/7)`});
+      }
+      const alertsHTML = alerts.length
+        ? `<div class="player-alerts">${alerts.map(a=>`<div class="player-alert ${a.cls}">${a.icon} ${a.txt}</div>`).join('')}</div>`
+        : '';
 
       return `<div class="player-card">
         <div class="player-name">${r.n}<span class="somme-pill" style="background:${c}22;color:${c}">Σ ${r.S}</span></div>
         <div class="player-indicators">
           <div class="indicator-pill">
-            <span class="indicator-label">Forme absolue</span>
+            <span class="indicator-label">Forme abs.</span>
             <span class="indicator-value" style="color:${formeColor}">${formeAbs.toFixed(0)}</span>
             <span class="indicator-sub">/ 100</span>
           </div>
-          ${ecartHTML}
+          ${ecart21HTML}
+          ${ecart3HTML}
         </div>
+        ${persistHTML}
+        ${alertsHTML}
         ${[['Sommeil',r.s],['Corb. haut',r.H],['Corb. bas',r.B],['Fatigue',r.f],['Stress',r.t]].map(([lbl,val])=>`
           <div class="score-row"><span class="lbl">${lbl}</span>
           <div class="score-track"><div class="score-fill" style="width:${pct(val)}%;background:${sc(val)}"></div></div>
