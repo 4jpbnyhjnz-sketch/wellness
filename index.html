@@ -82,6 +82,11 @@
   .score-track{flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
   .score-fill{height:100%;border-radius:3px}
   .score-num{width:16px;text-align:right;font-weight:600;font-family:'JetBrains Mono',monospace;font-size:11px}
+  .player-indicators{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .indicator-pill{display:flex;flex-direction:column;align-items:center;flex:1;min-width:80px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:7px 10px;gap:2px}
+  .indicator-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);white-space:nowrap}
+  .indicator-value{font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.1}
+  .indicator-sub{font-size:9px;color:var(--text2)}
   .absent-section{background:rgba(232,86,74,.06);border:1px solid rgba(232,86,74,.2);border-radius:12px;padding:16px 20px;margin-bottom:20px}
   .absent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
   .absent-title{font-size:13px;font-weight:600;color:#f5a0a0;display:flex;align-items:center;gap:8px}
@@ -250,6 +255,25 @@ function processData(rows) {
       ab: roster.filter(p => !present.has(p)).sort()
     };
   }
+  // Pré-calculer la moyenne des scores Hooper des 21 derniers jours par joueur et par date
+  const sortedDates = Object.keys(out).sort((a,b) => a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join('')));
+  // playerAvg21[date][playerName] = moyenne score Hooper sur les 21 jours précédents (hors jour J)
+  const playerAvg21 = {};
+  for (let i = 0; i < sortedDates.length; i++) {
+    const d = sortedDates[i];
+    playerAvg21[d] = {};
+    // Fenêtre : les 21 jours calendaires précédant d (exclu)
+    const win = sortedDates.slice(Math.max(0, i - 21), i);
+    for (const player of roster) {
+      const scores = [];
+      for (const wd of win) {
+        const row = (wellnessRowsByDate[wd] || []).find(r => r.n === player);
+        if (row) scores.push(row.S);
+      }
+      playerAvg21[d][player] = scores.length >= 3 ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length * 100)/100 : null;
+    }
+  }
+  out._playerAvg21 = playerAvg21;
   return { out, total: rows.length - 1, roster };
 }
 
@@ -269,7 +293,9 @@ async function loadData() {
     const rows = parseCSV(text);
     setProgress(80, 'Calcul des statistiques…');
     const { out, total, roster } = processData(rows);
+    const playerAvg21 = out._playerAvg21; delete out._playerAvg21;
     WD = out;
+    window.PLAYER_AVG21 = playerAvg21;
     ALLDAYS = Object.keys(WD).sort((a,b) => a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join('')));
     setProgress(100, 'Prêt !');
     document.getElementById('stats-badge').textContent = `📊 ${total} entrées · ${ALLDAYS.length} jours · ${roster.length} joueurs`;
@@ -352,11 +378,47 @@ function render() {
 
   if (agg.r) {
     const sorted = [...agg.r].sort((a,b)=>b.S-a.S);
+    const avg21Map = (window.PLAYER_AVG21 || {})[d] || {};
     document.getElementById('players-grid').innerHTML = sorted.map(r => {
       const c = sommeColor(r.S);
       const pct = v => Math.min(100,(v/7)*100).toFixed(1);
+
+      // Forme absolue : ((35 - S) / 30) × 100, clampé 0-100
+      const formeAbs = Math.min(100, Math.max(0, ((35 - r.S) / 30) * 100));
+      const formeColor = formeAbs >= 70 ? '#2ecc8a' : formeAbs >= 40 ? '#f5a623' : '#e8564a';
+
+      // Écart vs moyenne 21 derniers jours
+      const avg21 = avg21Map[r.n];
+      let ecartHTML = '';
+      if (avg21 != null) {
+        const ecart = ((r.S - avg21) / avg21) * 100;
+        const ecartSign = ecart > 0 ? '+' : '';
+        // positif = plus dégradé que d'habitude → rouge ; négatif = meilleur → vert
+        const ecartColor = ecart > 5 ? '#e8564a' : ecart < -5 ? '#2ecc8a' : '#8b90a7';
+        const ecartArrow = ecart > 5 ? '↑' : ecart < -5 ? '↓' : '→';
+        ecartHTML = `<div class="indicator-pill">
+          <span class="indicator-label">vs 21 jours</span>
+          <span class="indicator-value" style="color:${ecartColor}">${ecartSign}${ecart.toFixed(0)}%</span>
+          <span class="indicator-sub" style="color:${ecartColor}">${ecartArrow} moy. ${avg21.toFixed(1)}</span>
+        </div>`;
+      } else {
+        ecartHTML = `<div class="indicator-pill">
+          <span class="indicator-label">vs 21 jours</span>
+          <span class="indicator-value" style="color:var(--text2)">–</span>
+          <span class="indicator-sub">données insuf.</span>
+        </div>`;
+      }
+
       return `<div class="player-card">
         <div class="player-name">${r.n}<span class="somme-pill" style="background:${c}22;color:${c}">Σ ${r.S}</span></div>
+        <div class="player-indicators">
+          <div class="indicator-pill">
+            <span class="indicator-label">Forme absolue</span>
+            <span class="indicator-value" style="color:${formeColor}">${formeAbs.toFixed(0)}</span>
+            <span class="indicator-sub">/ 100</span>
+          </div>
+          ${ecartHTML}
+        </div>
         ${[['Sommeil',r.s],['Corb. haut',r.H],['Corb. bas',r.B],['Fatigue',r.f],['Stress',r.t]].map(([lbl,val])=>`
           <div class="score-row"><span class="lbl">${lbl}</span>
           <div class="score-track"><div class="score-fill" style="width:${pct(val)}%;background:${sc(val)}"></div></div>
