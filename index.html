@@ -95,6 +95,32 @@
   .persist-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px;margin-bottom:8px}
   .persist-badge.warn{background:rgba(245,166,35,.15);color:#f5a623;border:1px solid rgba(245,166,35,.3)}
   .persist-badge.danger{background:rgba(232,86,74,.15);color:#e8564a;border:1px solid rgba(232,86,74,.35)}
+
+  /* STATUT COULEUR */
+  .statut-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.04em}
+  .statut-vert  {background:rgba(46,204,138,.15);color:#2ecc8a;border:1px solid rgba(46,204,138,.35)}
+  .statut-jaune {background:rgba(245,166,35,.15);color:#f5a623;border:1px solid rgba(245,166,35,.35)}
+  .statut-orange{background:rgba(230,126,34,.18);color:#e67e22;border:1px solid rgba(230,126,34,.4)}
+  .statut-rouge {background:rgba(232,86,74,.18);color:#e8564a;border:1px solid rgba(232,86,74,.4)}
+  .player-card.s-vert  {border-left:3px solid #2ecc8a}
+  .player-card.s-jaune {border-left:3px solid #f5a623}
+  .player-card.s-orange{border-left:3px solid #e67e22}
+  .player-card.s-rouge {border-left:3px solid #e8564a}
+
+  /* TABLEAU DE BORD STAFF */
+  .dashboard-table{width:100%;border-collapse:collapse;font-size:13px}
+  .dashboard-table th{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;padding:10px 14px;text-align:left;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);white-space:nowrap}
+  .dashboard-table td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+  .dashboard-table tr:hover td{background:rgba(255,255,255,.02)}
+  .dashboard-table .nom-cell{font-weight:600;font-size:14px}
+  .dashboard-table .mono{font-family:'JetBrains Mono',monospace;font-weight:700}
+  .dash-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
+  .dash-card-title{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .dash-card-title span{font-size:14px;font-weight:600}
+  .statut-legend{display:flex;gap:10px;flex-wrap:wrap}
+  .leg-statut{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+  .leg-dot-sq{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+  .comment-cell{font-size:11px;color:var(--text2);max-width:160px;line-height:1.4}
   .absent-section{background:rgba(232,86,74,.06);border:1px solid rgba(232,86,74,.2);border-radius:12px;padding:16px 20px;margin-bottom:20px}
   .absent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
   .absent-title{font-size:13px;font-weight:600;color:#f5a0a0;display:flex;align-items:center;gap:8px}
@@ -165,6 +191,7 @@
       <button class="tab-btn active" onclick="switchTab('joueurs')">👥 Joueurs & Absents</button>
       <button class="tab-btn" onclick="switchTab('moyennes')">📋 Moyennes équipe</button>
       <button class="tab-btn" onclick="switchTab('chart')">📈 Évolution 30 jours</button>
+      <button class="tab-btn" onclick="switchTab('dashboard')">🎯 Tableau de bord staff</button>
     </div>
     <div id="tab-joueurs" class="tab-panel active">
       <div id="absent-section"></div>
@@ -191,6 +218,28 @@
           </div>
         </div>
         <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      </div>
+    </div>
+    <div id="tab-dashboard" class="tab-panel">
+      <div class="dash-card">
+        <div class="dash-card-title">
+          <span>🎯 Tableau de bord staff — classement par priorité d'intervention</span>
+          <div class="statut-legend">
+            <div class="leg-statut"><div class="leg-dot-sq" style="background:#2ecc8a"></div>Vert — OK</div>
+            <div class="leg-statut"><div class="leg-dot-sq" style="background:#f5a623"></div>Jaune — Surveillance</div>
+            <div class="leg-statut"><div class="leg-dot-sq" style="background:#e67e22"></div>Orange — Discussion</div>
+            <div class="leg-statut"><div class="leg-dot-sq" style="background:#e8564a"></div>Rouge — Intervention</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="dashboard-table">
+            <thead><tr>
+              <th>Statut</th><th>Joueur</th><th>Score Hooper</th><th>Forme abs.</th>
+              <th>vs Norme (21j)</th><th>Variation (3j)</th><th>Persistance</th><th>Commentaires</th>
+            </tr></thead>
+            <tbody id="dashboard-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -378,6 +427,47 @@ async function refreshData() {
   btn.classList.remove('loading');
 }
 
+// ── STATUT CLASSIFICATION ────────────────────────────────────
+// Priorité descendante : Rouge > Orange > Jaune > Vert
+// Un seul critère suffit à déclencher le statut correspondant
+function calcStatut(formeAbs, ecart21, ecart3, streak, r) {
+  const e21 = ecart21 ?? 0;
+  const e3  = ecart3  ?? 0;
+
+  // ── ROUGE ── forme < 30 | écart21 > 30% | var3j > 30% | somm/fat/stress = 7 | persist >= 7j
+  if (formeAbs < 30)          return 'rouge';
+  if (ecart21 != null && ecart21 > 30) return 'rouge';
+  if (ecart3  != null && ecart3  > 30) return 'rouge';
+  if (r.s === 7 || r.f === 7 || r.t === 7) return 'rouge';
+  if (streak >= 7)            return 'rouge';
+
+  // ── ORANGE ── forme 30-44 | écart21 20-30% | var3j 20-30% | somm/fat/stress = 6 | persist >= 5j
+  if (formeAbs >= 30 && formeAbs <= 44) return 'orange';
+  if (ecart21 != null && ecart21 > 20 && ecart21 <= 30) return 'orange';
+  if (ecart3  != null && ecart3  > 20 && ecart3  <= 30) return 'orange';
+  if (r.s === 6 || r.f === 6 || r.t === 6) return 'orange';
+  if (streak >= 5)            return 'orange';
+
+  // ── JAUNE ── forme 45-59 | écart21 10-20% | var3j 10-20% | une note = 5
+  if (formeAbs >= 45 && formeAbs <= 59) return 'jaune';
+  if (ecart21 != null && ecart21 > 10 && ecart21 <= 20) return 'jaune';
+  if (ecart3  != null && ecart3  > 10 && ecart3  <= 20) return 'jaune';
+  if ([r.s, r.H, r.B, r.f, r.t].some(v => v === 5)) return 'jaune';
+
+  // ── VERT ── tous les critères dans les normes
+  return 'vert';
+}
+
+const STATUT_ORDER = {rouge:0,orange:1,jaune:2,vert:3};
+const STATUT_LABEL = {vert:'Vert ✅',jaune:'Jaune 🟡',orange:'Orange 🟠',rouge:'Rouge 🔴'};
+const STATUT_CSS   = {vert:'statut-vert',jaune:'statut-jaune',orange:'statut-orange',rouge:'statut-rouge'};
+const STATUT_COMMENTS = {
+  vert:   '',
+  jaune:  'Surveiller l'évolution',
+  orange: 'Discussion recommandée',
+  rouge:  'Intervention requise'
+};
+
 // ── RENDER ──────────────────────────────────────────────────
 function sc(v){ return v<=2?'#2ecc8a':v<=3.5?'#f5a623':v<=5?'#e8564a':'#c0392b'; }
 function slbl(v){ return v<=2?'Très bon':v<=3.5?'Bon':v<=5?'Moyen':'Mauvais'; }
@@ -416,18 +506,29 @@ function render() {
   document.getElementById('present-count').textContent = agg.n;
 
   if (agg.r) {
-    const sorted = [...agg.r].sort((a,b)=>b.S-a.S);
     const avg21Map   = (window.PLAYER_AVG21   || {})[d] || {};
     const avg3Map    = (window.PLAYER_AVG3    || {})[d] || {};
     const persistMap = (window.PLAYER_PERSIST || {})[d] || {};
+
+    const withStatut = agg.r.map(r => {
+      const formeAbs = Math.min(100, Math.max(0, ((35 - r.S) / 30) * 100));
+      const avg21 = avg21Map[r.n]; const avg3 = avg3Map[r.n];
+      const ecart21 = avg21 != null ? ((r.S - avg21)/avg21)*100 : null;
+      const ecart3  = avg3  != null ? ((r.S - avg3 )/avg3 )*100 : null;
+      const streak  = persistMap[r.n] || 0;
+      const statut  = calcStatut(formeAbs, ecart21, ecart3, streak, r);
+      return {...r, _formeAbs:formeAbs, _ecart21:ecart21, _ecart3:ecart3, _streak:streak, _statut:statut};
+    });
+    const sorted = [...withStatut].sort((a,b)=>STATUT_ORDER[a._statut]-STATUT_ORDER[b._statut]||b.S-a.S);
 
     document.getElementById('players-grid').innerHTML = sorted.map(r => {
       const c = sommeColor(r.S);
       const pct = v => Math.min(100,(v/7)*100).toFixed(1);
 
-      // ── Forme absolue ──────────────────────────────────────
-      const formeAbs = Math.min(100, Math.max(0, ((35 - r.S) / 30) * 100));
+      // ── Forme absolue (déjà calculée) ─────────────────────
+      const formeAbs = r._formeAbs;
       const formeColor = formeAbs >= 70 ? '#2ecc8a' : formeAbs >= 40 ? '#f5a623' : '#e8564a';
+      const statut = r._statut;
 
       // ── Écart vs 21 jours ──────────────────────────────────
       const avg21 = avg21Map[r.n];
@@ -472,7 +573,7 @@ function render() {
       }
 
       // ── Persistance ────────────────────────────────────────
-      const streak = persistMap[r.n] || 0;
+      const streak = r._streak;
       let persistHTML = '';
       if (streak >= 3) {
         const cls = streak >= 5 ? 'danger' : 'warn';
@@ -499,8 +600,9 @@ function render() {
         ? `<div class="player-alerts">${alerts.map(a=>`<div class="player-alert ${a.cls}">${a.icon} ${a.txt}</div>`).join('')}</div>`
         : '';
 
-      return `<div class="player-card">
+      return `<div class="player-card s-${statut}">
         <div class="player-name">${r.n}<span class="somme-pill" style="background:${c}22;color:${c}">Σ ${r.S}</span></div>
+        <div style="margin-bottom:8px"><span class="statut-badge ${STATUT_CSS[statut]}">${STATUT_LABEL[statut]}</span></div>
         <div class="player-indicators">
           <div class="indicator-pill">
             <span class="indicator-label">Forme abs.</span>
@@ -517,6 +619,74 @@ function render() {
           <div class="score-track"><div class="score-fill" style="width:${pct(val)}%;background:${sc(val)}"></div></div>
           <span class="score-num" style="color:${sc(val)}">${val}</span></div>`).join('')}
       </div>`;
+    }).join('');
+  }
+
+  // ── Tableau de bord staff ──────────────────────────────────
+  // Réutilise withStatut déjà calculé et trié (rouge en premier)
+  if (agg.r && document.getElementById('dashboard-tbody')) {
+    // Réutiliser les données déjà enrichies depuis le bloc joueurs
+    const dashRows = sorted; // déjà triés par priorité
+
+    const fmtPct = (v) => {
+      if (v == null) return '<span style="color:var(--text2)">–</span>';
+      const s = v > 0 ? '+' : '';
+      const col = v > 20 ? '#e8564a' : v > 10 ? '#e67e22' : v > 5 ? '#f5a623' : v < -5 ? '#2ecc8a' : '#8b90a7';
+      return `<span class="mono" style="color:${col}">${s}${v.toFixed(0)}%</span>`;
+    };
+
+    // Génère un commentaire détaillé basé sur les alertes du joueur
+    function buildComment(r) {
+      const parts = [];
+      if (r._statut === 'rouge') {
+        if (r.s === 7) parts.push('Sommeil critique');
+        if (r.f === 7) parts.push('Fatigue critique');
+        if (r.t === 7) parts.push('Stress critique');
+        if (r._formeAbs < 30) parts.push('Forme effondrée');
+        if (r._streak >= 7) parts.push(`${r._streak}j consécutifs dégradés`);
+        if (r._ecart21 != null && r._ecart21 > 30) parts.push(`+${r._ecart21.toFixed(0)}% vs norme`);
+        if (r._ecart3 != null && r._ecart3 > 30) parts.push(`+${r._ecart3.toFixed(0)}% vs 3j`);
+        if (!parts.length) parts.push('Intervention requise');
+      } else if (r._statut === 'orange') {
+        if (r.s === 6) parts.push('Sommeil dégradé');
+        if (r.f === 6) parts.push('Fatigue élevée');
+        if (r.t === 6) parts.push('Stress élevé');
+        if (r._streak >= 5) parts.push(`${r._streak}j consécutifs dégradés`);
+        if (r._ecart21 != null && r._ecart21 > 20) parts.push(`+${r._ecart21.toFixed(0)}% vs norme`);
+        if (!parts.length) parts.push('Discussion recommandée');
+      } else if (r._statut === 'jaune') {
+        if ([r.s,r.H,r.B,r.f,r.t].some(v=>v===5)) parts.push('Note à 5 sur un critère');
+        if (r._ecart21 != null && r._ecart21 > 10) parts.push(`+${r._ecart21.toFixed(0)}% vs norme`);
+        if (r._ecart3 != null && r._ecart3 > 10) parts.push(`+${r._ecart3.toFixed(0)}% vs 3j`);
+        if (!parts.length) parts.push('Surveiller l'évolution');
+      }
+      return parts.join(' · ');
+    }
+
+    document.getElementById('dashboard-tbody').innerHTML = dashRows.map(r => {
+      const statut = r._statut;
+      const sc_ = STATUT_CSS[statut];
+      const sl_ = STATUT_LABEL[statut];
+      const fa_col = r._formeAbs >= 60 ? '#2ecc8a' : r._formeAbs >= 45 ? '#f5a623' : r._formeAbs >= 30 ? '#e67e22' : '#e8564a';
+      const sk_html = r._streak >= 7
+        ? `<span style="color:#e8564a;font-weight:700">${r._streak}j 🔴</span>`
+        : r._streak >= 5
+        ? `<span style="color:#e67e22;font-weight:700">${r._streak}j 🟠</span>`
+        : r._streak >= 3
+        ? `<span style="color:#f5a623">${r._streak}j 🟡</span>`
+        : `<span style="color:var(--text2)">${r._streak > 0 ? r._streak + 'j' : '–'}</span>`;
+      const borderLeft = {vert:'#2ecc8a',jaune:'#f5a623',orange:'#e67e22',rouge:'#e8564a'}[statut];
+      const comment = buildComment(r);
+      return `<tr style="border-left:3px solid ${borderLeft}">
+        <td><span class="statut-badge ${sc_}">${sl_}</span></td>
+        <td class="nom-cell">${r.n}</td>
+        <td><span class="mono" style="color:${sommeColor(r.S)}">${r.S}/35</span></td>
+        <td><span class="mono" style="color:${fa_col}">${r._formeAbs.toFixed(0)}/100</span></td>
+        <td>${fmtPct(r._ecart21)}</td>
+        <td>${fmtPct(r._ecart3)}</td>
+        <td>${sk_html}</td>
+        <td class="comment-cell">${comment}</td>
+      </tr>`;
     }).join('');
   }
 
@@ -553,7 +723,7 @@ function drawChart(d) {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((t,i)=>t.classList.toggle('active',['joueurs','moyennes','chart'][i]===name));
+  document.querySelectorAll('.tab-btn').forEach((t,i)=>t.classList.toggle('active',['joueurs','moyennes','chart','dashboard'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name==='chart') setTimeout(()=>drawChart(document.getElementById('dateSelect').value),50);
