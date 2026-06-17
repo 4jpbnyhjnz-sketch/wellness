@@ -108,12 +108,12 @@
   .ind-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);white-space:nowrap;text-align:center;font-weight:600}
   .ind-val{font-size:16px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1.2}
   .ind-sub{font-size:8px;color:var(--text2);text-align:center}
-  .player-alerts{margin-bottom:9px;display:flex;flex-direction:column;gap:4px}
-  .pal{font-size:10px;padding:5px 9px;border-radius:6px;display:flex;align-items:center;gap:5px;font-weight:600;line-height:1.3}
+  .player-alerts{margin-bottom:7px;display:flex;flex-direction:column;gap:3px}
+  .pal{font-size:9px;padding:3px 7px;border-radius:5px;display:flex;align-items:center;gap:4px;font-weight:600;line-height:1.3}
   .pal.vigilance{background:rgba(224,179,65,.15);color:#e0b341}
   .pal.discussion{background:rgba(232,134,46,.18);color:#f5a85e}
   .pal.critique{background:#cc1122;color:#fff;font-weight:800}
-  .persist-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;margin-bottom:9px;text-transform:uppercase;letter-spacing:.03em}
+  .persist-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;margin-bottom:7px;text-transform:uppercase;letter-spacing:.02em}
   .persist-badge.warn{background:rgba(224,179,65,.18);color:#e0b341}
   .persist-badge.danger{background:#cc1122;color:#fff}
   .absent-section{background:rgba(232,86,74,.06);border:1px solid rgba(232,86,74,.2);border-radius:12px;padding:16px 20px;margin-bottom:20px}
@@ -443,49 +443,26 @@ function setProgress(pct,msg){document.getElementById('loader-bar').style.width=
 
 async function loadData() {
   setProgress(10,'Connexion au Google Sheet...');
-  await new Promise(function(r){setTimeout(r,300);});
-  setProgress(50,'Analyse des données...');
-  await new Promise(function(r){setTimeout(r,200);});
-  setProgress(80,'Calcul des statistiques...');
-
-  // DONNEES FACTICES POUR PREVIEW
-  var mockRows = [['header']];
-  var today = new Date();
-  var players = ['Dupont R.','Martin K.','Leroy T.','Gimbert A.','Lafond P.','Anga aelangi','Bouchet N.','Costa F.'];
-  var profiles = [
-    {s:7,H:5,B:5,f:7,t:7},
-    {s:5,H:6,B:5,f:6,t:5},
-    {s:6,H:4,B:4,f:5,t:4},
-    {s:5,H:4,B:4,f:4,t:3},
-    {s:1,H:1,B:2,f:1,t:1},
-    {s:1,H:1,B:1,f:1,t:1},
-    {s:2,H:2,B:1,f:2,t:2},
-    {s:3,H:3,B:2,f:3,t:2}
-  ];
-
-  for (var dayOffset = 25; dayOffset >= 0; dayOffset--) {
-    var d = new Date(today.getTime() - dayOffset*24*3600*1000);
-    var dateStr = String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
-    for (var pi = 0; pi < players.length; pi++) {
-      var prof = profiles[pi];
-      var jitter = function(v){ return Math.max(1,Math.min(7, v + Math.round((Math.random()-0.5)*2))); };
-      var s = dayOffset===0 ? prof.s : jitter(prof.s - 1);
-      var H = dayOffset===0 ? prof.H : jitter(prof.H - 1);
-      var B = dayOffset===0 ? prof.B : jitter(prof.B - 1);
-      var f = dayOffset===0 ? prof.f : jitter(prof.f - 1);
-      var t = dayOffset===0 ? prof.t : jitter(prof.t - 1);
-      var S = s+H+B+f+t;
-      mockRows.push(['x',dateStr,'x','x',players[pi],'x','Welness',String(S),String(s),String(H),String(B),String(f),String(t)]);
-    }
+  try {
+    var resp=await fetch(CSV_URL+'&t='+Date.now());
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    setProgress(50,'Analyse des données...');
+    var text=await resp.text();
+    var rows=parseCSV(text);
+    setProgress(80,'Calcul des statistiques...');
+    var res=processData(rows);
+    WD=res.out;PAVG21=res.pa21;PAVG3=res.pa3;PPERS=res.pp;
+    ALLDAYS=Object.keys(WD).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
+    setProgress(100,'Pret !');
+    document.getElementById('stats-badge').textContent=res.total+' entrees · '+ALLDAYS.length+' jours · '+res.roster.length+' joueurs';
+    document.getElementById('last-updated').textContent='Mis a jour le '+new Date().toLocaleString('fr-FR');
+    return true;
+  } catch(e) {
+    document.getElementById('loader-error').style.display='block';
+    document.getElementById('err-msg').textContent=e.message;
+    document.getElementById('err-detail').textContent=CSV_URL;
+    return false;
   }
-
-  var res = processData(mockRows);
-  WD=res.out;PAVG21=res.pa21;PAVG3=res.pa3;PPERS=res.pp;
-  ALLDAYS=Object.keys(WD).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
-  setProgress(100,'Pret !');
-  document.getElementById('stats-badge').textContent=res.total+' entrees (DEMO) · '+ALLDAYS.length+' jours · '+res.roster.length+' joueurs';
-  document.getElementById('last-updated').textContent='Donnees de demonstration';
-  return true;
 }
 
 async function init() {
