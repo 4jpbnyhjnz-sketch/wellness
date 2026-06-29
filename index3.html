@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rapport GPS — Suivi quotidien</title>
+<style>
+:root {
+  --red: #D6001C;
+  --red-dark: #A40015;
+  --black: #1A1A1A;
+  --grey-bg: #F2F1EF;
+  --grey-row: #E9E7E3;
+  --green: #7FD17F;
+  --white: #FFFFFF;
+  --border: #1A1A1A;
+  --radius: 4px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Arial', 'Helvetica Neue', sans-serif;
+  background: var(--grey-bg);
+  color: var(--black);
+}
+
+/* ---------- Topbar ---------- */
+.topbar {
+  background: var(--black);
+  border-bottom: 4px solid var(--red);
+}
+.topbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.topbar h1 {
+  color: var(--white);
+  font-size: 20px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.tabs { display: flex; gap: 8px; }
+.tab-btn {
+  background: transparent;
+  border: 1px solid #444;
+  color: #ccc;
+  padding: 8px 16px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.tab-btn.active {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--white);
+}
+
+main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ---------- Upload zone ---------- */
+.upload-zone {
+  border: 2px dashed #999;
+  border-radius: var(--radius);
+  background: var(--white);
+  padding: 40px 20px;
+  text-align: center;
+  margin-bottom: 24px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.upload-zone.dragover {
+  border-color: var(--red);
+  background: #fff5f5;
+}
+.upload-title { font-size: 16px; font-weight: bold; margin: 0 0 6px; }
+.upload-sub { margin: 0; color: #555; font-size: 14px; }
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.warning-box {
+  background: #FFF3CD;
+  border: 1px solid #E6C200;
+  color: #5c4900;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+.hidden { display: none !important; }
+
+/* ---------- Report card ---------- */
+.report-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 24px;
+}
+.report-header {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.report-header-block {
+  background: var(--black);
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+}
+.report-header-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #bbb;
+  letter-spacing: 0.05em;
+}
+.report-header-value {
+  font-size: 16px;
+  font-weight: bold;
+}
+#clubName { outline: none; }
+#clubName:focus { border-bottom: 1px dashed var(--red); }
+
+.section-title {
+  background: var(--red);
+  color: var(--white);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 15px;
+  padding: 8px 14px;
+  margin: 28px 0 14px;
+  border-radius: var(--radius);
+}
+.section-title:first-of-type { margin-top: 0; }
+
+/* ---------- Podiums ---------- */
+.podium-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.podium-card {
+  flex: 1 1 150px;
+  background: var(--black);
+  color: var(--white);
+  text-align: center;
+  padding: 14px 10px;
+  border-radius: var(--radius);
+  position: relative;
+}
+.podium-card .podium-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #ccc;
+  letter-spacing: 0.04em;
+}
+.podium-card .podium-name {
+  font-weight: bold;
+  font-size: 15px;
+  color: var(--red);
+  margin: 4px 0 2px;
+}
+.podium-card .podium-value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* ---------- Group block ---------- */
+.group-block { margin-bottom: 30px; }
+.group-title-bar {
+  background: var(--red);
+  color: var(--white);
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  padding: 8px 14px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-size: 14px;
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+table.data-table th, table.data-table td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  text-align: center;
+}
+table.data-table th {
+  background: #ddd;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+table.data-table td:first-child, table.data-table th:first-child {
+  text-align: left;
+  font-weight: bold;
+}
+table.data-table tbody tr:nth-child(even) { background: var(--grey-row); }
+table.data-table td.obj-met { font-weight: bold; }
+table.data-table td[data-leader]::after { content: "★"; margin-left: 5px; color: var(--red); }
+table.data-table td.editable-cell { cursor: text; }
+table.data-table td.editable-cell:hover { box-shadow: inset 0 0 0 9999px rgba(255, 248, 225, 0.5); }
+table.data-table td.editable-cell:focus { outline: 2px solid var(--red); outline-offset: -2px; }
+table.data-table td.is-overridden { box-shadow: inset 0 -3px 0 var(--red-dark); }
+
+.objectives-table { margin-top: 16px; }
+.objectives-row td { font-weight: bold; background: #f7f7f7; }
+.objectives-row td:first-child { color: #555; font-style: italic; }
+
+.unclassified-table { margin-top: 8px; }
+
+.legend {
+  font-size: 12px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -6px;
+}
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  background: var(--green);
+  border-radius: 2px;
+}
+
+.panel-help { color: #555; font-size: 13px; margin: -6px 0 12px; }
+
+/* ---------- Placeholder tabs (match / stats) ---------- */
+.placeholder-card {
+  background: var(--white);
+  border: 1px dashed #aaa;
+  border-radius: var(--radius);
+  padding: 36px 24px;
+  text-align: center;
+  color: #555;
+}
+.placeholder-card h2 {
+  color: var(--black);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0;
+}
+
+/* ---------- Objectives panel (editable, before upload) ---------- */
+.objectives-panel {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.objective-group-card {
+  flex: 1 1 320px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  border-radius: var(--radius);
+}
+.objective-group-card h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--red);
+}
+.objective-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.objective-field label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #777;
+  margin-bottom: 2px;
+}
+.objective-field input {
+  width: 100%;
+  padding: 6px 6px;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+/* ---------- Assignment box (associer un nom du CSV au listing pro) ---------- */
+.assignment-box {
+  background: var(--white);
+  border: 1px solid #E6C200;
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.assignment-box h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+.assignment-row:last-child { border-bottom: none; }
+.assignment-row .csv-name { flex: 0 0 220px; font-weight: bold; }
+.assignment-row select { flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: var(--radius); }
+
+/* ---------- Colonnes affichées ---------- */
+.column-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  background: var(--white);
+  border: 1px solid #ddd;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+}
+.column-toggles label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+@media print {
+  .no-print { display: none !important; }
+  body * { visibility: hidden; }
+  #reportCard, #reportCard * { visibility: visible; }
+  #reportCard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+  }
+}
+
+/* ---------- Médianes ---------- */
+.median-table th:first-child, .median-table td:first-child { text-align: left; }
+
+/* ---------- Graphique de comparaison (nuage de points) ---------- */
+.scatter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.scatter-controls label { display: flex; align-items: center; gap: 6px; font-weight: bold; }
+.scatter-controls select { padding: 5px 8px; border: 1px solid #ccc; border-radius: var(--radius); }
+.scatter-wrapper { background: var(--white); border: 1px solid #ddd; border-radius: var(--radius); padding: 10px; overflow-x: auto; }
+.scatter-legend { display: flex; gap: 18px; font-size: 12px; margin-top: 6px; }
+.scatter-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.scatter-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+/* ---------- Séances enregistrées (Statistiques) ---------- */
+.saved-session {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  padding: 4px 16px 16px;
+}
+.saved-session summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-weight: bold;
+  font-size: 14px;
+  list-style: none;
+}
+.saved-session summary::-webkit-details-marker { display: none; }
+.saved-session summary::before { content: "▸ "; color: var(--red); }
+.saved-session[open] summary::before { content: "▾ "; }
+.saved-session-actions { margin-bottom: 10px; }
+.empty-state { color: #777; font-size: 14px; }
+
+/* ---------- Actions ---------- */
+.actions-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.btn {
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.btn-primary { background: var(--red); color: var(--white); }
+.btn-primary:hover { background: var(--red-dark); }
+.btn-secondary { background: var(--black); color: var(--white); }
+.btn-secondary:hover { background: #333; }
+
+/* ---------- Settings / roster ---------- */
+.settings-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 24px;
+}
+.settings-help { color: #555; font-size: 14px; margin-top: -4px; }
+.settings-actions { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+
+table.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 18px;
+}
+table.roster-table th, table.roster-table td {
+  border: 1px solid #ccc;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+table.roster-table th { background: #ddd; text-align: left; }
+table.roster-table select { padding: 4px; }
+.remove-btn {
+  background: none;
+  border: none;
+  color: var(--red);
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.add-player-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.add-player-row input[type="text"] {
+  flex: 1 1 220px;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+}
+.add-player-row select {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+}
+
+@media (max-width: 640px) {
+  .report-header { flex-direction: column; }
+  table.data-table { font-size: 11px; }
+}
+
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <h1>Rapport GPS</h1>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="seance">Importer une séance</button>
+      <button class="tab-btn" data-tab="match">Importer un match</button>
+      <button class="tab-btn" data-tab="stats">Statistiques</button>
+      <button class="tab-btn" data-tab="reglages">Réglages</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== ONGLET IMPORTER UNE SEANCE ===================== -->
+  <section id="tab-seance" class="tab-panel active">
+
+    <h2 class="section-title">Objectifs de la séance</h2>
+    <p class="panel-help">
+      Fixez les objectifs par groupe avant ou après avoir déposé le CSV — le rapport se recalcule tout seul.
+      Une case vide = pas d'objectif sur cette métrique (pas de coloration).
+    </p>
+    <div id="objectivesPanel" class="objectives-panel"></div>
+
+    <div class="upload-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".csv" hidden>
+      <div class="upload-content">
+        <p class="upload-title">Déposez le CSV de la séance ici</p>
+        <p class="upload-sub">ou <button id="browseBtn" class="link-btn">choisissez un fichier</button></p>
+      </div>
+    </div>
+
+    <div id="assignmentBox" class="assignment-box hidden"></div>
+
+    <div id="reportRoot" class="hidden">
+
+      <div id="columnTogglesBar" class="column-toggles no-print"></div>
+
+      <div class="report-card" id="reportCard">
+        <div class="report-header">
+          <div class="report-header-block">
+            <span class="report-header-label">Club</span>
+            <span class="report-header-value" id="clubName" contenteditable="true">Mon Club</span>
+          </div>
+          <div class="report-header-block">
+            <span class="report-header-label">Date</span>
+            <span class="report-header-value" id="reportDate">—</span>
+          </div>
+          <div class="report-header-block">
+            <span class="report-header-label">Séance</span>
+            <span class="report-header-value" id="reportDuration">—</span>
+          </div>
+        </div>
+
+        <div id="groupsContainer"></div>
+
+        <h2 class="section-title">Médianes par groupe</h2>
+        <div id="medianContainer"></div>
+
+        <h2 class="section-title">Comparer les joueurs</h2>
+        <div id="scatterContainer"></div>
+
+        <p class="legend">
+          <span class="legend-swatch"></span> Barre verte = objectif du groupe atteint (valeur ≥ cible) ·
+          la longueur de la barre indique la position par rapport au meilleur de la séance ·
+          ★ = meilleure valeur du groupe · cellule cliquable = modifiable à la main
+        </p>
+
+      </div>
+
+      <div class="actions-row">
+        <button id="saveSessionBtn" class="btn btn-primary">Enregistrer la séance</button>
+        <button id="exportPngBtn" class="btn btn-secondary">Télécharger en image (PNG)</button>
+        <button id="printBtn" class="btn btn-secondary">Imprimer / PDF</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET IMPORTER UN MATCH ===================== -->
+  <section id="tab-match" class="tab-panel">
+    <div class="placeholder-card">
+      <h2>Importer un match</h2>
+      <p>Bientôt disponible. Cet onglet permettra d'importer le CSV d'un match (probablement avec une mise en
+      forme différente : mi-temps, temps de jeu effectif, etc.) selon le même principe que les séances.</p>
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET STATISTIQUES ===================== -->
+  <section id="tab-stats" class="tab-panel">
+    <h2 class="section-title">Séances enregistrées</h2>
+    <p class="panel-help">
+      Chaque séance enregistrée depuis l'onglet « Importer une séance » apparaît ici, classée par date.
+      Cliquez sur une séance pour voir le détail.
+    </p>
+    <div id="statsContainer"></div>
+  </section>
+
+  <!-- ===================== ONGLET REGLAGES ===================== -->
+  <section id="tab-reglages" class="tab-panel">
+    <div class="settings-card">
+      <h2 class="section-title">Listing pro &amp; postes</h2>
+      <p class="settings-help">
+        La liste officielle des joueurs et leur poste (3/4 ou Avant). Sert de référence pour associer
+        automatiquement les noms qui sortent du boîtier GPS.
+      </p>
+
+      <div class="settings-actions">
+        <button id="exportRosterBtn" class="btn btn-secondary">Exporter la liste (JSON)</button>
+        <button id="importRosterBtn" class="btn btn-secondary">Importer une liste (JSON)</button>
+        <input type="file" id="importRosterInput" accept=".json" hidden>
+      </div>
+
+      <table class="roster-table" id="rosterTable">
+        <thead>
+          <tr>
+            <th>Joueur</th>
+            <th>Poste</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rosterBody"></tbody>
+      </table>
+
+      <div class="add-player-row">
+        <input type="text" id="newPlayerName" placeholder="Nom du joueur (nom officiel)">
+        <select id="newPlayerGroup">
+          <option value="3/4">3/4</option>
+          <option value="Avant">Avant</option>
+        </select>
+        <button id="addPlayerBtn" class="btn btn-secondary">Ajouter</button>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+/* =========================================================================
+   RAPPORT GPS — logique principale
+   Site 100% statique : tout se passe dans le navigateur, rien n'est envoyé
+   à un serveur. Les données du jour ne sont jamais stockées ; seul
+   l'effectif (joueur -> poste) est sauvegardé dans ce navigateur.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   1. CONFIGURATION — à adapter si le format d'export GPS change
+   ------------------------------------------------------------------------- */
+
+// Correspondance "colonne du CSV brut" -> "métrique utilisée dans le rapport"
+// Si votre export a des noms de colonnes différents, changez-les ici.
+const COLUMN_MAP = {
+  player:        "Player Name",
+  periodName:    "Period Name",
+  duration:      "Total Duration",
+  distance:      "Average Distance (Session)", // distance totale de la période malgré le nom
+  vmax:          "Maximum Velocity",
+  dist18:        "HSR distance",               // distance parcourue à plus de 18km/h
+  dist24:        "High Speed Distance",        // distance parcourue à plus de 24km/h
+  marche:        "0 - 6 km/h",                 // distance de marche, pour le %marche
+  accelMax:      "Max Acceleration",
+  rhie:          "RHIE Total Bouts",
+  accel23:       "Total acceleration 2-3",     // PAS d'équivalent ">3" dans cet export, voir avertissement
+  contacts:      "Contact Involvement Total Count",
+};
+
+// Quelle valeur de "Period Name" représente le total de la séance
+const SESSION_PERIOD_VALUE = "Session";
+
+const ROSTER_STORAGE_KEY = "gpsReportRoster_v1";
+const GROUPS = ["3/4", "Avant"];
+const COLUMN_VISIBILITY_STORAGE_KEY = "gpsReportColumnVisibility_v1";
+const SAVED_SESSIONS_STORAGE_KEY = "gpsSavedSessions_v1";
+
+// Corrections manuelles faites à la main sur le tableau, valables pour la séance
+// en cours seulement (remises à zéro à chaque nouveau CSV importé).
+let manualOverrides = {};
+
+function setOverride(csvPlayerName, key, value) {
+  manualOverrides[csvPlayerName] = manualOverrides[csvPlayerName] || {};
+  manualOverrides[csvPlayerName][key] = value;
+}
+
+/* -------------------------------------------------------------------------
+   2. PARSING DU CSV
+   ------------------------------------------------------------------------- */
+
+function parseFrenchNumber(raw) {
+  if (raw === undefined || raw === null) return 0;
+  const cleaned = String(raw).trim().replace(/"/g, "");
+  if (cleaned === "") return 0;
+  const num = parseFloat(cleaned.replace(",", "."));
+  return Number.isNaN(num) ? 0 : num;
+}
+
+// Convertit "hh:mm:ss" en minutes décimales, pour recalculer le m/min nous-mêmes
+// plutôt que de faire confiance à la colonne "Meterage Per Minute" du fichier.
+function parseDurationToMinutes(raw) {
+  if (!raw) return 0;
+  const parts = String(raw).trim().split(":").map((p) => parseInt(p, 10) || 0);
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    return h * 60 + m + s / 60;
+  }
+  if (parts.length === 2) {
+    const [m, s] = parts;
+    return m + s / 60;
+  }
+  return 0;
+}
+
+function splitCsvLine(line) {
+  // Le séparateur est ";" et certains champs sont entourés de guillemets.
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === ";" && !inQuotes) {
+      cells.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  cells.push(current);
+  return cells.map((c) => c.trim());
+}
+
+/**
+ * Transforme le texte brut du CSV en :
+ *  - meta: { date, durationSeconds, numPlayers }
+ *  - rows: tableau d'objets { player, periodName, distance, vmax, ... }
+ */
+function parseCsv(text) {
+  const cleanText = text.replace(/^\uFEFF/, ""); // retire le BOM en début de fichier
+  const lines = cleanText.split(/\r\n|\n|\r/).filter((l) => l.trim() !== "");
+
+  const meta = { date: null, durationSeconds: null };
+  let headerIndex = -1;
+  let headerCells = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i]);
+    const firstCell = cells[0].replace(/"/g, "");
+
+    if (firstCell.toLowerCase().startsWith("date")) {
+      meta.date = cells[1];
+    }
+    if (firstCell.toLowerCase().startsWith("duration")) {
+      meta.durationSeconds = parseFrenchNumber(cells[1]);
+    }
+    if (firstCell === "Player Name") {
+      headerIndex = i;
+      headerCells = cells.map((c) => c.replace(/"/g, ""));
+      break;
+    }
+  }
+
+  if (headerIndex === -1) {
+    throw new Error(
+      "Colonne « Player Name » introuvable : ce fichier ne ressemble pas à un export GPS attendu."
+    );
+  }
+
+  // index de chaque colonne utile
+  const colIndex = {};
+  Object.entries(COLUMN_MAP).forEach(([key, columnName]) => {
+    colIndex[key] = headerCells.indexOf(columnName);
+  });
+
+  const missing = Object.entries(colIndex)
+    .filter(([, idx]) => idx === -1)
+    .map(([key]) => key);
+  if (missing.length) {
+    throw new Error(
+      "Colonnes manquantes dans le CSV : " +
+        missing.map((k) => COLUMN_MAP[k]).join(", ") +
+        ". Vérifiez COLUMN_MAP dans app.js."
+    );
+  }
+
+  const rows = [];
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i]).map((c) => c.replace(/"/g, ""));
+    if (!cells[colIndex.player]) continue;
+
+    rows.push({
+      player: cells[colIndex.player],
+      periodName: cells[colIndex.periodName],
+      durationMinutes: parseDurationToMinutes(cells[colIndex.duration]),
+      distance: parseFrenchNumber(cells[colIndex.distance]),
+      vmax: parseFrenchNumber(cells[colIndex.vmax]),
+      dist18: parseFrenchNumber(cells[colIndex.dist18]),
+      dist24: parseFrenchNumber(cells[colIndex.dist24]),
+      marche: parseFrenchNumber(cells[colIndex.marche]),
+      accelMax: parseFrenchNumber(cells[colIndex.accelMax]),
+      rhie: parseFrenchNumber(cells[colIndex.rhie]),
+      accel23: parseFrenchNumber(cells[colIndex.accel23]),
+      contacts: parseFrenchNumber(cells[colIndex.contacts]),
+    });
+  }
+
+  return { meta, rows };
+}
+
+/* -------------------------------------------------------------------------
+   3. GESTION DE L'EFFECTIF (joueur -> poste)
+   ------------------------------------------------------------------------- */
+
+function loadRoster() {
+  try {
+    const raw = localStorage.getItem(ROSTER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveRoster(roster) {
+  localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+}
+
+let roster = loadRoster();
+
+function renderRosterTable() {
+  const body = document.getElementById("rosterBody");
+  body.innerHTML = "";
+  const names = Object.keys(roster).sort((a, b) => a.localeCompare(b));
+
+  names.forEach((name) => {
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    tdName.textContent = name;
+    tr.appendChild(tdName);
+
+    const tdGroup = document.createElement("td");
+    const select = document.createElement("select");
+    GROUPS.forEach((g) => {
+      const opt = document.createElement("option");
+      opt.value = g;
+      opt.textContent = g;
+      if (roster[name] === g) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.addEventListener("change", () => {
+      roster[name] = select.value;
+      saveRoster(roster);
+      rerenderIfLoaded();
+    });
+    tdGroup.appendChild(select);
+    tr.appendChild(tdGroup);
+
+    const tdRemove = document.createElement("td");
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = "Retirer";
+    removeBtn.className = "remove-btn";
+    removeBtn.addEventListener("click", () => {
+      delete roster[name];
+      saveRoster(roster);
+      renderRosterTable();
+      rerenderIfLoaded();
+    });
+    tdRemove.appendChild(removeBtn);
+    tr.appendChild(tdRemove);
+
+    body.appendChild(tr);
+  });
+}
+
+function addPlayerToRoster(name, group) {
+  if (!name.trim()) return;
+  roster[name.trim()] = group;
+  saveRoster(roster);
+  renderRosterTable();
+  rerenderIfLoaded();
+}
+
+/* -------------------------------------------------------------------------
+   3bis. ASSOCIATION "nom dans le CSV" -> "joueur du listing pro"
+   Cette association n'est PAS mémorisée entre les séances : le nom qui sort
+   du boîtier GPS ne correspond pas forcément au même joueur d'une séance à
+   l'autre (boîtiers non attribués de façon fixe). Elle ne vaut donc que
+   pour la séance en cours, et repart à zéro à chaque nouveau CSV importé.
+   ------------------------------------------------------------------------- */
+
+let aliasMap = {};
+
+// Retourne le nom officiel (listing pro) correspondant à un nom du CSV,
+// ou null si aucune association n'existe encore pour cette séance.
+function resolveOfficialName(csvName) {
+  if (aliasMap[csvName] && roster[aliasMap[csvName]]) return aliasMap[csvName];
+  if (roster[csvName]) return csvName;
+  return null;
+}
+
+function setAlias(csvName, officialName) {
+  aliasMap[csvName] = officialName;
+}
+
+/* -------------------------------------------------------------------------
+   4. CALCUL DU RAPPORT
+   ------------------------------------------------------------------------- */
+
+const METRIC_COLUMNS = [
+  { key: "distance", label: "Distance totale (m)", decimals: 1 },
+  { key: "pctMarche", label: "% Marche", decimals: 2 },
+  { key: "pctHi", label: "% HI", decimals: 2 },
+  { key: "dist18", label: "Distance +18km/h", decimals: 1 },
+  { key: "dist24", label: "Distance +24km/h", decimals: 1 },
+  { key: "vmax", label: "VMAX (km/h)", decimals: 2 },
+  { key: "meterPerMin", label: "m/min", decimals: 1 },
+  { key: "accelMax", label: "ACCEL MAX", decimals: 2 },
+  { key: "contacts", label: "NB CONTACT", decimals: 0 },
+  { key: "rhie", label: "RHIE", decimals: 0 },
+  { key: "accel23", label: "ACCEL 2-3*", decimals: 0 },
+];
+
+// Colonnes affichées dans les mini-tableaux "Objectifs" (mise en page du rapport papier)
+const OBJECTIVE_COLUMNS = [
+  { key: "distance", label: "Distance" },
+  { key: "pctMarche", label: "% Marche" },
+  { key: "pctHi", label: "% HI" },
+  { key: "dist18", label: "+18km/h" },
+  { key: "dist24", label: "+24km/h" },
+  { key: "contacts", label: "Contact" },
+  { key: "rhie", label: "RHIE" },
+  { key: "accelMax", label: "ACCEL" },
+];
+const OBJECTIVE_KEYS = new Set(OBJECTIVE_COLUMNS.map((c) => c.key));
+
+/* -------------------------------------------------------------------------
+   4ter. COLONNES AFFICHÉES — préférence d'affichage du tableau, persistée
+   ------------------------------------------------------------------------- */
+
+function loadColumnVisibility() {
+  try {
+    const raw = localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveColumnVisibility(v) {
+  localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(v));
+}
+
+let columnVisibility = loadColumnVisibility();
+
+function isColumnVisible(key) {
+  return columnVisibility[key] !== false; // visible par défaut
+}
+
+function getVisibleMetricColumns() {
+  return METRIC_COLUMNS.filter((c) => isColumnVisible(c.key));
+}
+
+function renderColumnToggles() {
+  const bar = document.getElementById("columnTogglesBar");
+  if (!bar) return;
+  bar.innerHTML = "<strong style='margin-right:4px;'>Colonnes :</strong>";
+
+  METRIC_COLUMNS.forEach((col) => {
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = isColumnVisible(col.key);
+    checkbox.addEventListener("change", () => {
+      columnVisibility[col.key] = checkbox.checked;
+      saveColumnVisibility(columnVisibility);
+      rerenderIfLoaded();
+    });
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(col.label));
+    bar.appendChild(label);
+  });
+}
+
+/* -------------------------------------------------------------------------
+   4bis. OBJECTIFS PAR GROUPE
+   Un objectif est considéré "validé" (vert) quand la valeur du joueur est
+   SUPÉRIEURE OU ÉGALE à l'objectif fixé pour son groupe. Case vide = pas
+   d'objectif sur cette métrique, donc pas de coloration.
+   ------------------------------------------------------------------------- */
+
+const OBJECTIVES_STORAGE_KEY = "gpsReportObjectives_v1";
+
+function loadObjectives() {
+  try {
+    const raw = localStorage.getItem(OBJECTIVES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    GROUPS.forEach((g) => {
+      if (!parsed[g]) parsed[g] = {};
+    });
+    return parsed;
+  } catch (e) {
+    const fallback = {};
+    GROUPS.forEach((g) => (fallback[g] = {}));
+    return fallback;
+  }
+}
+
+function saveObjectives(obj) {
+  localStorage.setItem(OBJECTIVES_STORAGE_KEY, JSON.stringify(obj));
+}
+
+let objectives = loadObjectives();
+
+function getObjective(objectivesData, group, key) {
+  const raw = objectivesData[group] && objectivesData[group][key];
+  if (raw === undefined || raw === null || raw === "") return null;
+  const num = parseFrenchNumber(raw);
+  return Number.isFinite(num) ? num : null;
+}
+
+// true = objectif atteint, false = pas atteint, null = pas d'objectif fixé
+function isObjectiveMet(objectivesData, group, key, value) {
+  const target = getObjective(objectivesData, group, key);
+  if (target === null) return null;
+  return value >= target;
+}
+
+function renderObjectivesPanel() {
+  const panel = document.getElementById("objectivesPanel");
+  if (!panel) return;
+  panel.innerHTML = "";
+
+  GROUPS.forEach((group) => {
+    const card = document.createElement("div");
+    card.className = "objective-group-card";
+
+    const title = document.createElement("h3");
+    title.textContent = group;
+    card.appendChild(title);
+
+    const fields = document.createElement("div");
+    fields.className = "objective-fields";
+
+    OBJECTIVE_COLUMNS.forEach((col) => {
+      const field = document.createElement("div");
+      field.className = "objective-field";
+
+      const label = document.createElement("label");
+      label.textContent = col.label;
+      field.appendChild(label);
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.inputMode = "decimal";
+      input.value = objectives[group][col.key] || "";
+      input.addEventListener("input", () => {
+        objectives[group][col.key] = input.value;
+        saveObjectives(objectives);
+        rerenderIfLoaded();
+      });
+      field.appendChild(input);
+
+      fields.appendChild(field);
+    });
+
+    card.appendChild(fields);
+    panel.appendChild(card);
+  });
+}
+
+function buildPlayerStats(rows) {
+  // On ne garde que la ligne "Session" (= total de la séance) par joueur
+  const sessionRows = rows.filter((r) => r.periodName === SESSION_PERIOD_VALUE);
+
+  return sessionRows.map((r) => {
+    const pctHi = r.distance > 0 ? (r.dist18 * 100) / r.distance : 0;
+    const pctMarche = r.distance > 0 ? (r.marche * 100) / r.distance : 0;
+    const meterPerMin = r.durationMinutes > 0 ? r.distance / r.durationMinutes : 0;
+    const computed = { ...r, pctHi, pctMarche, meterPerMin };
+    const overrides = manualOverrides[r.player];
+    return overrides ? { ...computed, ...overrides, overriddenKeys: Object.keys(overrides) } : computed;
+  });
+}
+
+function groupPlayers(stats) {
+  const groups = { "3/4": [], Avant: [], "Non classé": [] };
+  stats.forEach((s) => {
+    const official = resolveOfficialName(s.player);
+    if (official && roster[official]) {
+      groups[roster[official]].push({ ...s, officialName: official, displayName: official });
+    } else {
+      groups["Non classé"].push({ ...s, displayName: s.player });
+    }
+  });
+  return groups;
+}
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function renderMedianTable(grouped) {
+  const visibleColumns = getVisibleMetricColumns();
+  const table = document.createElement("table");
+  table.className = "data-table median-table";
+
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th>Métrique</th><th>3/4</th><th>Avant</th></tr>";
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  visibleColumns.forEach((col) => {
+    const tr = document.createElement("tr");
+    const med34 = median(grouped["3/4"].map((s) => s[col.key]));
+    const medAvant = median(grouped["Avant"].map((s) => s[col.key]));
+    tr.innerHTML =
+      `<td>${col.label}</td>` +
+      `<td>${med34 === null ? "—" : fmt(med34, col.decimals)}</td>` +
+      `<td>${medAvant === null ? "—" : fmt(medAvant, col.decimals)}</td>`;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function findLeader(stats, key) {
+  if (!stats.length) return null;
+  return stats.reduce((best, cur) => (cur[key] > best[key] ? cur : best), stats[0]);
+}
+
+/* -------------------------------------------------------------------------
+   5. RENDU HTML DU RAPPORT
+   ------------------------------------------------------------------------- */
+
+function fmt(value, decimals) {
+  return value.toLocaleString("fr-FR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function renderPodiumCard(label, leader, key, unit, decimals) {
+  const div = document.createElement("div");
+  div.className = "podium-card";
+  if (!leader) {
+    div.innerHTML = `<div class="podium-label">${label}</div><div class="podium-name">—</div>`;
+    return div;
+  }
+  div.innerHTML = `
+    <div class="podium-label">${label}</div>
+    <div class="podium-name">${leader.displayName || leader.player}</div>
+    <div class="podium-value">${fmt(leader[key], decimals)}${unit}</div>
+  `;
+  return div;
+}
+
+function renderGroupTable(groupName, stats, opts) {
+  const options = Object.assign({ editable: true, objectivesData: objectives }, opts || {});
+  const visibleColumns = getVisibleMetricColumns();
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "group-block";
+
+  const titleBar = document.createElement("div");
+  titleBar.className = "group-title-bar";
+  titleBar.textContent = groupName;
+  wrapper.appendChild(titleBar);
+
+  if (!stats.length) {
+    const empty = document.createElement("p");
+    empty.style.padding = "10px";
+    empty.style.margin = "0";
+    empty.style.border = "1px solid #ccc";
+    empty.textContent = "Aucun joueur dans ce groupe pour cette séance.";
+    wrapper.appendChild(empty);
+    return wrapper;
+  }
+
+  // Podium du groupe
+  const podiumRow = document.createElement("div");
+  podiumRow.className = "podium-row";
+  podiumRow.appendChild(renderPodiumCard("Accel max", findLeader(stats, "accelMax"), "accelMax", "", 2));
+  podiumRow.appendChild(renderPodiumCard("Vmax", findLeader(stats, "vmax"), "vmax", " km/h", 2));
+  podiumRow.appendChild(renderPodiumCard("Distance +18km/h", findLeader(stats, "dist18"), "dist18", " m", 0));
+  wrapper.appendChild(podiumRow);
+
+  // Calcul des leaders par colonne pour le repère ★
+  const leaders = {};
+  visibleColumns.forEach((col) => {
+    leaders[col.key] = findLeader(stats, col.key);
+  });
+
+  const table = document.createElement("table");
+  table.className = "data-table";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  headRow.innerHTML =
+    "<th>Joueur</th>" + visibleColumns.map((c) => `<th>${c.label}</th>`).join("");
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  const sorted = [...stats].sort((a, b) => b.distance - a.distance);
+  sorted.forEach((s) => {
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    tdName.textContent = s.displayName || s.player;
+    tr.appendChild(tdName);
+
+    visibleColumns.forEach((col) => {
+      const isLeader =
+        leaders[col.key] &&
+        (leaders[col.key].displayName || leaders[col.key].player) === (s.displayName || s.player);
+      const met = OBJECTIVE_KEYS.has(col.key)
+        ? isObjectiveMet(options.objectivesData, groupName, col.key, s[col.key])
+        : null;
+
+      const td = document.createElement("td");
+      const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
+      const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
+      const barColor = met === true ? "rgba(127, 209, 127, 0.9)" : "rgba(26, 26, 26, 0.12)";
+      td.style.background = `linear-gradient(to right, ${barColor} ${pct}%, transparent ${pct}%)`;
+      if (met === true) td.classList.add("obj-met");
+      if (isLeader) td.dataset.leader = "1";
+      if (s.overriddenKeys && s.overriddenKeys.includes(col.key)) td.classList.add("is-overridden");
+      td.textContent = fmt(s[col.key], col.decimals);
+
+      if (options.editable) {
+        td.classList.add("editable-cell");
+        td.setAttribute("contenteditable", "true");
+        td.setAttribute("spellcheck", "false");
+        td.addEventListener("blur", () => {
+          const parsed = parseFrenchNumber(td.textContent);
+          setOverride(s.player, col.key, parsed);
+          rerenderIfLoaded();
+        });
+        td.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            td.blur();
+          }
+        });
+      }
+
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrapper.appendChild(table);
+
+  // Ligne "Objectif" en lecture seule, un peu détachée du tableau au-dessus
+  const objTable = document.createElement("table");
+  objTable.className = "data-table objectives-table";
+  const objThead = document.createElement("thead");
+  objThead.innerHTML =
+    "<tr><th>Objectif " + groupName + "</th>" +
+    OBJECTIVE_COLUMNS.map((c) => `<th>${c.label}</th>`).join("") +
+    "</tr>";
+  objTable.appendChild(objThead);
+  const objTbody = document.createElement("tbody");
+  const objRow = document.createElement("tr");
+  objRow.className = "objectives-row";
+  let objCells = "<td>Cible</td>";
+  OBJECTIVE_COLUMNS.forEach((col) => {
+    const target = getObjective(options.objectivesData, groupName, col.key);
+    objCells += `<td>${target === null ? "—" : fmt(target, col.key === "distance" ? 0 : 2)}</td>`;
+  });
+  objRow.innerHTML = objCells;
+  objTbody.appendChild(objRow);
+  objTable.appendChild(objTbody);
+  wrapper.appendChild(objTable);
+
+  return wrapper;
+}
+
+function renderAssignmentBox(unclassifiedStats) {
+  const box = document.getElementById("assignmentBox");
+  box.innerHTML = "";
+
+  if (!unclassifiedStats.length) {
+    box.classList.add("hidden");
+    return;
+  }
+
+  box.classList.remove("hidden");
+
+  const title = document.createElement("h3");
+  title.textContent = "⚠️ Joueurs non reconnus — associez-les au listing pro";
+  box.appendChild(title);
+
+  const officialNames = Object.keys(roster).sort((a, b) => a.localeCompare(b));
+
+  unclassifiedStats.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "assignment-row";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "csv-name";
+    nameSpan.textContent = `${s.player} (${fmt(s.distance, 0)} m)`;
+    row.appendChild(nameSpan);
+
+    const select = document.createElement("select");
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "— associer à un joueur du listing pro —";
+    select.appendChild(blank);
+    officialNames.forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = `${name} (${roster[name]})`;
+      select.appendChild(opt);
+    });
+    select.addEventListener("change", () => {
+      if (!select.value) return;
+      setAlias(s.player, select.value);
+      rerenderIfLoaded();
+    });
+    row.appendChild(select);
+
+    box.appendChild(row);
+  });
+
+  if (!officialNames.length) {
+    const hint = document.createElement("p");
+    hint.style.margin = "10px 0 0";
+    hint.style.fontSize = "13px";
+    hint.style.color = "#777";
+    hint.textContent = "Le listing pro est vide pour l'instant — ajoutez vos joueurs dans l'onglet « Réglages ».";
+    box.appendChild(hint);
+  }
+}
+
+let lastParsed = null;
+
+function rerenderIfLoaded() {
+  if (lastParsed) renderReport(lastParsed.rows, lastParsed.meta);
+}
+
+function renderReport(rows, meta) {
+  const stats = buildPlayerStats(rows);
+  const grouped = groupPlayers(stats);
+
+  document.getElementById("reportDate").textContent = meta.date || "—";
+  document.getElementById("reportDuration").textContent = meta.durationSeconds
+    ? Math.round(meta.durationSeconds / 60) + " min"
+    : "—";
+
+  const container = document.getElementById("groupsContainer");
+  container.innerHTML = "";
+  container.appendChild(renderGroupTable("3/4", grouped["3/4"]));
+  container.appendChild(renderGroupTable("Avant", grouped["Avant"]));
+
+  const medianContainer = document.getElementById("medianContainer");
+  medianContainer.innerHTML = "";
+  medianContainer.appendChild(renderMedianTable(grouped));
+
+  renderScatterSection(grouped);
+
+  renderAssignmentBox(grouped["Non classé"]);
+
+  document.getElementById("reportRoot").classList.remove("hidden");
+}
+
+/* -------------------------------------------------------------------------
+   5ter. COMPARER LES JOUEURS — nuage de points X/Y au choix
+   ------------------------------------------------------------------------- */
+
+const SCATTER_PREF_KEY = "gpsScatterAxes_v1";
+const GROUP_COLORS = { "3/4": "#D6001C", Avant: "#1A1A1A" };
+
+function loadScatterPrefs() {
+  try {
+    const raw = localStorage.getItem(SCATTER_PREF_KEY);
+    return raw ? JSON.parse(raw) : { x: "dist18", y: "contacts" };
+  } catch (e) {
+    return { x: "dist18", y: "contacts" };
+  }
+}
+
+function saveScatterPrefs(p) {
+  localStorage.setItem(SCATTER_PREF_KEY, JSON.stringify(p));
+}
+
+let scatterPrefs = loadScatterPrefs();
+let lastGrouped = null; // mis à jour à chaque rendu de rapport, pour redessiner le graphique seul
+
+function buildScatterSvg(grouped, xKey, yKey) {
+  const points = [];
+  GROUPS.forEach((g) => {
+    grouped[g].forEach((s) => {
+      points.push({ name: s.displayName || s.player, group: g, x: s[xKey], y: s[yKey] });
+    });
+  });
+
+  const width = 640;
+  const height = 380;
+  const marginLeft = 55;
+  const marginBottom = 45;
+  const marginTop = 20;
+  const marginRight = 20;
+  const plotW = width - marginLeft - marginRight;
+  const plotH = height - marginTop - marginBottom;
+
+  if (!points.length) {
+    return `<svg viewBox="0 0 ${width} 120" xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="60" font-size="14" fill="#777">Aucun joueur classé (3/4 / Avant) à comparer pour cette séance.</text>
+    </svg>`;
+  }
+
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  let xMin = Math.min(...xs), xMax = Math.max(...xs);
+  let yMin = Math.min(...ys), yMax = Math.max(...ys);
+  // un peu de marge autour du nuage, et éviter une plage nulle
+  const xPad = (xMax - xMin) * 0.1 || 1;
+  const yPad = (yMax - yMin) * 0.1 || 1;
+  xMin -= xPad; xMax += xPad;
+  yMin -= yPad; yMax += yPad;
+
+  const scaleX = (v) => marginLeft + ((v - xMin) / (xMax - xMin)) * plotW;
+  const scaleY = (v) => marginTop + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+  const xMedian = median(xs);
+  const yMedian = median(ys);
+
+  const xLabel = METRIC_COLUMNS.find((c) => c.key === xKey).label;
+  const yLabel = METRIC_COLUMNS.find((c) => c.key === yKey).label;
+
+  let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">`;
+
+  // lignes médianes (quadrants)
+  svg += `<line x1="${scaleX(xMedian)}" y1="${marginTop}" x2="${scaleX(xMedian)}" y2="${marginTop + plotH}" stroke="#bbb" stroke-dasharray="4,4" />`;
+  svg += `<line x1="${marginLeft}" y1="${scaleY(yMedian)}" x2="${marginLeft + plotW}" y2="${scaleY(yMedian)}" stroke="#bbb" stroke-dasharray="4,4" />`;
+
+  // axes
+  svg += `<line x1="${marginLeft}" y1="${marginTop}" x2="${marginLeft}" y2="${marginTop + plotH}" stroke="#333" />`;
+  svg += `<line x1="${marginLeft}" y1="${marginTop + plotH}" x2="${marginLeft + plotW}" y2="${marginTop + plotH}" stroke="#333" />`;
+
+  // labels d'axes
+  svg += `<text x="${marginLeft + plotW / 2}" y="${height - 8}" font-size="12" text-anchor="middle" fill="#333">${xLabel}</text>`;
+  svg += `<text x="14" y="${marginTop + plotH / 2}" font-size="12" text-anchor="middle" fill="#333" transform="rotate(-90, 14, ${marginTop + plotH / 2})">${yLabel}</text>`;
+
+  // points + étiquettes
+  points.forEach((p) => {
+    const cx = scaleX(p.x);
+    const cy = scaleY(p.y);
+    const color = GROUP_COLORS[p.group];
+    svg += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="5" fill="${color}" fill-opacity="0.85" stroke="#fff" stroke-width="1">`;
+    svg += `<title>${p.name} — ${xLabel}: ${fmt(p.x, 1)} / ${yLabel}: ${fmt(p.y, 1)}</title></circle>`;
+    svg += `<text x="${(cx + 7).toFixed(1)}" y="${(cy - 6).toFixed(1)}" font-size="9" fill="${color}">${p.name.split(" ").pop()}</text>`;
+  });
+
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderScatterChart(grouped) {
+  const target = document.getElementById("scatterChartTarget");
+  if (!target) return;
+  target.innerHTML = buildScatterSvg(grouped, scatterPrefs.x, scatterPrefs.y);
+}
+
+function renderScatterSection(grouped) {
+  lastGrouped = grouped;
+  const container = document.getElementById("scatterContainer");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const controls = document.createElement("div");
+  controls.className = "scatter-controls";
+
+  function buildSelect(axis) {
+    const label = document.createElement("label");
+    label.textContent = axis === "x" ? "Axe X :" : "Axe Y :";
+    const select = document.createElement("select");
+    METRIC_COLUMNS.forEach((col) => {
+      const opt = document.createElement("option");
+      opt.value = col.key;
+      opt.textContent = col.label;
+      if (scatterPrefs[axis] === col.key) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.addEventListener("change", () => {
+      scatterPrefs[axis] = select.value;
+      saveScatterPrefs(scatterPrefs);
+      renderScatterChart(lastGrouped);
+    });
+    label.appendChild(select);
+    return label;
+  }
+
+  controls.appendChild(buildSelect("x"));
+  controls.appendChild(buildSelect("y"));
+  container.appendChild(controls);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "scatter-wrapper";
+  wrapper.id = "scatterChartTarget";
+  container.appendChild(wrapper);
+
+  const legend = document.createElement("div");
+  legend.className = "scatter-legend";
+  legend.innerHTML = GROUPS.map(
+    (g) => `<span><span class="dot" style="background:${GROUP_COLORS[g]}"></span>${g}</span>`
+  ).join("") + `<span style="color:#777;">Lignes pointillées = médiane de l'ensemble des joueurs affichés</span>`;
+  container.appendChild(legend);
+
+  renderScatterChart(grouped);
+}
+
+/* -------------------------------------------------------------------------
+   5bis. SÉANCES ENREGISTRÉES (onglet Statistiques)
+   ------------------------------------------------------------------------- */
+
+function loadSavedSessions() {
+  try {
+    const raw = localStorage.getItem(SAVED_SESSIONS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSavedSessions(sessions) {
+  localStorage.setItem(SAVED_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+}
+
+let savedSessions = loadSavedSessions();
+
+function buildSessionSnapshot() {
+  if (!lastParsed) return null;
+  const stats = buildPlayerStats(lastParsed.rows);
+  const grouped = groupPlayers(stats);
+  return {
+    id: Date.now(),
+    date: lastParsed.meta.date || new Date().toLocaleDateString("fr-FR"),
+    club: document.getElementById("clubName").textContent.trim(),
+    durationMinutes: lastParsed.meta.durationSeconds ? Math.round(lastParsed.meta.durationSeconds / 60) : null,
+    objectives: JSON.parse(JSON.stringify(objectives)),
+    columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
+    groups: {
+      "3/4": grouped["3/4"],
+      Avant: grouped["Avant"],
+    },
+  };
+}
+
+function saveCurrentSession() {
+  const snapshot = buildSessionSnapshot();
+  if (!snapshot) {
+    alert("Importez d'abord un CSV avant d'enregistrer la séance.");
+    return;
+  }
+  // Si une séance avec la même date existe déjà, on la remplace plutôt que de la dupliquer.
+  const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
+  if (existingIndex !== -1) {
+    savedSessions[existingIndex] = snapshot;
+  } else {
+    savedSessions.push(snapshot);
+  }
+  saveSavedSessions(savedSessions);
+  renderStatsTab();
+  alert("Séance enregistrée dans l'onglet Statistiques.");
+}
+
+function deleteSavedSession(id) {
+  savedSessions = savedSessions.filter((s) => s.id !== id);
+  saveSavedSessions(savedSessions);
+  renderStatsTab();
+}
+
+function renderStatsTab() {
+  const container = document.getElementById("statsContainer");
+  if (!container) return;
+  container.innerHTML = "";
+
+  if (!savedSessions.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Aucune séance enregistrée pour l'instant.";
+    container.appendChild(empty);
+    return;
+  }
+
+  const sorted = [...savedSessions].sort((a, b) => b.id - a.id);
+
+  sorted.forEach((session) => {
+    const details = document.createElement("details");
+    details.className = "saved-session";
+
+    const nbPlayers = session.groups["3/4"].length + session.groups.Avant.length;
+    const summary = document.createElement("summary");
+    summary.textContent = `${session.date} — ${session.club} (${nbPlayers} joueurs${
+      session.durationMinutes ? ", " + session.durationMinutes + " min" : ""
+    })`;
+    details.appendChild(summary);
+
+    const actions = document.createElement("div");
+    actions.className = "saved-session-actions";
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-secondary";
+    delBtn.textContent = "Supprimer cette séance";
+    delBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (confirm("Supprimer définitivement cette séance enregistrée ?")) {
+        deleteSavedSession(session.id);
+      }
+    });
+    actions.appendChild(delBtn);
+    details.appendChild(actions);
+
+    const savedColumnVisibility = columnVisibility;
+    columnVisibility = session.columnVisibility || columnVisibility; // affichage tel qu'au moment de l'enregistrement
+    details.appendChild(renderGroupTable("3/4", session.groups["3/4"], { editable: false, objectivesData: session.objectives }));
+    details.appendChild(renderGroupTable("Avant", session.groups.Avant, { editable: false, objectivesData: session.objectives }));
+    details.appendChild(renderMedianTable(session.groups));
+    columnVisibility = savedColumnVisibility;
+
+    container.appendChild(details);
+  });
+}
+
+/* -------------------------------------------------------------------------
+   6. EVENEMENTS — upload, drag&drop, onglets, export, effectif
+   ------------------------------------------------------------------------- */
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const { meta, rows } = parseCsv(e.target.result);
+      manualOverrides = {}; // nouvelle séance = corrections manuelles repartent à zéro
+      aliasMap = {}; // nouvelle séance = associations CSV->joueur repartent à zéro aussi
+      lastParsed = { meta, rows };
+      renderReport(rows, meta);
+    } catch (err) {
+      alert("Erreur de lecture du CSV : " + err.message);
+    }
+  };
+  reader.readAsText(file, "UTF-8");
+}
+
+function initUpload() {
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+  const browseBtn = document.getElementById("browseBtn");
+
+  browseBtn.addEventListener("click", () => fileInput.click());
+
+  // Toute la zone est cliquable, pas seulement le petit lien
+  dropZone.addEventListener("click", (e) => {
+    if (e.target.id === "browseBtn") return; // évite un double déclenchement
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", (e) => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  ["dragenter", "dragover"].forEach((evt) =>
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    })
+  );
+  ["dragleave", "drop"].forEach((evt) =>
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+    })
+  );
+  dropZone.addEventListener("drop", (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+}
+
+function initTabs() {
+  const buttons = document.querySelectorAll(".tab-btn");
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      buttons.forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+}
+
+function initRosterUI() {
+  renderRosterTable();
+
+  document.getElementById("addPlayerBtn").addEventListener("click", () => {
+    const nameInput = document.getElementById("newPlayerName");
+    const groupSelect = document.getElementById("newPlayerGroup");
+    addPlayerToRoster(nameInput.value, groupSelect.value);
+    nameInput.value = "";
+  });
+
+  document.getElementById("exportRosterBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(roster, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "effectif.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  const importInput = document.getElementById("importRosterInput");
+  document.getElementById("importRosterBtn").addEventListener("click", () => importInput.click());
+  importInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        roster = { ...roster, ...imported };
+        saveRoster(roster);
+        renderRosterTable();
+        rerenderIfLoaded();
+      } catch (err) {
+        alert("Fichier JSON invalide.");
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function initExport() {
+  document.getElementById("saveSessionBtn").addEventListener("click", saveCurrentSession);
+
+  document.getElementById("exportPngBtn").addEventListener("click", () => {
+    const card = document.getElementById("reportCard");
+    html2canvas(card, { backgroundColor: "#ffffff", scale: 2 }).then((canvas) => {
+      const link = document.createElement("a");
+      link.download = "rapport-gps.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  });
+
+  document.getElementById("printBtn").addEventListener("click", () => {
+    window.print();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initUpload();
+  initTabs();
+  initRosterUI();
+  initExport();
+  renderObjectivesPanel();
+  renderColumnToggles();
+  renderStatsTab();
+});
+
+</script>
+</body>
+</html>
