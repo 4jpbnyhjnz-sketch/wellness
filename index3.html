@@ -742,13 +742,6 @@ table.roster-table select { padding: 4px; }
     </div>
     <div id="recordsContainer"></div>
 
-    <h2 class="section-title" style="margin-top: 32px;">Historique par joueur</h2>
-    <p class="panel-help">
-      Pour chaque joueur ayant figuré dans au moins une séance enregistrée, l'évolution séance par séance.
-      Cliquez sur un joueur pour voir le détail.
-    </p>
-    <div id="playerHistoryContainer"></div>
-
     <h2 class="section-title" style="margin-top: 32px;">Séances enregistrées</h2>
     <p class="panel-help">
       Chaque séance enregistrée depuis l'onglet « Importer une séance » apparaît ici, rangée par mois.
@@ -1433,6 +1426,36 @@ function renderRecordsTab() {
     podiumRow.appendChild(buildEditableCard("VMAX record", "vmax", "km/h"));
     podiumRow.appendChild(buildEditableCard("Accel max record", "accel", ""));
     body.appendChild(podiumRow);
+
+    const history = getPlayerHistory(name);
+    if (history.length) {
+      const histTitle = document.createElement("p");
+      histTitle.style.margin = "14px 0 6px";
+      histTitle.style.fontWeight = "bold";
+      histTitle.style.fontSize = "13px";
+      histTitle.textContent = `Historique des séances (${history.length})`;
+      body.appendChild(histTitle);
+
+      const visibleColumns = getVisibleMetricColumns();
+      const histTable = document.createElement("table");
+      histTable.className = "data-table player-history-table";
+      const thead = document.createElement("thead");
+      thead.innerHTML = "<tr><th>Date</th>" + visibleColumns.map((c) => `<th>${c.label}</th>`).join("") + "</tr>";
+      histTable.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      history.forEach((row) => {
+        const tr = document.createElement("tr");
+        let cells = `<td>${row.date}</td>`;
+        visibleColumns.forEach((col) => {
+          cells += `<td>${fmt(row[col.key], col.decimals)}</td>`;
+        });
+        tr.innerHTML = cells;
+        tbody.appendChild(tr);
+      });
+      histTable.appendChild(tbody);
+      body.appendChild(histTable);
+    }
 
     const delBtn = document.createElement("button");
     delBtn.className = "btn btn-secondary";
@@ -2179,7 +2202,6 @@ function saveCurrentSession() {
   lastBrokenRecords = updateSeasonRecordsWithSession(allPlayers);
 
   renderStatsTab();
-  renderPlayerHistoryTab();
   renderRecordsTab();
 
   alert(
@@ -2194,7 +2216,7 @@ function deleteSavedSession(id) {
   savedSessions = savedSessions.filter((s) => s.id !== id);
   saveSavedSessions(savedSessions);
   renderStatsTab();
-  renderPlayerHistoryTab();
+  renderRecordsTab();
 }
 
 const FRENCH_MONTHS = [
@@ -2302,18 +2324,9 @@ function renderStatsTab() {
 }
 
 /* -------------------------------------------------------------------------
-   HISTORIQUE PAR JOUEUR (onglet Statistiques) — dérivé des séances enregistrées
+   HISTORIQUE PAR JOUEUR — dérivé des séances enregistrées, utilisé dans les
+   fiches de l'onglet Records (Statistiques)
    ------------------------------------------------------------------------- */
-
-function getAllPlayersFromSavedSessions() {
-  const names = new Set();
-  savedSessions.forEach((session) => {
-    [...session.groups["3/4"], ...session.groups.Avant].forEach((s) => {
-      names.add(s.displayName || s.player);
-    });
-  });
-  return [...names].sort((a, b) => a.localeCompare(b));
-}
 
 function getPlayerHistory(name) {
   const rows = [];
@@ -2325,54 +2338,6 @@ function getPlayerHistory(name) {
     if (found) rows.push({ date: session.date, ...found });
   });
   return rows;
-}
-
-function renderPlayerHistoryTab() {
-  const container = document.getElementById("playerHistoryContainer");
-  if (!container) return;
-  container.innerHTML = "";
-
-  const names = getAllPlayersFromSavedSessions();
-  if (!names.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "Aucun joueur dans l'historique pour l'instant — enregistrez une séance pour commencer.";
-    container.appendChild(empty);
-    return;
-  }
-
-  const visibleColumns = getVisibleMetricColumns();
-
-  names.forEach((name) => {
-    const details = document.createElement("details");
-    details.className = "saved-session";
-
-    const history = getPlayerHistory(name);
-    const summary = document.createElement("summary");
-    summary.textContent = `${name} (${history.length} séance${history.length > 1 ? "s" : ""})`;
-    details.appendChild(summary);
-
-    const table = document.createElement("table");
-    table.className = "data-table player-history-table";
-    const thead = document.createElement("thead");
-    thead.innerHTML = "<tr><th>Date</th>" + visibleColumns.map((c) => `<th>${c.label}</th>`).join("") + "</tr>";
-    table.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-    history.forEach((row) => {
-      const tr = document.createElement("tr");
-      let cells = `<td>${row.date}</td>`;
-      visibleColumns.forEach((col) => {
-        cells += `<td>${fmt(row[col.key], col.decimals)}</td>`;
-      });
-      tr.innerHTML = cells;
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    details.appendChild(table);
-
-    container.appendChild(details);
-  });
 }
 
 /* -------------------------------------------------------------------------
@@ -2509,7 +2474,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderObjectivesPanel();
   renderColumnToggles();
   renderStatsTab();
-  renderPlayerHistoryTab();
   initRecordsUI();
 });
 
