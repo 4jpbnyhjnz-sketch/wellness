@@ -522,11 +522,11 @@ table.data-table td.editable-cell:focus { outline: 2px solid var(--red); outline
     border-color: #1a1a1a !important;
   }
 
-  /* Lignes alternées : blanc / gris très clair */
-  table.data-table tbody tr:nth-child(even) td {
+  /* Lignes alternées sur la colonne nom uniquement (les autres colonnes ont leurs barres) */
+  table.data-table tbody tr:nth-child(even) td:first-child {
     background: #f5f5f5 !important;
   }
-  table.data-table tbody tr:nth-child(odd) td {
+  table.data-table tbody tr:nth-child(odd) td:first-child {
     background: #ffffff !important;
   }
 
