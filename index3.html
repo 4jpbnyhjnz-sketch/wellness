@@ -2269,6 +2269,13 @@ function renderPodiumCard(label, leader, key, unit, decimals) {
   return div;
 }
 
+function getPodiumSpeedMetric() {
+  const theme = (document.getElementById("sessionTheme") || document.getElementById("matchClubName"))?.textContent?.trim() || "";
+  return theme.toLowerCase().includes("vitesse")
+    ? { key: "dist24", label: "Distance +24km/h" }
+    : { key: "dist18", label: "Distance +18km/h" };
+}
+
 function renderGroupTable(groupName, stats, opts) {
   const options = Object.assign(
     { editable: true, objectivesData: objectives, showRecordStar: true, showPodium: true },
@@ -2300,7 +2307,8 @@ function renderGroupTable(groupName, stats, opts) {
     podiumRow.className = "podium-row";
     podiumRow.appendChild(renderPodiumCard("Accel max", findLeader(stats, "accelMax"), "accelMax", "", 2));
     podiumRow.appendChild(renderPodiumCard("Vmax", findLeader(stats, "vmax"), "vmax", " km/h", 2));
-    podiumRow.appendChild(renderPodiumCard("Distance +18km/h", findLeader(stats, "dist18"), "dist18", " m", 0));
+    const sp = getPodiumSpeedMetric();
+    podiumRow.appendChild(renderPodiumCard(sp.label, findLeader(stats, sp.key), sp.key, " m", 0));
     wrapper.appendChild(podiumRow);
   }
 
@@ -2792,7 +2800,8 @@ function renderMatchGroupTable(groupName, stats) {
   podiumRow.className = "podium-row";
   podiumRow.appendChild(renderPodiumCard("Accel max", findLeader(sortedStats, "accelMax"), "accelMax", "", 2));
   podiumRow.appendChild(renderPodiumCard("Vmax", findLeader(sortedStats, "vmax"), "vmax", " km/h", 2));
-  podiumRow.appendChild(renderPodiumCard("Distance +18km/h", findLeader(sortedStats, "dist18"), "dist18", " m", 0));
+  const sp2 = getPodiumSpeedMetric();
+  podiumRow.appendChild(renderPodiumCard(sp2.label, findLeader(sortedStats, sp2.key), sp2.key, " m", 0));
   wrapper.appendChild(podiumRow);
 
   const leaders = {};
