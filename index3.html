@@ -478,11 +478,25 @@ table.data-table td.editable-cell:focus { outline: 2px solid var(--red); outline
     border-width: 0 52px 52px 0 !important;
     border-color: transparent #D6001C transparent transparent !important;
   }
-  .report-logo-block img {
-    height: 42px !important;
-    border: 2px solid #D6001C !important;
+  .report-logo-block {
+    width: 52px !important;
+    height: 52px !important;
+    border: 2.5px solid #D6001C !important;
     border-radius: 50% !important;
-    padding: 2px !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  .report-logo-block img {
+    height: 44px !important;
+    width: 44px !important;
+    object-fit: contain !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
     background: transparent !important;
   }
   .report-header-block {
