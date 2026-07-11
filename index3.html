@@ -246,7 +246,7 @@ table.data-table tbody td {
 }
 table.data-table tbody td:first-child { max-width: 120px; }
 table.data-table td.obj-met { font-weight: bold; }
-table.data-table td[data-leader]::after { content: "★"; margin-left: 5px; color: var(--red); }
+table.data-table td[data-leader] { font-weight: bold; }
 table.data-table td.editable-cell { cursor: text; }
 table.data-table td.editable-cell:hover { box-shadow: inset 0 0 0 9999px rgba(255, 248, 225, 0.5); }
 table.data-table td.editable-cell:focus { outline: 2px solid var(--red); outline-offset: -2px; }
@@ -2357,6 +2357,15 @@ function renderGroupTable(groupName, stats, opts) {
       if (isLeader) td.dataset.leader = "1";
       td.textContent = fmt(s[col.key], col.decimals);
 
+      // ★ rouge inline (pas ::after) pour ne pas être coupé par overflow:hidden
+      if (isLeader) {
+        const leaderStar = document.createElement("span");
+        leaderStar.textContent = " ★";
+        leaderStar.style.color = "var(--red)";
+        leaderStar.style.fontWeight = "bold";
+        td.appendChild(leaderStar);
+      }
+
       // ⭐ dorée si la valeur égale ou dépasse le record de saison du joueur (VMAX et Accel max uniquement)
       if (options.showRecordStar && (col.key === "vmax" || col.key === "accelMax")) {
         const playerName = s.displayName || s.player;
@@ -2835,6 +2844,13 @@ function renderMatchGroupTable(groupName, stats) {
       if (met === true) td.classList.add("obj-met");
       if (isLeader) td.dataset.leader = "1";
       td.textContent = fmt(s[col.key], col.decimals) + (isRecord ? " ⭐" : "");
+      if (isLeader) {
+        const ls = document.createElement("span");
+        ls.textContent = " ★";
+        ls.style.color = "var(--red)";
+        ls.style.fontWeight = "bold";
+        td.appendChild(ls);
+      }
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
