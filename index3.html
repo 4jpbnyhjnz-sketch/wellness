@@ -470,18 +470,20 @@ table.data-table td.editable-cell:focus { outline: 2px solid var(--red); outline
     page-break-inside: avoid;
   }
   .group-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
   }
   table.data-table tr {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  table.data-table tbody tr {
+    height: auto !important;
+  }
   table.data-table tbody td {
     white-space: nowrap;
     overflow: hidden;
     padding: 3px 4px;
-    height: auto;
   }
   table.data-table {
     font-size: 9.5px;
