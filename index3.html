@@ -454,6 +454,88 @@ table.data-table td.editable-cell:focus { outline: 2px solid var(--red); outline
   body.printing-saved-session #sessionPrintRoot {
     display: block !important;
   }
+
+  /* ===== OPTION D — Style visuel PDF ===== */
+
+  /* Header noir avec triangle rouge */
+  .report-header {
+    background: #1a1a1a !important;
+    border-radius: 4px !important;
+    padding: 10px 12px !important;
+    margin-bottom: 14px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .report-header::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important; right: 0 !important;
+    width: 0 !important; height: 0 !important;
+    border-style: solid !important;
+    border-width: 0 52px 52px 0 !important;
+    border-color: transparent #D6001C transparent transparent !important;
+  }
+  .report-logo-block img {
+    height: 42px !important;
+    border: 2px solid #D6001C !important;
+    border-radius: 50% !important;
+    padding: 2px !important;
+    background: transparent !important;
+  }
+  .report-header-block {
+    background: rgba(255,255,255,0.08) !important;
+    border: none !important;
+    border-radius: 3px !important;
+    padding: 4px 8px !important;
+    flex: 1 !important;
+  }
+  .report-header-label {
+    color: #D6001C !important;
+    font-size: 7px !important;
+  }
+  .report-header-value {
+    color: #ffffff !important;
+    font-size: 12px !important;
+  }
+
+  /* Group title : "▸ 3/4" rouge sur fond blanc, pas de bandeau */
+  .group-title-bar {
+    background: transparent !important;
+    color: #D6001C !important;
+    font-size: 8.5px !important;
+    padding: 6px 0 3px !important;
+    border-radius: 0 !important;
+    letter-spacing: 0.06em !important;
+    border-bottom: 1px solid #eee !important;
+  }
+  .group-title-bar::before {
+    content: "▸  " !important;
+  }
+
+  /* En-têtes tableau : fond noir, texte blanc */
+  table.data-table th {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    border-color: #1a1a1a !important;
+  }
+
+  /* Lignes alternées : blanc / gris très clair */
+  table.data-table tbody tr:nth-child(even) td {
+    background: #f5f5f5 !important;
+  }
+  table.data-table tbody tr:nth-child(odd) td {
+    background: #ffffff !important;
+  }
+
+  /* Titre de page discret */
+  .page-title {
+    color: #999 !important;
+    font-size: 9px !important;
+    margin-bottom: 4px !important;
+  }
   .page-break-before {
     break-before: page;
     page-break-before: always;
