@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rapport GPS — Suivi quotidien</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar no-print">
+  <div class="topbar-inner">
+    <h1>Rapport GPS</h1>
+    <div id="topbarLogo"></div>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="seance">Importer une séance</button>
+      <button class="tab-btn" data-tab="match">Importer un match</button>
+      <button class="tab-btn" data-tab="stats">Statistiques</button>
+      <button class="tab-btn" data-tab="reglages">Réglages</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== ONGLET IMPORTER UNE SEANCE ===================== -->
+  <section id="tab-seance" class="tab-panel active">
+
+    <div class="no-print">
+      <h2 class="section-title">Objectifs de la séance</h2>
+      <p class="panel-help">
+        Fixez les objectifs par groupe avant ou après avoir déposé le CSV — le rapport se recalcule tout seul.
+        Une case vide = pas d'objectif sur cette métrique (pas de coloration).
+      </p>
+      <div id="objectivesPanel" class="objectives-panel"></div>
+
+      <div class="upload-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".csv" hidden>
+        <div class="upload-content">
+          <p class="upload-title">Déposez le CSV de la séance ici</p>
+          <p class="upload-sub">ou <button id="browseBtn" class="link-btn">choisissez un fichier</button></p>
+        </div>
+      </div>
+
+      <div id="assignmentBox" class="assignment-box hidden"></div>
+    </div>
+
+    <div id="reportRoot" class="hidden">
+
+      <div id="columnTogglesBar" class="column-toggles no-print"></div>
+      <div id="periodButtonsBar" class="period-buttons-bar no-print"></div>
+
+      <div class="report-card" id="reportCard">
+        <div id="page1Content" class="page1-block">
+          <p class="page-title">Page 1 — Tableaux &amp; médianes</p>
+          <div class="report-header">
+            <div id="reportLogoBlock" class="report-logo-block"></div>
+            <div class="report-header-block">
+              <span class="report-header-label">Club</span>
+              <span class="report-header-value" id="clubName" contenteditable="true">Mon Club</span>
+            </div>
+            <div class="report-header-block">
+              <span class="report-header-label">Thème</span>
+              <span class="report-header-value" id="sessionTheme" contenteditable="true">Entraînement</span>
+            </div>
+            <div class="report-header-block">
+              <span class="report-header-label">Date</span>
+              <span class="report-header-value" id="reportDate">—</span>
+            </div>
+            <div class="report-header-block">
+              <span class="report-header-label">Séance</span>
+              <span class="report-header-value" id="reportDuration">—</span>
+            </div>
+          </div>
+
+          <div id="groupsContainer"></div>
+
+          <div class="avoid-break">
+            <h2 class="section-title">Médianes par groupe</h2>
+            <div id="medianContainer"></div>
+          </div>
+        </div>
+
+        <div id="periodsContent"></div>
+
+        <div class="page-break-before avoid-break-group">
+          <h2 class="section-title">Graphiques — 3/4</h2>
+          <p class="page-title">Graphiques 3/4</p>
+          <p class="panel-help">Lignes pointillées = médiane du groupe 3/4 sur chaque paire de métriques.</p>
+          <div id="scatterGallery34"></div>
+        </div>
+
+        <div class="page-break-before avoid-break-group">
+          <h2 class="section-title">Graphiques — Avant</h2>
+          <p class="page-title">Graphiques Avant</p>
+          <p class="panel-help">Lignes pointillées = médiane du groupe Avant sur chaque paire de métriques.</p>
+          <div id="scatterGalleryAvant"></div>
+        </div>
+
+        <p class="legend">
+          <span class="legend-swatch"></span> Barre verte = objectif du groupe atteint ·
+          barre grise = position relative au meilleur de la période ·
+          ★ rouge = meilleur de la séance · ⭐ = record de la saison
+        </p>
+
+      </div>
+
+      <div class="actions-row no-print">
+        <button id="saveSessionBtn" class="btn btn-primary">Enregistrer la séance</button>
+        <button id="exportPngBtn" class="btn btn-secondary">Télécharger en image (PNG)</button>
+        <button id="printBtn" class="btn btn-secondary">Imprimer / PDF</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET IMPORTER UN MATCH ===================== -->
+  <section id="tab-match" class="tab-panel">
+
+    <div class="no-print">
+      <p class="panel-help">Déposez le CSV du match. L'association des noms inclut le poste pour le tri du rapport.</p>
+
+      <div class="upload-zone" id="matchDropZone">
+        <input type="file" id="matchFileInput" accept=".csv" hidden>
+        <div class="upload-content">
+          <p class="upload-title">Déposez le CSV du match ici</p>
+          <p class="upload-sub">ou <button id="matchBrowseBtn" class="link-btn">choisissez un fichier</button></p>
+        </div>
+      </div>
+
+      <div id="matchAssignmentBox" class="assignment-box hidden"></div>
+    </div>
+
+    <div id="matchReportRoot" class="hidden">
+      <div id="matchColumnTogglesBar" class="column-toggles no-print"></div>
+      <div class="report-card" id="matchReportCard">
+
+        <!-- Page 1 : Tableau de la rencontre -->
+        <div id="matchPage1" class="page1-block">
+          <p class="page-title">Page 1 — Tableau de la rencontre</p>
+          <div class="report-header">
+            <div id="matchReportLogoBlock" class="report-logo-block"></div>
+            <div class="report-header-block">
+              <span class="report-header-label">Club</span>
+              <span class="report-header-value" id="matchClubName" contenteditable="true">Mon Club</span>
+            </div>
+            <div class="report-header-block">
+              <span class="report-header-label">Adversaire</span>
+              <span class="report-header-value" id="matchOpponent" contenteditable="true">Adversaire</span>
+            </div>
+            <div class="report-header-block">
+              <span class="report-header-label">Date</span>
+              <span class="report-header-value" id="matchDate">—</span>
+            </div>
+            <div class="report-header-block">
+              <span class="report-header-label">Durée</span>
+              <span class="report-header-value" id="matchDuration">—</span>
+            </div>
+          </div>
+          <div id="matchGroupsContainer"></div>
+          <div class="avoid-break">
+            <h2 class="section-title">Médianes par groupe</h2>
+            <div id="matchMedianContainer"></div>
+          </div>
+        </div>
+
+        <!-- Page 2 : Valeurs par minute -->
+        <div class="page-break-before page1-block" id="matchPage2">
+          <p class="page-title">Page 2 — Valeurs par minute</p>
+          <h2 class="section-title">Intensité — valeurs par minute</h2>
+          <div id="matchPerMinContainer"></div>
+        </div>
+
+        <!-- Pages 3-4 : Mi-temps -->
+        <div id="matchHalvesContainer"></div>
+
+        <!-- Pages 5-6 : Graphiques -->
+        <div class="page-break-before avoid-break-group" id="matchGraphics34Wrap">
+          <h2 class="section-title">Graphiques — 3/4</h2>
+          <p class="page-title">Page 5 — Graphiques 3/4</p>
+          <p class="panel-help">Lignes pointillées = médiane du groupe 3/4.</p>
+          <div id="matchScatterGallery34"></div>
+        </div>
+        <div class="page-break-before avoid-break-group" id="matchGraphicsAvantWrap">
+          <h2 class="section-title">Graphiques — Avant</h2>
+          <p class="page-title">Page 6 — Graphiques Avant</p>
+          <p class="panel-help">Lignes pointillées = médiane du groupe Avant.</p>
+          <div id="matchScatterGalleryAvant"></div>
+        </div>
+
+        <p class="legend">
+          <span class="legend-swatch"></span> Barre verte = objectif atteint · ★ rouge = meilleur du groupe · ⭐ = record de la saison
+        </p>
+
+      </div>
+      <div class="actions-row no-print">
+        <button id="matchPrintBtn" class="btn btn-secondary">Imprimer / PDF</button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===================== ONGLET STATISTIQUES ===================== -->
+  <section id="tab-stats" class="tab-panel">
+    <h2 class="section-title">Records de la saison</h2>
+    <p class="panel-help">
+      Le record personnel de chaque joueur (VMAX et Accel max) toutes séances confondues. Se met à jour
+      automatiquement quand vous enregistrez une séance qui bat un record. Vous pouvez aussi importer/exporter
+      cette liste pour la sauvegarder ou la compléter à partir d'un autre export.
+    </p>
+    <div class="settings-actions">
+      <button id="exportRecordsBtn" class="btn btn-secondary">Exporter les records (JSON)</button>
+      <button id="importRecordsBtn" class="btn btn-secondary">Importer des records (JSON)</button>
+      <input type="file" id="importRecordsInput" accept=".json" hidden>
+    </div>
+    <div class="add-player-row">
+      <input type="text" id="newRecordPlayerName" placeholder="Nom du nouveau joueur">
+      <button id="addRecordPlayerBtn" class="btn btn-secondary">Ajouter</button>
+    </div>
+    <div id="recordsContainer"></div>
+
+    <h2 class="section-title" style="margin-top: 32px;">Séances enregistrées</h2>
+    <p class="panel-help">
+      Chaque séance enregistrée depuis l'onglet « Importer une séance » apparaît ici, rangée par mois.
+      Cliquez sur un mois puis sur une séance pour voir le détail, et téléchargez-la en PDF si besoin.
+    </p>
+    <div id="statsContainer"></div>
+  </section>
+
+  <!-- ===================== ONGLET REGLAGES ===================== -->
+  <section id="tab-reglages" class="tab-panel">
+
+    <!-- SAUVEGARDE GLOBALE -->
+    <div class="settings-card" style="border:2px solid var(--red);">
+      <h2 class="section-title" style="margin-top:0;">💾 Sauvegarde complète</h2>
+      <p class="settings-help">
+        Exportez toutes vos données en un seul fichier (séances, records, effectif, objectifs).
+        Réimportez-le à tout moment pour tout restaurer — sur un autre ordinateur ou après une réinstallation.
+      </p>
+      <div class="settings-actions">
+        <button id="backupAllBtn" class="btn btn-primary">⬇ Tout exporter (sauvegarde)</button>
+        <button id="restoreAllBtn" class="btn btn-secondary">⬆ Tout importer (restaurer)</button>
+        <input type="file" id="restoreAllInput" accept=".json" hidden>
+      </div>
+      <p id="backupStatus" style="font-size:12px;color:#888;margin:4px 0 0;"></p>
+    </div>
+
+    <div class="settings-card" style="margin-top:20px;">
+      <h2 class="section-title">Listing pro &amp; postes</h2>
+      <p class="settings-help">
+        Groupe (3/4 ou Avant) et poste de chaque joueur. Utilisés pour le tri et les objectifs du rapport de match.
+      </p>
+
+      <div class="settings-actions">
+        <button id="exportRosterBtn" class="btn btn-secondary">Exporter la liste (JSON)</button>
+        <button id="importRosterBtn" class="btn btn-secondary">Importer une liste (JSON)</button>
+        <input type="file" id="importRosterInput" accept=".json" hidden>
+      </div>
+
+      <table class="roster-table" id="rosterTable">
+        <thead>
+          <tr>
+            <th>Joueur</th>
+            <th>Groupe</th>
+            <th>Poste</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rosterBody"></tbody>
+      </table>
+
+      <div class="add-player-row">
+        <input type="text" id="newPlayerName" placeholder="Nom du joueur (nom officiel)">
+        <select id="newPlayerGroup">
+          <option value="3/4">3/4</option>
+          <option value="Avant">Avant</option>
+        </select>
+        <select id="newPlayerPosition">
+          <option value="">— Poste —</option>
+        </select>
+        <button id="addPlayerBtn" class="btn btn-secondary">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="settings-card" style="margin-top: 20px;">
+      <h2 class="section-title">Objectifs match — par poste</h2>
+      <p class="settings-help">
+        Objectifs utilisés uniquement dans le rapport de match (page 1 et mi-temps), définis poste par poste.
+      </p>
+      <div id="matchObjectivesPanel"></div>
+    </div>
+
+  </section>
+
+  <!-- Conteneurs d'impression -->
+  <div id="sessionPrintRoot"></div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
