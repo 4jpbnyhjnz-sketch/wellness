@@ -477,15 +477,25 @@
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Ces réglages sont enregistrés dans ce navigateur uniquement.</div>
         <div class="rpe-session-table-wrap">
           <table class="rpe-session-table">
-            <thead><tr><th>Type de séance</th><th>Durée par défaut</th><th>Durée personnalisée (min)</th><th></th></tr></thead>
+            <thead><tr><th>Type de séance</th><th>Durée par défaut</th><th>Durée personnalisée (min)</th><th>Exclure du sRPE</th><th></th></tr></thead>
             <tbody id="reglages-duration-tbody"></tbody>
           </table>
         </div>
 
-        <div class="section-label" style="margin-top:24px">Corriger le type de séance d'un joueur</div>
+        <div class="section-label" style="margin-top:24px">Correction en masse (par type)</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Change en une seule fois le type de tous les joueurs ayant note un type donne ce jour-la.</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+          <select id="bulk-type-from" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-family:var(--font)" onchange="updateBulkTypeCount()"></select>
+          <span style="color:var(--text2)">&#8594;</span>
+          <select id="bulk-type-to" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-family:var(--font)"></select>
+          <button class="btn-nav" style="width:auto;padding:0 14px;font-size:12px" onclick="applyBulkTypeFix()">Appliquer a tous</button>
+          <span id="bulk-type-count" style="font-size:12px;color:var(--text2)"></span>
+        </div>
+
+        <div class="section-label">Corriger une séance (type, score, horodateur)</div>
         <div class="rpe-session-table-wrap">
           <table class="rpe-session-table">
-            <thead><tr><th>Heure</th><th>Joueur</th><th>Type actuel</th><th>Corriger en</th><th></th></tr></thead>
+            <thead><tr><th>Horodateur</th><th>Joueur</th><th>Type</th><th>Score</th><th></th></tr></thead>
             <tbody id="reglages-type-tbody"></tbody>
           </table>
         </div>
@@ -529,10 +539,16 @@ var OVERRIDES_KEY = 'nissa_espoirs_rpe_overrides_v1';
 function loadOverrides() {
   try {
     var raw = localStorage.getItem(OVERRIDES_KEY);
-    if (!raw) return {durations:{}, typeFixes:{}};
+    if (!raw) return {durations:{}, typeFixes:{}, scoreFixes:{}, tsFixes:{}, srpeExclusions:{}};
     var parsed = JSON.parse(raw);
-    return {durations: parsed.durations || {}, typeFixes: parsed.typeFixes || {}};
-  } catch(e) { return {durations:{}, typeFixes:{}}; }
+    return {
+      durations: parsed.durations || {},
+      typeFixes: parsed.typeFixes || {},
+      scoreFixes: parsed.scoreFixes || {},
+      tsFixes: parsed.tsFixes || {},
+      srpeExclusions: parsed.srpeExclusions || {}
+    };
+  } catch(e) { return {durations:{}, typeFixes:{}, scoreFixes:{}, tsFixes:{}, srpeExclusions:{}}; }
 }
 function saveOverrides() {
   try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(RPE_OVERRIDES)); } catch(e) {}
@@ -586,16 +602,19 @@ function processData(rows) {
     var rr = rows[ri];
     if (rr.length < 11) continue;
     if ((rr[2]||'').trim() !== 'Rpe') continue;
-    var rdate = (rr[0]||'').trim().split(' ')[0];
+    var rdateRaw = (rr[0]||'').trim().split(' ')[0];
     var rnom = canonicalName((rr[1]||'').trim());
     var rtype = (rr[9]||'').trim();
     var rscore = parseFloat(rr[10]);
-    var rts = (rr[0]||'').trim();
-    var fixKey = rdate+'|'+rnom+'|'+rts;
+    var rtsRaw = (rr[0]||'').trim();
+    var fixKey = rdateRaw+'|'+rnom+'|'+rtsRaw;
     if (RPE_OVERRIDES.typeFixes[fixKey]) rtype = RPE_OVERRIDES.typeFixes[fixKey];
+    if (RPE_OVERRIDES.scoreFixes[fixKey] != null) rscore = RPE_OVERRIDES.scoreFixes[fixKey];
+    var rts = RPE_OVERRIDES.tsFixes[fixKey] || rtsRaw;
+    var rdate = rts.split(' ')[0];
     if (!rdate || !rnom || rnom.toLowerCase()==='test' || isNaN(rscore) || !rtype) continue;
     if (!rpeRowsByDate[rdate]) rpeRowsByDate[rdate] = [];
-    rpeRowsByDate[rdate].push({n:rnom, type:rtype, score:rscore, ts:rts});
+    rpeRowsByDate[rdate].push({n:rnom, type:rtype, score:rscore, ts:rts, origKey:fixKey});
   }
   var rpeOut = {};
   Object.keys(rpeRowsByDate).forEach(function(date) {
@@ -628,7 +647,9 @@ function processData(rows) {
     var typeAvgs = rpeOut[date].typeAvgs;
     var detail = typeAvgs.map(function(t) {
       var dur = sessionDuration(t.type, date);
-      return {type:t.type, avg:t.avg, duration:dur, srpe:Math.round(t.avg*dur)};
+      var excluded = !!RPE_OVERRIDES.srpeExclusions[date+'|'+t.type];
+      var srpeVal = excluded ? 0 : Math.round(t.avg*dur);
+      return {type:t.type, avg:t.avg, duration:dur, srpe:srpeVal, excluded:excluded};
     });
     var total = detail.reduce(function(s,d){return s+d.srpe;},0);
     srpeByDate[date] = {detail:detail, total:total};
@@ -1233,7 +1254,7 @@ function renderSrpeChart() {
 
   document.getElementById('srpe-week-tbody').innerHTML = SRPE_WEEKS.slice().reverse().map(function(w) {
     var wk = SRPE_WEEK[w];
-    var detailStr = Object.keys(wk.byType).map(function(t){ return t+': '+Math.round(wk.byType[t]); }).join(' · ');
+    var detailStr = Object.keys(wk.byType).filter(function(t){ return Math.round(wk.byType[t]) !== 0; }).map(function(t){ return t+': '+Math.round(wk.byType[t]); }).join(' · ');
     return '<tr><td style="font-weight:600">'+w+'</td><td><span class="mono">'+Math.round(wk.total).toLocaleString('fr-FR')+'</span></td><td style="font-size:11px;color:var(--text2)">'+detailStr+'</td></tr>';
   }).join('');
 
@@ -1279,7 +1300,10 @@ function renderRpeReglages() {
   var rpeDay = RPE[d];
 
   if (!rpeDay || !rpeDay.sessions.length) {
-    document.getElementById('reglages-duration-tbody').innerHTML = '<tr><td colspan="4" style="color:var(--text2)">Aucune séance RPE ce jour.</td></tr>';
+    document.getElementById('reglages-duration-tbody').innerHTML = '<tr><td colspan="5" style="color:var(--text2)">Aucune séance RPE ce jour.</td></tr>';
+    document.getElementById('bulk-type-from').innerHTML = '';
+    document.getElementById('bulk-type-to').innerHTML = '';
+    document.getElementById('bulk-type-count').textContent = '';
     document.getElementById('reglages-type-tbody').innerHTML = '<tr><td colspan="5" style="color:var(--text2)">Aucune séance RPE ce jour.</td></tr>';
     return;
   }
@@ -1290,19 +1314,66 @@ function renderRpeReglages() {
     var def = defaultSessionDuration(t);
     var key = d+'|'+t;
     var cur = RPE_OVERRIDES.durations[key] != null ? RPE_OVERRIDES.durations[key] : def;
+    var excluded = !!RPE_OVERRIDES.srpeExclusions[key];
     return '<tr><td style="font-weight:600">'+t+'</td><td style="color:var(--text2)">'+def+' min</td>'
       + '<td><input type="number" min="0" step="5" id="dur-input-'+idx+'" value="'+cur+'" style="width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:\'JetBrains Mono\',monospace"></td>'
+      + '<td style="text-align:center"><input type="checkbox" data-rpe-date="'+d+'" data-rpe-type="'+t+'" onchange="toggleSrpeExclusion(this)"'+(excluded?' checked':'')+'></td>'
       + '<td><button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" data-rpe-date="'+d+'" data-rpe-type="'+t+'" data-rpe-input="dur-input-'+idx+'" onclick="saveDurationOverride(this)">Enregistrer</button></td></tr>';
   }).join('');
 
+  // ── Correction en masse : liste des types presents ce jour ──
+  var typeOpts = types.map(function(t){ return '<option value="'+t+'">'+t+'</option>'; }).join('');
+  document.getElementById('bulk-type-from').innerHTML = typeOpts;
+  document.getElementById('bulk-type-to').innerHTML = typeOpts;
+  updateBulkTypeCount();
+
   var sortedSessions = rpeDay.sessions.slice().sort(function(a,b){ return (a.ts||'').localeCompare(b.ts||''); });
   document.getElementById('reglages-type-tbody').innerHTML = sortedSessions.map(function(s, idx) {
-    var heure = (s.ts||'').split(' ')[1] || '-';
     var opts = types.map(function(t){ return '<option value="'+t+'"'+(t===s.type?' selected':'')+'>'+t+'</option>'; }).join('');
-    return '<tr><td style="font-family:\'JetBrains Mono\',monospace;color:var(--text2)">'+heure+'</td><td style="font-weight:600">'+s.n+'</td><td>'+s.type+'</td>'
+    return '<tr>'
+      + '<td><input type="text" id="ts-input-'+idx+'" value="'+s.ts+'" style="width:130px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:\'JetBrains Mono\',monospace;font-size:12px"></td>'
+      + '<td style="font-weight:600">'+s.n+'</td>'
       + '<td><select id="type-fix-'+idx+'" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:var(--font)">'+opts+'</select></td>'
-      + '<td><button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" data-rpe-date="'+d+'" data-rpe-player="'+s.n+'" data-rpe-ts="'+s.ts+'" data-rpe-select="type-fix-'+idx+'" onclick="saveTypeFix(this)">Corriger</button></td></tr>';
+      + '<td><input type="number" min="0" max="10" step="0.5" id="score-input-'+idx+'" value="'+s.score+'" style="width:70px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:\'JetBrains Mono\',monospace"></td>'
+      + '<td><button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" data-rpe-origkey="'+s.origKey+'" data-rpe-ts-input="ts-input-'+idx+'" data-rpe-type-input="type-fix-'+idx+'" data-rpe-score-input="score-input-'+idx+'" onclick="saveSessionFix(this)">Enregistrer</button></td></tr>';
   }).join('');
+}
+
+function updateBulkTypeCount() {
+  var d = document.getElementById('dateSelect').value;
+  var rpeDay = RPE[d];
+  var fromSel = document.getElementById('bulk-type-from');
+  if (!rpeDay || !fromSel || !fromSel.value) { document.getElementById('bulk-type-count').textContent = ''; return; }
+  var n = rpeDay.sessions.filter(function(s){ return s.type === fromSel.value; }).length;
+  document.getElementById('bulk-type-count').textContent = n+' seance'+(n>1?'s':'')+' concernee'+(n>1?'s':'');
+}
+
+function applyBulkTypeFix() {
+  var d = document.getElementById('dateSelect').value;
+  var rpeDay = RPE[d];
+  if (!rpeDay) return;
+  var fromType = document.getElementById('bulk-type-from').value;
+  var toType = document.getElementById('bulk-type-to').value;
+  if (!fromType || !toType) return;
+  if (fromType === toType) { alert('Choisis un type de destination different du type source.'); return; }
+  var matching = rpeDay.sessions.filter(function(s){ return s.type === fromType; });
+  if (!matching.length) { alert('Aucune seance avec ce type ce jour-la.'); return; }
+  if (!confirm('Changer '+matching.length+' seance(s) de "'+fromType+'" vers "'+toType+'" ?')) return;
+  matching.forEach(function(s){ RPE_OVERRIDES.typeFixes[s.origKey] = toType; });
+  saveOverrides();
+  reprocessData();
+  switchRpeTab('reglages');
+}
+
+function toggleSrpeExclusion(chk) {
+  var date = chk.getAttribute('data-rpe-date');
+  var type = chk.getAttribute('data-rpe-type');
+  var key = date+'|'+type;
+  if (chk.checked) RPE_OVERRIDES.srpeExclusions[key] = true;
+  else delete RPE_OVERRIDES.srpeExclusions[key];
+  saveOverrides();
+  reprocessData();
+  switchRpeTab('reglages');
 }
 
 function saveDurationOverride(btn) {
@@ -1317,13 +1388,27 @@ function saveDurationOverride(btn) {
   switchRpeTab('reglages');
 }
 
-function saveTypeFix(btn) {
-  var date = btn.getAttribute('data-rpe-date');
-  var player = btn.getAttribute('data-rpe-player');
-  var ts = btn.getAttribute('data-rpe-ts');
-  var selectId = btn.getAttribute('data-rpe-select');
-  var newType = document.getElementById(selectId).value;
-  RPE_OVERRIDES.typeFixes[date+'|'+player+'|'+ts] = newType;
+function saveSessionFix(btn) {
+  var origKey = btn.getAttribute('data-rpe-origkey');
+  var tsVal = document.getElementById(btn.getAttribute('data-rpe-ts-input')).value.trim();
+  var newType = document.getElementById(btn.getAttribute('data-rpe-type-input')).value;
+  var scoreVal = parseFloat(document.getElementById(btn.getAttribute('data-rpe-score-input')).value);
+
+  if (!/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}$/.test(tsVal)) {
+    alert('Horodateur invalide. Format attendu : JJ/MM/AAAA HH:MM');
+    return;
+  }
+  if (isNaN(scoreVal) || scoreVal < 0 || scoreVal > 10) {
+    alert('Score invalide (doit etre entre 0 et 10)');
+    return;
+  }
+
+  RPE_OVERRIDES.typeFixes[origKey] = newType;
+  RPE_OVERRIDES.scoreFixes[origKey] = scoreVal;
+  var origTs = origKey.split('|')[2];
+  if (tsVal !== origTs) { RPE_OVERRIDES.tsFixes[origKey] = tsVal; }
+  else { delete RPE_OVERRIDES.tsFixes[origKey]; }
+
   saveOverrides();
   reprocessData();
   switchRpeTab('reglages');
@@ -1334,6 +1419,9 @@ function resetReglagesDay() {
   if (!confirm('Réinitialiser les réglages (durée + corrections) pour '+d+' ?')) return;
   Object.keys(RPE_OVERRIDES.durations).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.durations[k]; });
   Object.keys(RPE_OVERRIDES.typeFixes).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.typeFixes[k]; });
+  Object.keys(RPE_OVERRIDES.scoreFixes).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.scoreFixes[k]; });
+  Object.keys(RPE_OVERRIDES.tsFixes).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.tsFixes[k]; });
+  Object.keys(RPE_OVERRIDES.srpeExclusions).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.srpeExclusions[k]; });
   saveOverrides();
   reprocessData();
   switchRpeTab('reglages');
