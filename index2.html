@@ -272,6 +272,8 @@
       <button class="view-switch-btn" id="vs-rpe" onclick="switchView('rpe')">&#128293; RPE</button>
     </div>
     <div class="date-nav-bar">
+      <label>Saison</label>
+      <select class="date-select" id="seasonSelect" onchange="onSeasonChange()"></select>
       <label>Date</label>
       <button class="btn-nav" onclick="moveDate(-1)">&#8249;</button>
       <select class="date-select" id="dateSelect" onchange="render()"></select>
@@ -503,6 +505,26 @@ var RPE = {}, RPEDAYS = [];
 var SRPE_WEEK = {}, SRPE_WEEKS = [];
 var RAW_ROWS = [];
 
+// ── Roster fixe Espoirs (evite les joueurs fantomes / doublons de casse) ──
+var SEASON_ROSTER = [
+  'Arsac','Bedjaoui','Berger','Bouye','Castaignede','Chikhladze','Cl\u00e9ment','Delpias','Diaz',
+  'Faustin','Flambart','Gomis','Kefford','Navarrate','Niel','oulerich','Pies','Testelin',
+  'Asquini','Blondin','Decourteix','Laurans','Scotto','Zelioli','Lamacchia','Goyffon','Philippe',
+  'Batique','Bergamaschi','Bertolin','Bielle Biarrey','Blooworth','Bosseray','Codoul','Dubois',
+  'Dusautois','Escard','Ferrari','Jean-baptiste','John','Jones','Jouglas','Kaindrava','Kodad',
+  'Lateulade','Mallego','Mapone','Marcoux','Paget','Provencel','Putterill','Ribeiro','Samadi',
+  'Vidal','Wolsink','Yilmaz','Zamora','Aouad'
+];
+function normalizeKey(s) {
+  return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+var ROSTER_LOOKUP = {};
+SEASON_ROSTER.forEach(function(p){ ROSTER_LOOKUP[normalizeKey(p)] = p; });
+function canonicalName(raw) {
+  var key = normalizeKey(raw);
+  return ROSTER_LOOKUP[key] || raw;
+}
+
 var OVERRIDES_KEY = 'nissa_espoirs_rpe_overrides_v1';
 function loadOverrides() {
   try {
@@ -539,7 +561,7 @@ function processData(rows) {
     if (r.length < 8) continue;
     if ((r[2]||'').trim() !== 'Welness') continue;
     var date = (r[0]||'').trim().split(' ')[0];
-    var nom = (r[1]||'').trim();
+    var nom = canonicalName((r[1]||'').trim());
     if (!date || !nom || nom.toLowerCase() === 'test') continue;
     var s=parseInt(r[3]),H=parseInt(r[4]),B=parseInt(r[5]),f=parseInt(r[6]),t=parseInt(r[7]);
     if (isNaN(s)||isNaN(H)||isNaN(B)||isNaN(f)||isNaN(t)) continue;
@@ -549,9 +571,7 @@ function processData(rows) {
     if (!wRowsByDate[date]) wRowsByDate[date]=[];
     wRowsByDate[date].push({n:nom,s:s,H:H,B:B,f:f,t:t,S:S});
   }
-  var allP=[];
-  Object.keys(wByDate).forEach(function(d){wByDate[d].forEach(function(p){if(allP.indexOf(p)===-1)allP.push(p);});});
-  var roster=allP.sort();
+  var roster=SEASON_ROSTER.slice().sort();
   function avg(arr){return arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*100)/100:null;}
   var out={};
   Object.keys(wRowsByDate).forEach(function(date){
@@ -567,7 +587,7 @@ function processData(rows) {
     if (rr.length < 11) continue;
     if ((rr[2]||'').trim() !== 'Rpe') continue;
     var rdate = (rr[0]||'').trim().split(' ')[0];
-    var rnom = (rr[1]||'').trim();
+    var rnom = canonicalName((rr[1]||'').trim());
     var rtype = (rr[9]||'').trim();
     var rscore = parseFloat(rr[10]);
     var rts = (rr[0]||'').trim();
@@ -701,6 +721,44 @@ var SCSS={vert:'statut-vert',jaune:'statut-jaune',orange:'statut-orange',rouge:'
 
 function setProgress(pct,msg){document.getElementById('loader-bar').style.width=pct+'%';if(msg)document.getElementById('loader-sub').textContent=msg;}
 
+// ── Saisons (1er juillet -> 30 juin) ────────────────────────
+var SEASONS = [];
+var CUR_SEASON_DAYS = [];
+function seasonKeyOf(dateStr) {
+  var p = (dateStr||'').split('/');
+  if (p.length < 3) return '';
+  var month = parseInt(p[1], 10), year = parseInt(p[2], 10);
+  if (isNaN(month) || isNaN(year)) return '';
+  return month >= 7 ? (year + '-' + (year + 1)) : ((year - 1) + '-' + year);
+}
+function seasonLabel(key) { return key ? 'Saison ' + key : ''; }
+function buildSeasons() {
+  var set = {};
+  ALLDAYS.forEach(function(d){ var k = seasonKeyOf(d); if (k) set[k] = true; });
+  SEASONS = Object.keys(set).sort(function(a,b){ return parseInt(b,10) - parseInt(a,10); });
+}
+function populateSeasonSelect(preferred) {
+  var sel = document.getElementById('seasonSelect');
+  sel.innerHTML = '';
+  SEASONS.forEach(function(s){
+    var o = document.createElement('option'); o.value = s; o.textContent = seasonLabel(s); sel.appendChild(o);
+  });
+  sel.value = (preferred && SEASONS.indexOf(preferred) !== -1) ? preferred : (SEASONS[0] || '');
+}
+function populateDateSelectForSeason() {
+  var season = document.getElementById('seasonSelect').value;
+  CUR_SEASON_DAYS = ALLDAYS.filter(function(d){ return seasonKeyOf(d) === season; });
+  var sel = document.getElementById('dateSelect');
+  var prevVal = sel.value;
+  sel.innerHTML = '';
+  CUR_SEASON_DAYS.forEach(function(d){ var o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
+  sel.value = CUR_SEASON_DAYS.indexOf(prevVal) !== -1 ? prevVal : (CUR_SEASON_DAYS[CUR_SEASON_DAYS.length - 1] || '');
+}
+function onSeasonChange() {
+  populateDateSelectForSeason();
+  render();
+}
+
 async function loadData() {
   setProgress(10,'Connexion au Google Sheet...');
   try {
@@ -731,9 +789,9 @@ async function loadData() {
 
 async function init() {
   var ok=await loadData();if(!ok)return;
-  var sel=document.getElementById('dateSelect');sel.innerHTML='';
-  ALLDAYS.forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent=d;sel.appendChild(o);});
-  sel.value=ALLDAYS[ALLDAYS.length-1];
+  buildSeasons();
+  populateSeasonSelect(SEASONS[0]);
+  populateDateSelectForSeason();
   document.getElementById('loading-screen').classList.add('hidden');
   document.getElementById('app').style.display='block';
   render();
@@ -751,12 +809,14 @@ function reprocessData() {
 
 async function refreshData() {
   var btn=document.getElementById('btn-refresh');btn.classList.add('loading');
-  var prev=document.getElementById('dateSelect').value;
+  var prevSeason=document.getElementById('seasonSelect').value;
+  var prevDate=document.getElementById('dateSelect').value;
   var ok=await loadData();
   if (ok) {
-    var sel=document.getElementById('dateSelect');sel.innerHTML='';
-    ALLDAYS.forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent=d;sel.appendChild(o);});
-    sel.value=ALLDAYS.indexOf(prev)!==-1?prev:ALLDAYS[ALLDAYS.length-1];
+    buildSeasons();
+    populateSeasonSelect(prevSeason);
+    populateDateSelectForSeason();
+    if (CUR_SEASON_DAYS.indexOf(prevDate)!==-1) document.getElementById('dateSelect').value=prevDate;
     render();
   }
   btn.classList.remove('loading');
@@ -989,13 +1049,7 @@ var RPE_ROSTER = [];
 var RPE_CURRENT_MISSING_TYPE = null;
 
 function buildRpeRoster() {
-  var allPlayers = [];
-  RPEDAYS.forEach(function(d) {
-    (RPE[d].sessions||[]).forEach(function(s) {
-      if (allPlayers.indexOf(s.n) === -1) allPlayers.push(s.n);
-    });
-  });
-  RPE_ROSTER = allPlayers.sort();
+  RPE_ROSTER = SEASON_ROSTER.slice().sort();
 }
 
 function renderRpeMissing(rpeDay) {
@@ -1287,8 +1341,8 @@ function resetReglagesDay() {
 
 function moveDate(dir) {
   var sel=document.getElementById('dateSelect');
-  var idx=ALLDAYS.indexOf(sel.value),next=idx+dir;
-  if (next>=0&&next<ALLDAYS.length){sel.value=ALLDAYS[next];render();}
+  var idx=CUR_SEASON_DAYS.indexOf(sel.value),next=idx+dir;
+  if (next>=0&&next<CUR_SEASON_DAYS.length){sel.value=CUR_SEASON_DAYS[next];render();}
 }
 
 init();
