@@ -500,6 +500,21 @@ table.data-table td.cell-overridden {
     -webkit-print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
+
+  /* Fond identique au site (dégradé bordeaux + hachures) derrière les pages
+     du PDF ; les tableaux, cartes, etc. restent en blanc comme à l'écran. */
+  html, body {
+    background-color: #580010 !important;
+    background-image:
+      radial-gradient(ellipse at 40% 50%, rgba(160,0,30,0.5) 0%, rgba(60,0,10,0.6) 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='0.7' stroke-opacity='0.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='0.7' stroke-opacity='0.2'/%3E%3C/svg%3E") !important;
+    background-size: cover, 20px 20px !important;
+    background-repeat: no-repeat, repeat !important;
+    background-attachment: scroll !important;
+  }
+  main {
+    background: transparent !important;
+  }
   #reportCard, .report-card {
     border: none;
   }
@@ -2495,9 +2510,9 @@ function fmt(value, decimals) {
   });
 }
 
-function renderPodiumCard(label, leader, key, unit, decimals) {
+function renderPodiumCard(label, leader, key, unit, decimals, kind) {
   const div = document.createElement("div");
-  div.className = "podium-card";
+  div.className = "podium-card" + (kind ? ` podium-card--${kind}` : "");
   if (!leader) {
     div.innerHTML = `<div class="podium-label">${label}</div><div class="podium-name">—</div>`;
     return div;
@@ -2556,10 +2571,10 @@ function renderGroupTable(groupName, stats, opts) {
   if (options.showPodium) {
     const podiumRow = document.createElement("div");
     podiumRow.className = "podium-row";
-    podiumRow.appendChild(renderPodiumCard("Accel max", findLeader(stats, "accelMax"), "accelMax", "", 2));
-    podiumRow.appendChild(renderPodiumCard("Vmax", findLeader(stats, "vmax"), "vmax", " km/h", 2));
+    podiumRow.appendChild(renderPodiumCard("Accel max", findLeader(stats, "accelMax"), "accelMax", "", 2, "accel"));
+    podiumRow.appendChild(renderPodiumCard("Vmax", findLeader(stats, "vmax"), "vmax", " km/h", 2, "vmax"));
     const sp = getPodiumSpeedMetric();
-    podiumRow.appendChild(renderPodiumCard(sp.label, findLeader(stats, sp.key), sp.key, " m", 0));
+    podiumRow.appendChild(renderPodiumCard(sp.label, findLeader(stats, sp.key), sp.key, " m", 0, "distance"));
     wrapper.appendChild(podiumRow);
   }
 
