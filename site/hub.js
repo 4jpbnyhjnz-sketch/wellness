@@ -10,15 +10,24 @@ function switchHubSection(name) {
   });
   HUB_SECTIONS.forEach(s => {
     const el = document.getElementById('hub-' + s);
-    if (el) el.style.display = s === name ? 'block' : 'none';
+    if (el) el.style.display = (s === name) ? 'block' : 'none';
   });
 
-  if (name === 'wellness' && ALLDAYS.length) render();
-  if (name === 'rpe') { syncDateSelectors(); if (ALLDAYS.length) renderRpe(); }
-  if (name === 'joueur') renderCrossPlayerSelect();
-  if (name === 'tests') { renderTestResults(); renderEvoPlayerSelect(); renderRankings(); }
+  if (name === 'wellness' && typeof render === 'function' && ALLDAYS.length) render();
+  if (name === 'rpe') {
+    syncDateSelectors();
+    if (typeof renderRpe === 'function' && ALLDAYS.length) renderRpe();
+  }
+  if (name === 'joueur') {
+    if (typeof renderCrossPlayerSelect === 'function') renderCrossPlayerSelect();
+  }
+  if (name === 'tests') {
+    if (typeof renderTestResults === 'function') renderTestResults();
+    if (typeof renderRankings === 'function') renderRankings();
+    if (typeof renderEvoPlayerSelect === 'function') renderEvoPlayerSelect();
+  }
   if (name === 'gps') {
-    if (typeof rerenderIfLoaded === 'function') rerenderIfLoaded();
+    if (typeof rerenderGPSIfNeeded === 'function') rerenderGPSIfNeeded();
   }
 }
 
@@ -26,7 +35,7 @@ function syncDateSelectors() {
   const sel1 = document.getElementById('dateSelect');
   const sel2 = document.getElementById('dateSelect2');
   if (!sel1 || !sel2) return;
-  if (sel2.options.length === 0 && ALLDAYS.length) {
+  if (sel2.options.length === 0 && typeof ALLDAYS !== 'undefined' && ALLDAYS.length) {
     ALLDAYS.forEach(d => {
       const o = document.createElement('option');
       o.value = d; o.textContent = d;
@@ -37,50 +46,49 @@ function syncDateSelectors() {
 }
 
 function initHubLogo() {
-  const el = document.getElementById('hubLogo');
-  if (!el) return;
-  if (typeof NISSA_LOGO_B64 !== 'undefined' && NISSA_LOGO_B64) {
-    el.style.backgroundImage = `url('${NISSA_LOGO_B64}')`;
-    el.style.backgroundSize = 'contain';
-    el.style.backgroundRepeat = 'no-repeat';
-    el.style.backgroundPosition = 'center';
+  // Hub header logo
+  const hubLogo = document.getElementById('hubLogo');
+  if (hubLogo && typeof NISSA_LOGO_B64 !== 'undefined' && NISSA_LOGO_B64) {
+    hubLogo.style.backgroundImage = `url('${NISSA_LOGO_B64}')`;
   }
-  // Also inject into GPS report sections
+  // GPS report logo blocks
   ['reportLogoBlock', 'matchReportLogoBlock'].forEach(id => {
     const block = document.getElementById(id);
-    if (!block) return;
-    const img = document.createElement('img');
-    img.src = typeof NISSA_LOGO_B64 !== 'undefined' ? NISSA_LOGO_B64 : '';
-    img.alt = 'Nissa Rugby';
-    img.style.height = '48px';
-    block.appendChild(img);
+    if (!block || block.hasChildNodes()) return;
+    if (typeof NISSA_LOGO_B64 !== 'undefined') {
+      const img = document.createElement('img');
+      img.src = NISSA_LOGO_B64;
+      img.alt = 'Nissa Rugby';
+      img.style.height = '48px';
+      block.appendChild(img);
+    }
   });
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Init GPS module
-  if (typeof initGPS === 'function') initGPS();
-  if (typeof initTests === 'function') initTests();
-  if (typeof initJoueur === 'function') initJoueur();
-
-  // Wire hub navigation
+  // Wire main hub navigation
   document.querySelectorAll('.top-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => switchHubSection(btn.dataset.hub));
   });
 
-  // Init hub logo
+  // GPS tab navigation is already wired by gps.js's own DOMContentLoaded
+  // Tests and Joueur inits
+  if (typeof initTests === 'function') initTests();
+  if (typeof initJoueur === 'function') initJoueur();
+
+  // Inject logos
   initHubLogo();
 
   // Show header
   const header = document.getElementById('hub-header');
   if (header) header.style.display = 'flex';
 
-  // Load wellness data
+  // Load wellness data (async)
   try {
     const ok = await loadWellnessData();
     if (ok) {
       populateDateSelectors();
-      render();
+      if (typeof render === 'function') render();
     }
   } catch(e) {
     console.warn('Wellness init error:', e);
@@ -90,5 +98,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   setTimeout(() => {
     const ls = document.getElementById('loading-screen');
     if (ls) ls.classList.add('hidden');
-  }, 600);
+  }, 700);
 });
