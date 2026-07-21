@@ -174,33 +174,34 @@ main {
 /* ---------- Podiums ---------- */
 .podium-row {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .podium-card {
   flex: 1 1 150px;
   background: var(--black);
   color: var(--white);
   text-align: center;
-  padding: 14px 10px;
-  border-radius: var(--radius);
+  padding: 17px 12px;
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
 }
 .podium-card .podium-label {
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   color: #ccc;
   letter-spacing: 0.04em;
 }
 .podium-card .podium-name {
   font-weight: bold;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--red);
-  margin: 4px 0 2px;
+  margin: 5px 0 3px;
 }
 .podium-card .podium-value {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: bold;
 }
 
@@ -532,7 +533,6 @@ table.data-table td.cell-overridden {
     background: #1a1a1a !important;
     border-radius: 4px !important;
     padding: 10px 12px !important;
-    margin-bottom: 14px !important;
     position: relative !important;
     overflow: hidden !important;
     flex-wrap: nowrap !important;
@@ -573,7 +573,6 @@ table.data-table td.cell-overridden {
     background: rgba(255,255,255,0.08) !important;
     border: none !important;
     border-radius: 3px !important;
-    padding: 4px 8px !important;
     flex: 1 !important;
   }
   .report-header-label {
@@ -589,8 +588,6 @@ table.data-table td.cell-overridden {
   .group-title-bar {
     background: transparent !important;
     color: #D6001C !important;
-    font-size: 8.5px !important;
-    padding: 6px 0 3px !important;
     border-radius: 0 !important;
     letter-spacing: 0.06em !important;
     border-bottom: 1px solid #eee !important;
@@ -674,60 +671,63 @@ table.data-table td.cell-overridden {
     word-break: break-word;
   }
   .podium-row {
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: 10px;
+    margin-bottom: 10px;
   }
   .podium-card {
-    padding: 6px 8px;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
   }
   .podium-card .podium-label {
-    font-size: 9px;
+    font-size: 9.5px;
   }
   .podium-card .podium-name {
-    font-size: 12px;
-    margin: 2px 0 1px;
+    font-size: 14px;
+    margin: 3px 0 2px;
   }
   .podium-card .podium-value {
-    font-size: 13px;
+    font-size: 15px;
   }
 
-  .page1-block.density-sm table.data-table { font-size: 9px; }
-  .page1-block.density-sm table.data-table th, .page1-block.density-sm table.data-table td { padding: 3px 5px; }
-  .page1-block.density-sm .median-table th, .page1-block.density-sm .median-table td { font-size: 8px; padding: 2px 4px; }
-
-  .page1-block.density-md table.data-table { font-size: 8px; }
-  .page1-block.density-md table.data-table th, .page1-block.density-md table.data-table td { padding: 2px 4px; }
-  .page1-block.density-md .objectives-table { margin-top: 5px; }
-  .page1-block.density-md .group-block { margin-bottom: 8px; }
-  .page1-block.density-md .group-title-bar { padding: 4px 10px; }
-  .page1-block.density-md .section-title { margin: 10px 0 6px; padding: 5px 10px; }
-  .page1-block.density-md .report-header { margin-bottom: 8px; }
-  .page1-block.density-md .report-header-block { padding: 5px 10px; }
-  .page1-block.density-md .podium-card { padding: 3px 5px; }
-  .page1-block.density-md .podium-card .podium-label { font-size: 8px; }
-  .page1-block.density-md .podium-card .podium-name { font-size: 10px; margin: 1px 0; }
-  .page1-block.density-md .podium-card .podium-value { font-size: 10px; }
-  .page1-block.density-md .podium-row { gap: 6px; margin-bottom: 4px; }
-  .page1-block.density-md .median-table th, .page1-block.density-md .median-table td { font-size: 7.5px; padding: 2px 3px; }
-  .page1-block.density-md .avoid-break .section-title { margin: 6px 0 4px; padding: 4px 10px; }
-
-  .page1-block.density-lg table.data-table { font-size: 7px; line-height: 1.1; }
-  .page1-block.density-lg table.data-table th, .page1-block.density-lg table.data-table td { padding: 1px 3px; }
-  .page1-block.density-lg .objectives-table { margin-top: 4px; }
-  .page1-block.density-lg .group-block { margin-bottom: 4px; }
-  .page1-block.density-lg .group-title-bar { padding: 2px 8px; font-size: 10px; }
-  .page1-block.density-lg .section-title { padding: 3px 8px; margin: 6px 0 4px; font-size: 11px; }
-  .page1-block.density-lg .page-title { margin-bottom: 4px; font-size: 10px; }
-  .page1-block.density-lg .report-header { margin-bottom: 6px; }
-  .page1-block.density-lg .report-header-block { padding: 3px 8px; }
-  .page1-block.density-lg .report-header-value { font-size: 12px; }
-  .page1-block.density-lg .podium-row { gap: 5px; margin-bottom: 3px; }
-  .page1-block.density-lg .podium-card { padding: 2px 4px; }
-  .page1-block.density-lg .podium-card .podium-label { font-size: 7px; }
-  .page1-block.density-lg .podium-card .podium-name { font-size: 8px; margin: 1px 0; }
-  .page1-block.density-lg .podium-card .podium-value { font-size: 8.5px; }
-  .page1-block.density-lg .median-table th, .page1-block.density-lg .median-table td { font-size: 7px; padding: 1px 2px; }
-  .page1-block.density-lg .avoid-break .section-title { margin: 4px 0 3px; padding: 3px 8px; }
+  /* ===== Remplissage intelligent de la page 1 =====
+     --dt va de 1 (≤20 joueurs, taille normale) à 0 (45 joueurs, taille mini)
+     et est fixé par le JS (applyDensityScale) selon le nombre total de
+     joueurs classés. Contrairement à l'ancien système par paliers, tout
+     s'ajuste ici en continu — sauf les cartes "record" qui gardent toujours
+     la même taille (cf. règles .podium-card ci-dessus, non concernées).
+  */
+  .page1-block table.data-table {
+    font-size: calc(7px + var(--dt, 1) * 2.5px);
+    line-height: 1.15;
+  }
+  .page1-block table.data-table th {
+    padding: calc(1px + var(--dt, 1) * 2px) calc(3px + var(--dt, 1) * 1px);
+  }
+  .page1-block table.data-table td {
+    padding: calc(1px + var(--dt, 1) * 3px) calc(3px + var(--dt, 1) * 1px);
+  }
+  .page1-block .objectives-table {
+    margin-top: calc(4px + var(--dt, 1) * 12px);
+  }
+  .page1-block .group-block {
+    margin-bottom: calc(4px + var(--dt, 1) * 26px);
+  }
+  .page1-block .group-title-bar {
+    font-size: 8.5px;
+    padding: calc(2px + var(--dt, 1) * 4px) 0 calc(1px + var(--dt, 1) * 2px) 0;
+  }
+  .page1-block .section-title {
+    padding: calc(3px + var(--dt, 1) * 5px) calc(8px + var(--dt, 1) * 6px);
+    margin: calc(6px + var(--dt, 1) * 22px) 0 calc(4px + var(--dt, 1) * 10px);
+    font-size: calc(11px + var(--dt, 1) * 4px);
+  }
+  .page1-block .report-header {
+    margin-bottom: calc(6px + var(--dt, 1) * 8px);
+  }
+  .page1-block .report-header-block {
+    padding: calc(3px + var(--dt, 1) * 1px) 8px;
+  }
 }
 
 /* ---------- Médianes ---------- */
@@ -2510,6 +2510,26 @@ function fmt(value, decimals) {
   });
 }
 
+// Remplissage intelligent de la page 1 : entre 20 et 45 joueurs au total,
+// la taille du texte/des marges des tableaux (mais pas des cartes "record")
+// diminue en continu pour que les deux tableaux + les médianes tiennent
+// toujours sur une seule page, sans à-coups de palier comme avant.
+// t = 1 => taille normale (≤ 20 joueurs), t = 0 => taille mini (≥ 45 joueurs).
+function computeDensityScale(totalClassified) {
+  const LOW = 20;
+  const HIGH = 45;
+  if (totalClassified <= LOW) return 1;
+  if (totalClassified >= HIGH) return 0;
+  return 1 - (totalClassified - LOW) / (HIGH - LOW);
+}
+
+function applyDensityScale(el, totalClassified) {
+  if (!el) return;
+  // Nettoyage des anciennes classes de palier, au cas où elles traînent encore.
+  el.classList.remove("density-sm", "density-md", "density-lg");
+  el.style.setProperty("--dt", computeDensityScale(totalClassified).toFixed(3));
+}
+
 function renderPodiumCard(label, leader, key, unit, decimals, kind) {
   const div = document.createElement("div");
   div.className = "podium-card" + (kind ? ` podium-card--${kind}` : "");
@@ -2804,11 +2824,9 @@ function renderPeriodPages(rows, grouped) {
     const totalClassified = periodGrouped["3/4"].length + periodGrouped["Avant"].length;
 
     const block = document.createElement("div");
-    // Réutilise les paliers de densité de la page 1 pour les sous-périodes
+    // Remplissage intelligent de la page, comme pour la page 1 (Séance)
     block.className = "page-break-before page1-block";
-    if (totalClassified > 26) block.classList.add("density-lg");
-    else if (totalClassified > 16) block.classList.add("density-md");
-    else if (totalClassified > 9) block.classList.add("density-sm");
+    applyDensityScale(block, totalClassified);
 
     const pageTitle = document.createElement("p");
     pageTitle.className = "page-title";
@@ -2868,14 +2886,11 @@ function renderReport(rows, meta) {
   medianContainer.innerHTML = "";
   medianContainer.appendChild(renderMedianTable(grouped));
 
-  // Plus il y a de joueurs, plus la page 1 est resserrée à l'impression (densité par paliers,
-  // appliquée dès le rendu — pas de bricolage au moment de l'impression).
+  // Plus il y a de joueurs, plus la page 1 est resserrée à l'impression (échelle
+  // continue, appliquée dès le rendu — pas de bricolage au moment de l'impression).
   const totalClassified = grouped["3/4"].length + grouped["Avant"].length;
   const page1El = document.getElementById("page1Content");
-  page1El.classList.remove("density-sm", "density-md", "density-lg");
-  if (totalClassified > 26) page1El.classList.add("density-lg");
-  else if (totalClassified > 16) page1El.classList.add("density-md");
-  else if (totalClassified > 9) page1El.classList.add("density-sm");
+  applyDensityScale(page1El, totalClassified);
 
   renderScatterGallery("scatterGallery34", "3/4", grouped["3/4"]);
   renderScatterGallery("scatterGalleryAvant", "Avant", grouped["Avant"]);
@@ -3305,9 +3320,7 @@ function renderMatchHalves(rows) {
     const block = document.createElement("div");
     block.className = "page-break-before page1-block";
     const totalClassified = grp["3/4"].length + grp.Avant.length;
-    if (totalClassified > 26) block.classList.add("density-lg");
-    else if (totalClassified > 16) block.classList.add("density-md");
-    else if (totalClassified > 9) block.classList.add("density-sm");
+    applyDensityScale(block, totalClassified);
 
     const pageTitle = document.createElement("p");
     pageTitle.className = "page-title";
@@ -3686,9 +3699,7 @@ function buildSessionPrintRoot(session) {
   const page1 = document.createElement("div");
   page1.className = "page1-block";
   const totalClassified = session.groups["3/4"].length + session.groups.Avant.length;
-  if (totalClassified > 26) page1.classList.add("density-lg");
-  else if (totalClassified > 16) page1.classList.add("density-md");
-  else if (totalClassified > 9) page1.classList.add("density-sm");
+  applyDensityScale(page1, totalClassified);
 
   const pageTitle = document.createElement("p");
   pageTitle.className = "page-title";
