@@ -469,7 +469,15 @@
           </div>
         </div>
 
-        <div class="section-label">Moyenne RPE par joueur (hors types exclus du sRPE)</div>
+        <div class="section-label" style="margin-top:24px">Récapitulatif de la semaine (jour par jour)</div>
+        <div class="rpe-session-table-wrap">
+          <table class="rpe-session-table">
+            <thead><tr><th>Jour</th><th>Types de séance</th><th>RPE moyen (/10)</th><th>Joueurs</th><th>sRPE du jour (charge)</th></tr></thead>
+            <tbody id="semaine-recap-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="section-label" style="margin-top:24px">Moyenne RPE par joueur (hors types exclus du sRPE)</div>
         <div class="chart-container">
           <div class="chart-wrap" style="height:320px"><canvas id="semaineRpeChart"></canvas></div>
         </div>
@@ -548,7 +556,7 @@ var CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?fo
 var WD = {}, ALLDAYS = [], chartInst = null;
 var PAVG21 = {}, PAVG3 = {}, PPERS = {};
 var RPE = {}, RPEDAYS = [];
-var SRPE_WEEK = {}, SRPE_WEEKS = [];
+var SRPE_WEEK = {}, SRPE_WEEKS = [], SRPE_DAY = {};
 var RAW_ROWS = [];
 
 // ── Roster fixe Espoirs (evite les joueurs fantomes / doublons de casse) ──
@@ -754,7 +762,7 @@ function processData(rows) {
       pp[d][pl]=streak;
     }
   }
-  return {out:out,total:rows.length-1,roster:roster,pa21:pa21,pa3:pa3,pp:pp,rpeOut:rpeOut,rpeDates:rpeDates,srpeByWeek:srpeByWeek,srpeWeeks:srpeWeeks};
+  return {out:out,total:rows.length-1,roster:roster,pa21:pa21,pa3:pa3,pp:pp,rpeOut:rpeOut,rpeDates:rpeDates,srpeByWeek:srpeByWeek,srpeWeeks:srpeWeeks,srpeByDate:srpeByDate};
 }
 
 function calcStatut(fa,e21,e3,streak,r) {
@@ -850,7 +858,7 @@ async function loadData() {
     var res=processData(rows);
     WD=res.out;PAVG21=res.pa21;PAVG3=res.pa3;PPERS=res.pp;
     RPE=res.rpeOut;RPEDAYS=res.rpeDates;
-    SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;
+    SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_DAY=res.srpeByDate;
     buildRpeRoster();
     ALLDAYS=Object.keys(WD).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
     setProgress(100,'Pret !');
@@ -880,7 +888,7 @@ function reprocessData() {
   var res=processData(RAW_ROWS);
   WD=res.out;PAVG21=res.pa21;PAVG3=res.pa3;PPERS=res.pp;
   RPE=res.rpeOut;RPEDAYS=res.rpeDates;
-  SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;
+  SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_DAY=res.srpeByDate;
   buildRpeRoster();
   render();
 }
@@ -1422,6 +1430,32 @@ function renderRpeSemaine() {
 
   var curStats = computeWeekStats(CUR_RPE_WEEK);
   var prevStats = computeWeekStats(prevKey);
+
+  // Tableau récap jour par jour
+  var frDayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  document.getElementById('semaine-recap-tbody').innerHTML = curStats.days.map(function(d) {
+    var dt = parseFR(d);
+    var dayName = frDayNames[dt.getDay()];
+    var rpeDay = RPE[d];
+    var typesStr = '<span style="color:var(--text2)">—</span>', avgStr = '—', playersStr = '0', srpeStr = '—';
+    if (rpeDay && rpeDay.sessions.length) {
+      typesStr = rpeDay.typeAvgs.map(function(t) {
+        var excluded = !!RPE_OVERRIDES.srpeExclusions[d + '|' + t.type];
+        return t.type + (excluded ? ' <span style="color:var(--text2)">(hors sRPE)</span>' : '');
+      }).join(', ');
+      var nonExcluded = rpeDay.sessions.filter(function(s){ return !RPE_OVERRIDES.srpeExclusions[d + '|' + s.type]; });
+      if (nonExcluded.length) {
+        var avg = nonExcluded.reduce(function(s,x){return s+x.score;},0) / nonExcluded.length;
+        avgStr = (Math.round(avg*10)/10).toString();
+      }
+      var distinctPlayers = {};
+      rpeDay.sessions.forEach(function(s){ distinctPlayers[s.n] = true; });
+      playersStr = Object.keys(distinctPlayers).length.toString();
+      var sd = SRPE_DAY[d];
+      srpeStr = sd ? Math.round(sd.total).toLocaleString('fr-FR') : '0';
+    }
+    return '<tr><td style="font-weight:600">' + dayName + ' ' + d + '</td><td style="font-size:12px">' + typesStr + '</td><td>' + avgStr + '</td><td>' + playersStr + '</td><td>' + srpeStr + '</td></tr>';
+  }).join('');
 
   // Graphique 1 : moyenne RPE par joueur ayant des séances comptant dans le sRPE
   var withData = curStats.players.filter(function(p){ return p.avgRpe != null; });
