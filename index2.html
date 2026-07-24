@@ -995,7 +995,7 @@ function render() {
       var e3=avg3!==null?((r.S-avg3)/avg3)*100:null;
       var streak=pp[r.n]||0;
       var statut=calcStatut(fa,e21,e3,streak,r);
-      return {n:r.n,s:r.s,H:r.H,B:r.B,f:r.f,t:r.t,S:r.S,_fa:fa,_avg21:avg21,_avg3:avg3,_e21:e21,_e3:e3,_streak:streak,_statut:statut};
+      return {n:r.n,s:r.s,H:r.H,B:r.B,f:r.f,t:r.t,S:r.S,rem:r.rem,_fa:fa,_avg21:avg21,_avg3:avg3,_e21:e21,_e3:e3,_streak:streak,_statut:statut};
     });
     var sorted=enriched.slice().sort(function(a,b){var od=SORD[a._statut]-SORD[b._statut];return od!==0?od:b.S-a.S;});
 
@@ -1044,6 +1044,7 @@ function render() {
         +p21+p3
         +'</div>'
         +ph+ah+bars
+        +(r.rem?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;font-style:italic;color:var(--text)">&#128172; '+escapeHtml(r.rem)+'</div>':'')
         +'</div>';
     }).join('');
 
@@ -1125,7 +1126,8 @@ function renderRpePlayersGrid(rpeDay) {
     var sessionsHTML = sessions.map(function(s) {
       var heure = (s.ts||'').split(' ')[1] || '';
       var sc = rpeColor(s.score);
-      return '<div class="score-row"><span class="lbl">'+s.type+'</span><div class="score-track"><div class="score-fill" style="width:'+Math.min(100,(s.score/10)*100)+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+s.score+'</span></div>';
+      return '<div class="score-row"><span class="lbl">'+s.type+'</span><div class="score-track"><div class="score-fill" style="width:'+Math.min(100,(s.score/10)*100)+'%;background:'+sc+'"></div></div><span class="score-num" style="color:'+sc+'">'+s.score+'</span></div>'
+        + (s.rem ? '<div style="font-size:11px;font-style:italic;color:var(--text2);margin:2px 0 6px 2px">&#128172; '+escapeHtml(s.rem)+'</div>' : '');
     }).join('');
 
     return '<div class="player-card '+statutClass+'">'
