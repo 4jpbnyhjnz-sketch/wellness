@@ -578,6 +578,11 @@ function canonicalName(raw) {
   var key = normalizeKey(raw);
   return ROSTER_LOOKUP[key] || raw;
 }
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, function(c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
 
 // ── Utilitaires dates (global, reutilises par processData et l'onglet Semaine) ──
 function parseFR(dstr) {
@@ -644,11 +649,12 @@ function processData(rows) {
     if (!date || !nom || nom.toLowerCase() === 'test') continue;
     var s=parseInt(r[3]),H=parseInt(r[4]),B=parseInt(r[5]),f=parseInt(r[6]),t=parseInt(r[7]);
     if (isNaN(s)||isNaN(H)||isNaN(B)||isNaN(f)||isNaN(t)) continue;
+    var rem = (r[8]||'').trim();
     var S=s+H+B+f+t;
     if (!wByDate[date]) wByDate[date]=[];
     if (wByDate[date].indexOf(nom)===-1) wByDate[date].push(nom);
     if (!wRowsByDate[date]) wRowsByDate[date]=[];
-    wRowsByDate[date].push({n:nom,s:s,H:H,B:B,f:f,t:t,S:S});
+    wRowsByDate[date].push({n:nom,s:s,H:H,B:B,f:f,t:t,S:S,rem:rem});
   }
   var roster=SEASON_ROSTER.slice().sort();
   function avg(arr){return arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*100)/100:null;}
@@ -670,6 +676,7 @@ function processData(rows) {
     var rtype = (rr[9]||'').trim();
     var rscore = parseFloat(rr[10]);
     var rtsRaw = (rr[0]||'').trim();
+    var rrem = (rr[8]||'').trim();
     var fixKey = rdateRaw+'|'+rnom+'|'+rtsRaw;
     if (RPE_OVERRIDES.typeFixes[fixKey]) rtype = RPE_OVERRIDES.typeFixes[fixKey];
     if (RPE_OVERRIDES.scoreFixes[fixKey] != null) rscore = RPE_OVERRIDES.scoreFixes[fixKey];
@@ -677,7 +684,7 @@ function processData(rows) {
     var rdate = rts.split(' ')[0];
     if (!rdate || !rnom || rnom.toLowerCase()==='test' || isNaN(rscore) || !rtype) continue;
     if (!rpeRowsByDate[rdate]) rpeRowsByDate[rdate] = [];
-    rpeRowsByDate[rdate].push({n:rnom, type:rtype, score:rscore, ts:rts, origKey:fixKey});
+    rpeRowsByDate[rdate].push({n:rnom, type:rtype, score:rscore, ts:rts, origKey:fixKey, rem:rrem});
   }
   var rpeOut = {};
   Object.keys(rpeRowsByDate).forEach(function(date) {
@@ -1053,7 +1060,7 @@ function render() {
         +'<td>'+fmtPct(r._e21)+'</td>'
         +'<td>'+fmtPct(r._e3)+'</td>'
         +'<td>'+sk+'</td>'
-        +'<td class="comment-cell">'+buildComment(r,statut)+'</td>'
+        +'<td class="comment-cell">'+buildComment(r,statut)+(r.rem?'<div style="margin-top:4px;font-style:italic;color:var(--text)">&#128172; '+escapeHtml(r.rem)+'</div>':'')+'</td>'
         +'</tr>';
     }).join('');
   }
@@ -1231,7 +1238,7 @@ function renderRpeIndiv() {
   var history = [];
   RPEDAYS.forEach(function(d) {
     (RPE[d].sessions||[]).forEach(function(s) {
-      if (s.n === player) history.push({date:d, type:s.type, score:s.score, ts:s.ts});
+      if (s.n === player) history.push({date:d, type:s.type, score:s.score, ts:s.ts, rem:s.rem});
     });
   });
   history.sort(function(a,b){ return (b.ts||'').localeCompare(a.ts||''); });
@@ -1270,7 +1277,8 @@ function renderRpeIndiv() {
   html += '<div class="section-label" style="margin-top:20px">Historique des séances (les plus récentes)</div>';
   html += '<div class="rpe-history-wrap">' + history.slice(0,40).map(function(h) {
     var col = rpeColor(h.score);
-    return '<div class="rpe-history-row"><span class="rpe-history-date">'+h.date+'</span><span class="rpe-history-type">'+h.type+'</span><span class="rpe-history-score" style="color:'+col+'">'+h.score+'/10</span></div>';
+    return '<div class="rpe-history-row"><span class="rpe-history-date">'+h.date+'</span><span class="rpe-history-type">'+h.type+'</span><span class="rpe-history-score" style="color:'+col+'">'+h.score+'/10</span></div>'
+      + (h.rem ? '<div style="font-size:11px;font-style:italic;color:var(--text2);margin:2px 0 8px 4px">&#128172; '+escapeHtml(h.rem)+'</div>' : '');
   }).join('') + '</div>';
 
   document.getElementById('rpeindiv-content').innerHTML = html;
