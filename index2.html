@@ -228,6 +228,47 @@
   .chart-wrap{position:relative;height:280px}
   .footer{text-align:center;padding:24px;font-size:12px;color:var(--text2);border-top:1px solid var(--border);margin-top:32px}
   @media(max-width:600px){.main{padding:16px}.header{padding:16px}.metrics-grid{grid-template-columns:repeat(2,1fr)}.players-grid{grid-template-columns:1fr}}
+
+  /* ── Rapport hebdomadaire (DA façon rapport GPS) ── */
+  .rapport-wrap{background:#0d0000;border:1px solid rgba(204,17,34,.35);border-radius:4px;padding:0;overflow:hidden;font-family:var(--font);color:#1a1a1a}
+  .rapport-page{background:#fff;margin:14px;border-radius:2px;overflow:hidden}
+  .rapport-topbar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:11px;color:#999;background:#fff}
+  .rapport-eyebrow{font-size:11px;letter-spacing:.08em;color:#a33;font-weight:700;padding:10px 16px 0}
+  .rapport-header{display:flex;align-items:stretch;background:#111;color:#fff;margin:8px 16px;border-radius:4px;overflow:hidden;position:relative}
+  .rapport-header::after{content:'';position:absolute;right:0;top:0;bottom:0;width:60px;background:linear-gradient(135deg,transparent 50%,var(--accent) 50%)}
+  .rapport-header-logo{width:56px;display:flex;align-items:center;justify-content:center;background:#000}
+  .rapport-header-logo img{width:36px;height:36px;object-fit:contain}
+  .rapport-header-fields{display:flex;flex:1}
+  .rapport-header-field{flex:1;padding:10px 14px;border-left:1px solid rgba(255,255,255,.08)}
+  .rapport-header-field .rf-lbl{font-size:9px;letter-spacing:.1em;color:var(--accent);font-weight:700;text-transform:uppercase}
+  .rapport-header-field .rf-val{font-size:14px;font-weight:700;color:#fff;margin-top:2px}
+  .rapport-band{background:var(--accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:.05em;padding:6px 16px;margin:14px 16px 0}
+  .rapport-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(0,0,0,.08);margin:0 16px}
+  .rapport-stat{background:#111;color:#fff;padding:14px 16px;text-align:center}
+  .rapport-stat .rs-lbl{font-size:10px;letter-spacing:.08em;color:#999;text-transform:uppercase}
+  .rapport-stat .rs-name{font-size:13px;color:var(--accent);font-weight:700;margin-top:4px}
+  .rapport-stat .rs-val{font-size:20px;font-weight:700;color:#fff;margin-top:2px}
+  .rapport-table-wrap{margin:14px 16px}
+  .rapport-table{width:100%;border-collapse:collapse;font-size:11px}
+  .rapport-table th{background:#1a1a1a;color:#fff;text-align:left;padding:6px 8px;font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+  .rapport-table td{padding:5px 8px;border-bottom:1px solid #eee;color:#222;white-space:nowrap}
+  .rapport-table tr:nth-child(even) td{background:#f7f7f7}
+  .rapport-table td.rp-star{color:var(--accent);font-weight:700}
+  .rapport-table td.rp-name{font-weight:600;color:#111}
+  .rapport-table .rp-foot td{background:#eee;font-weight:700;color:#333;border-top:2px solid #ccc}
+  .rapport-star-ic{color:#e0a70a}
+  .rapport-footer{display:flex;justify-content:space-between;padding:12px 16px;font-size:10px;color:#999;border-top:1px solid #eee;margin-top:8px}
+  .rapport-actions{display:flex;justify-content:flex-end;gap:10px;margin-bottom:10px}
+  .rapport-actions button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
+  .rapport-actions button:hover{background:#a30d1c}
+  @media print{
+    body *{visibility:hidden}
+    #rapport-print-area,#rapport-print-area *{visibility:visible}
+    #rapport-print-area{position:absolute;left:0;top:0;width:100%;margin:0}
+    .rapport-actions,.rapport-topbar{display:none!important}
+    .rapport-wrap{border:none}
+    .rapport-page{margin:0;page-break-after:always}
+  }
 </style>
 </head>
 <body>
@@ -482,10 +523,40 @@
           <div class="chart-wrap" style="height:320px"><canvas id="semaineRpeChart"></canvas></div>
         </div>
 
+        <div class="section-label" style="margin-top:24px">sRPE individuel — du plus élevé au plus faible</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">Semaine S</div>
+            <div class="rpe-session-table-wrap">
+              <table class="rpe-session-table">
+                <thead><tr><th>Joueur</th><th>sRPE</th></tr></thead>
+                <tbody id="semaine-srpe-indiv-cur-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">Semaine S-1</div>
+            <div class="rpe-session-table-wrap">
+              <table class="rpe-session-table">
+                <thead><tr><th>Joueur</th><th>sRPE</th></tr></thead>
+                <tbody id="semaine-srpe-indiv-prev-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div class="section-label" style="margin-top:24px">Séances manquantes par joueur (vs S et S-1)</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Référence = nombre max de séances faites par un joueur cette semaine-là. Une barre à -1 signifie une séance manquante.</div>
         <div class="chart-container">
           <div class="chart-wrap" style="height:360px"><canvas id="semaineMissingChart"></canvas></div>
+        </div>
+
+        <div class="section-label" style="margin-top:32px">Rapport hebdomadaire (imprimable)</div>
+        <div class="rapport-actions">
+          <button onclick="window.print()">&#128424; Imprimer / Exporter en PDF</button>
+        </div>
+        <div class="rapport-wrap" id="rapport-print-area">
+          <div id="rapport-content"></div>
         </div>
       </div>
 
@@ -702,15 +773,6 @@ function processData(rows) {
   var rpeDates = Object.keys(rpeOut).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
 
   // ── sRPE collectif : duree par type de seance ──────────────
-  function sessionDuration(type, date) {
-    var key = date+'|'+type;
-    if (RPE_OVERRIDES.durations[key] != null) return RPE_OVERRIDES.durations[key];
-    var t = type.toLowerCase();
-    if (t.indexOf('off feet') !== -1) return 30;
-    if (t.indexOf('match') !== -1) return 110;
-    return 60;
-  }
-
   // sRPE du jour (collectif) = somme sur les types de (moyenne RPE du type ce jour * duree du type)
   var srpeByDate = {};
   rpeDates.forEach(function(date) {
@@ -1370,6 +1432,10 @@ function defaultSessionDuration(type) {
   if (t.indexOf('match') !== -1) return 110;
   return 60;
 }
+function sessionDuration(type, date) {
+  var key = date + '|' + type;
+  return RPE_OVERRIDES.durations[key] != null ? RPE_OVERRIDES.durations[key] : defaultSessionDuration(type);
+}
 
 // ── Onglet Semaine ──────────────────────────────────────────
 var CUR_RPE_WEEK = null;
@@ -1472,6 +1538,45 @@ function computeWeekDayTypeChartData(weekMonday) {
   return {labels:labels, datasets:datasets};
 }
 
+var barDataLabelPlugin = {
+  id: 'barDataLabelPlugin',
+  afterDatasetsDraw: function(chart) {
+    var ctx = chart.ctx;
+    ctx.save();
+    ctx.fillStyle = '#f0f0f0';
+    ctx.font = "600 10px 'JetBrains Mono', monospace";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    chart.data.datasets.forEach(function(dataset, di) {
+      var meta = chart.getDatasetMeta(di);
+      if (meta.hidden) return;
+      meta.data.forEach(function(bar, i) {
+        var value = dataset.data[i];
+        if (value === null || value === undefined) return;
+        ctx.fillText(value, bar.x, bar.y - 4);
+      });
+    });
+    ctx.restore();
+  }
+};
+
+function computeIndividualSrpe(weekMonday) {
+  var days = weekDayKeys(weekMonday);
+  var byPlayer = {};
+  days.forEach(function(d) {
+    if (!RPE[d]) return;
+    RPE[d].sessions.forEach(function(s) {
+      var excluded = !!RPE_OVERRIDES.srpeExclusions[d + '|' + s.type];
+      if (excluded) return;
+      if (byPlayer[s.n] == null) byPlayer[s.n] = 0;
+      byPlayer[s.n] += s.score * sessionDuration(s.type, d);
+    });
+  });
+  return Object.keys(byPlayer).map(function(p) {
+    return {name:p, srpe: Math.round(byPlayer[p])};
+  }).sort(function(a,b){ return b.srpe - a.srpe; });
+}
+
 var semaineRpeChartInst = null, semaineMissingChartInst = null;
 function renderRpeSemaine() {
   initRpeSemaineWeek();
@@ -1527,7 +1632,8 @@ function renderRpeSemaine() {
   semaineRpeChartInst = new Chart(c1, {
     type:'bar',
     data:{labels:dayTypeData.labels, datasets:dayTypeData.datasets},
-    options:{responsive:true, maintainAspectRatio:false,
+    plugins:[barDataLabelPlugin],
+    options:{responsive:true, maintainAspectRatio:false, layout:{padding:{top:16}},
       plugins:{legend:{display:true, position:'top', labels:{color:'#888', font:{size:11}, boxWidth:12}}, tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}},
       scales:{
         y:{min:0, max:10, ticks:{stepSize:1, color:'#888', font:{size:11}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'transparent'}},
@@ -1535,6 +1641,16 @@ function renderRpeSemaine() {
       }
     }
   });
+
+  // Tableaux sRPE individuel (S et S-1), tries du plus eleve au plus faible
+  var indivCur = computeIndividualSrpe(CUR_RPE_WEEK);
+  var indivPrev = computeIndividualSrpe(prevKey);
+  document.getElementById('semaine-srpe-indiv-cur-tbody').innerHTML = indivCur.length
+    ? indivCur.map(function(p){ return '<tr><td style="font-weight:600">'+p.name+'</td><td>'+p.srpe.toLocaleString('fr-FR')+'</td></tr>'; }).join('')
+    : '<tr><td colspan="2" style="color:var(--text2)">Aucune donnée.</td></tr>';
+  document.getElementById('semaine-srpe-indiv-prev-tbody').innerHTML = indivPrev.length
+    ? indivPrev.map(function(p){ return '<tr><td style="font-weight:600">'+p.name+'</td><td>'+p.srpe.toLocaleString('fr-FR')+'</td></tr>'; }).join('')
+    : '<tr><td colspan="2" style="color:var(--text2)">Aucune donnée.</td></tr>';
 
   // Graphique 2 : séances manquantes par joueur, semaine S vs S-1
   var missNames = curStats.players.map(function(p){ return p.name; });
@@ -1560,6 +1676,93 @@ function renderRpeSemaine() {
       }
     }
   });
+
+  renderRpeRapport();
+}
+
+function renderRpeRapport() {
+  var season = seasonKeyOf(CUR_RPE_WEEK);
+  var n = weekNumberOf(CUR_RPE_WEEK, season);
+  var monDate = parseFR(CUR_RPE_WEEK);
+  var sunDate = new Date(monDate); sunDate.setDate(monDate.getDate() + 6);
+  var weekLabelTxt = (n >= 1 ? ('Semaine ' + n) : ('Pré-saison (' + n + ')'));
+  var dateRange = CUR_RPE_WEEK + ' au ' + fmtFR(sunDate);
+  var prevKey = prevWeekKey(CUR_RPE_WEEK);
+
+  var indivCur = computeIndividualSrpe(CUR_RPE_WEEK);
+  var indivPrevArr = computeIndividualSrpe(prevKey);
+  var prevMap = {};
+  indivPrevArr.forEach(function(p){ prevMap[p.name] = p.srpe; });
+
+  var curStats = computeWeekStats(CUR_RPE_WEEK);
+  var prevStats = computeWeekStats(prevKey);
+  var prevMissMap = {};
+  prevStats.players.forEach(function(p){ prevMissMap[p.name] = p.missing; });
+
+  var typeAvgs = computeWeekTypeAverages(CUR_RPE_WEEK);
+  var nbSessions = curStats.days.reduce(function(s,d){ return s + (RPE[d] ? RPE[d].sessions.length : 0); }, 0);
+
+  var srpeMaxPlayer = indivCur.length ? indivCur[0] : null;
+  var worstMissing = curStats.players.slice().sort(function(a,b){ return a.missing - b.missing; })[0];
+  var bestType = typeAvgs.length ? typeAvgs.slice().sort(function(a,b){ return b.avg - a.avg; })[0] : null;
+  var srpeVals = indivCur.map(function(p){ return p.srpe; });
+  var maxSrpeVal = srpeVals.length ? Math.max.apply(null, srpeVals) : null;
+
+  var srpeTableRows = indivCur.map(function(p) {
+    var pStat = curStats.players.filter(function(x){ return x.name === p.name; })[0];
+    var nbSess = pStat ? pStat.sessionCount : 0;
+    var avgRpe = pStat && pStat.avgRpe != null ? pStat.avgRpe.toFixed(1) : '—';
+    var prevVal = prevMap[p.name] != null ? prevMap[p.name] : 0;
+    var delta = p.srpe - prevVal;
+    var deltaStr = (delta > 0 ? '+' : '') + delta.toLocaleString('fr-FR');
+    var isMax = maxSrpeVal !== null && p.srpe === maxSrpeVal;
+    return '<tr><td class="rp-name">' + p.name + '</td><td>' + nbSess + '</td><td>' + avgRpe + '</td>'
+      + '<td class="' + (isMax ? 'rp-star' : '') + '">' + p.srpe.toLocaleString('fr-FR') + (isMax ? ' <span class="rapport-star-ic">&#9733;</span>' : '') + '</td>'
+      + '<td>' + prevVal.toLocaleString('fr-FR') + '</td><td>' + deltaStr + '</td></tr>';
+  }).join('');
+
+  var missSorted = curStats.players.slice().sort(function(a,b){ return a.missing - b.missing; });
+  var worstMissingVal = missSorted.length ? missSorted[0].missing : 0;
+  var missTableRows = missSorted.map(function(p) {
+    var prevM = prevMissMap[p.name] != null ? prevMissMap[p.name] : 0;
+    var isWorst = p.missing < 0 && p.missing === worstMissingVal;
+    return '<tr><td class="rp-name">' + p.name + '</td>'
+      + '<td class="' + (isWorst ? 'rp-star' : '') + '">' + p.missing + (isWorst ? ' <span class="rapport-star-ic">&#9733;</span>' : '') + '</td>'
+      + '<td>' + prevM + '</td></tr>';
+  }).join('');
+
+  var now = new Date();
+  var genStr = fmtFR(now) + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+
+  var html = ''
+    + '<div class="rapport-page">'
+    + '<div class="rapport-topbar"><span>Rapport RPE — Suivi hebdomadaire</span><span>' + genStr + '</span></div>'
+    + '<div class="rapport-eyebrow">PAGE 1 — SRPE &amp; OUBLIS</div>'
+    + '<div class="rapport-header">'
+    + '<div class="rapport-header-logo"><img src="https://nissarugby.fr/main_logo.svg" alt="logo"></div>'
+    + '<div class="rapport-header-fields">'
+    + '<div class="rapport-header-field"><div class="rf-lbl">Club</div><div class="rf-val">ESPOIR</div></div>'
+    + '<div class="rapport-header-field"><div class="rf-lbl">Thème</div><div class="rf-val">RPE hebdomadaire</div></div>'
+    + '<div class="rapport-header-field"><div class="rf-lbl">Semaine</div><div class="rf-val">' + weekLabelTxt + ' · ' + dateRange + '</div></div>'
+    + '<div class="rapport-header-field"><div class="rf-lbl">Séances</div><div class="rf-val">' + nbSessions + '</div></div>'
+    + '</div></div>'
+    + '<div class="rapport-band">SRPE INDIVIDUEL</div>'
+    + '<div class="rapport-stats">'
+    + '<div class="rapport-stat"><div class="rs-lbl">sRPE max</div><div class="rs-name">' + (srpeMaxPlayer ? srpeMaxPlayer.name : '—') + '</div><div class="rs-val">' + (srpeMaxPlayer ? srpeMaxPlayer.srpe.toLocaleString('fr-FR') : '—') + '</div></div>'
+    + '<div class="rapport-stat"><div class="rs-lbl">Plus de séances manquées</div><div class="rs-name">' + (worstMissing ? worstMissing.name : '—') + '</div><div class="rs-val">' + (worstMissing ? worstMissing.missing : '—') + '</div></div>'
+    + '<div class="rapport-stat"><div class="rs-lbl">RPE moyen le plus élevé</div><div class="rs-name">' + (bestType ? bestType.type : '—') + '</div><div class="rs-val">' + (bestType ? bestType.avg.toFixed(1) + '/10' : '—') + '</div></div>'
+    + '</div>'
+    + '<div class="rapport-table-wrap"><table class="rapport-table"><thead><tr><th>Joueur</th><th>Séances</th><th>RPE moyen</th><th>sRPE (S)</th><th>sRPE (S-1)</th><th>Δ</th></tr></thead><tbody>'
+    + (srpeTableRows || '<tr><td colspan="6" style="color:#999">Aucune donnée cette semaine.</td></tr>')
+    + '</tbody></table></div>'
+    + '<div class="rapport-band">SÉANCES MANQUÉES</div>'
+    + '<div class="rapport-table-wrap"><table class="rapport-table"><thead><tr><th>Joueur</th><th>Manquées (S)</th><th>Manquées (S-1)</th></tr></thead><tbody>'
+    + missTableRows
+    + '</tbody></table></div>'
+    + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 1 sur 1</span></div>'
+    + '</div>';
+
+  document.getElementById('rapport-content').innerHTML = html;
 }
 
 function saveWeek1Start() {
