@@ -529,6 +529,11 @@
           <div class="chart-wrap" style="height:320px"><canvas id="semaineRpeChart"></canvas></div>
         </div>
 
+        <div class="section-label" style="margin-top:24px">sRPE de tous les jours (semaine S vs S-1)</div>
+        <div class="chart-container">
+          <div class="chart-wrap" style="height:320px"><canvas id="semaineSrpeDayChart"></canvas></div>
+        </div>
+
         <div class="section-label" style="margin-top:24px">sRPE individuel — histogramme</div>
         <div class="chart-container">
           <div class="chart-wrap" style="height:340px"><canvas id="semaineSrpeIndivChart"></canvas></div>
@@ -1604,7 +1609,17 @@ function computeIndividualSrpe(weekMonday) {
   }).sort(function(a,b){ return b.srpe - a.srpe; });
 }
 
-var semaineRpeChartInst = null, semaineMissingChartInst = null, semaineSrpeIndivChartInst = null;
+var FR_DAY_FULL = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+function computeDaySrpeSeries(weekMonday) {
+  var prevKey = prevWeekKey(weekMonday);
+  var daysCur = weekDayKeys(weekMonday);
+  var daysPrev = weekDayKeys(prevKey);
+  var labels = daysCur.map(function(d){ return FR_DAY_FULL[parseFR(d).getDay()]; });
+  var curValues = daysCur.map(function(d){ return SRPE_DAY[d] ? Math.round(SRPE_DAY[d].total) : 0; });
+  var prevValues = daysPrev.map(function(d){ return SRPE_DAY[d] ? Math.round(SRPE_DAY[d].total) : 0; });
+  return {labels:labels, curValues:curValues, prevValues:prevValues};
+}
+var semaineRpeChartInst = null, semaineMissingChartInst = null, semaineSrpeIndivChartInst = null, semaineSrpeDayChartInst = null;
 function renderRpeSemaine() {
   initRpeSemaineWeek();
   var season = seasonKeyOf(CUR_RPE_WEEK);
@@ -1676,6 +1691,25 @@ function renderRpeSemaine() {
     }
   });
 
+  // Graphique : sRPE de tous les jours, semaine S vs S-1 (pas d'etiquettes de donnees)
+  var daySrpeData = computeDaySrpeSeries(CUR_RPE_WEEK);
+  if (semaineSrpeDayChartInst) { semaineSrpeDayChartInst.destroy(); semaineSrpeDayChartInst = null; }
+  var cDay = document.getElementById('semaineSrpeDayChart');
+  semaineSrpeDayChartInst = new Chart(cDay, {
+    type:'bar',
+    data:{labels:daySrpeData.labels, datasets:[
+      {label:'Semaine S', data:daySrpeData.curValues, backgroundColor:'#cc1122', borderRadius:4},
+      {label:'Semaine S-1', data:daySrpeData.prevValues, backgroundColor:'#5bc4f5', borderRadius:4}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, animation:{duration:0},
+      plugins:{legend:{display:true, position:'top', labels:{color:'#888', font:{size:11}, boxWidth:12}}, tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}},
+      scales:{
+        y:{ticks:{color:'#888', font:{size:11}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'transparent'}},
+        x:{ticks:{color:'#888', font:{size:11}, maxRotation:0, minRotation:0, autoSkip:false}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
+      }
+    }
+  });
+
   // Tableaux + histogramme sRPE individuel (S et S-1), tries du plus eleve au plus faible
   var indivCur = computeIndividualSrpe(CUR_RPE_WEEK);
   var indivPrev = computeIndividualSrpe(prevKey);
@@ -1739,53 +1773,14 @@ function renderRpeRapport() {
   var dateRange = CUR_RPE_WEEK + ' au ' + fmtFR(sunDate);
   var prevKey = prevWeekKey(CUR_RPE_WEEK);
 
-  var indivCur = computeIndividualSrpe(CUR_RPE_WEEK);
-  var indivPrevArr = computeIndividualSrpe(prevKey);
-  var prevMap = {};
-  indivPrevArr.forEach(function(p){ prevMap[p.name] = p.srpe; });
-
-  var curStats = computeWeekStats(CUR_RPE_WEEK);
-  var prevStats = computeWeekStats(prevKey);
-  var prevMissMap = {};
-  prevStats.players.forEach(function(p){ prevMissMap[p.name] = p.missing; });
-
-  var typeAvgs = computeWeekTypeAverages(CUR_RPE_WEEK);
-  var nbSessions = curStats.days.reduce(function(s,d){ return s + (RPE[d] ? RPE[d].sessions.length : 0); }, 0);
-
-  var srpeMaxPlayer = indivCur.length ? indivCur[0] : null;
-  var worstMissing = curStats.players.slice().sort(function(a,b){ return a.missing - b.missing; })[0];
-  var bestType = typeAvgs.length ? typeAvgs.slice().sort(function(a,b){ return b.avg - a.avg; })[0] : null;
-  var srpeVals = indivCur.map(function(p){ return p.srpe; });
-  var maxSrpeVal = srpeVals.length ? Math.max.apply(null, srpeVals) : null;
-
-  var srpeTableRows = indivCur.map(function(p) {
-    var pStat = curStats.players.filter(function(x){ return x.name === p.name; })[0];
-    var nbSess = pStat ? pStat.sessionCount : 0;
-    var avgRpe = pStat && pStat.avgRpe != null ? pStat.avgRpe.toFixed(1) : '—';
-    var prevVal = prevMap[p.name] != null ? prevMap[p.name] : 0;
-    var delta = p.srpe - prevVal;
-    var deltaStr = (delta > 0 ? '+' : '') + delta.toLocaleString('fr-FR');
-    var isMax = maxSrpeVal !== null && p.srpe === maxSrpeVal;
-    return '<tr><td class="rp-name">' + p.name + '</td><td>' + nbSess + '</td><td>' + avgRpe + '</td>'
-      + '<td class="' + (isMax ? 'rp-star' : '') + '">' + p.srpe.toLocaleString('fr-FR') + (isMax ? ' <span class="rapport-star-ic">&#9733;</span>' : '') + '</td>'
-      + '<td>' + prevVal.toLocaleString('fr-FR') + '</td><td>' + deltaStr + '</td></tr>';
-  }).join('');
-
-  var missSorted = curStats.players.slice().sort(function(a,b){ return a.missing - b.missing; });
-  var worstMissingVal = missSorted.length ? missSorted[0].missing : 0;
-  var missTableRows = missSorted.map(function(p) {
-    var prevM = prevMissMap[p.name] != null ? prevMissMap[p.name] : 0;
-    var isWorst = p.missing < 0 && p.missing === worstMissingVal;
-    return '<tr><td class="rp-name">' + p.name + '</td>'
-      + '<td class="' + (isWorst ? 'rp-star' : '') + '">' + p.missing + (isWorst ? ' <span class="rapport-star-ic">&#9733;</span>' : '') + '</td>'
-      + '<td>' + prevM + '</td></tr>';
-  }).join('');
+  var curTotal = SRPE_WEEK[CUR_RPE_WEEK] ? SRPE_WEEK[CUR_RPE_WEEK].total : 0;
+  var prevTotal = SRPE_WEEK[prevKey] ? SRPE_WEEK[prevKey].total : 0;
 
   var now = new Date();
   var genStr = fmtFR(now) + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 
-  var chartImgSrpe = (semaineSrpeIndivChartInst) ? semaineSrpeIndivChartInst.toBase64Image() : '';
   var chartImgRpe = (semaineRpeChartInst) ? semaineRpeChartInst.toBase64Image() : '';
+  var chartImgDay = (semaineSrpeDayChartInst) ? semaineSrpeDayChartInst.toBase64Image() : '';
 
   var headerHtml = '<div class="rapport-header">'
     + '<div class="rapport-header-logo"><img src="https://nissarugby.fr/main_logo.svg" alt="logo"></div>'
@@ -1793,37 +1788,21 @@ function renderRpeRapport() {
     + '<div class="rapport-header-field"><div class="rf-lbl">Club</div><div class="rf-val">ESPOIR</div></div>'
     + '<div class="rapport-header-field"><div class="rf-lbl">Thème</div><div class="rf-val">RPE hebdomadaire</div></div>'
     + '<div class="rapport-header-field"><div class="rf-lbl">Semaine</div><div class="rf-val">' + weekLabelTxt + ' · ' + dateRange + '</div></div>'
-    + '<div class="rapport-header-field"><div class="rf-lbl">Séances</div><div class="rf-val">' + nbSessions + '</div></div>'
     + '</div></div>';
 
   var html = ''
     + '<div class="rapport-page">'
     + '<div class="rapport-topbar"><span>Rapport RPE — Suivi hebdomadaire</span><span>' + genStr + '</span></div>'
-    + '<div class="rapport-eyebrow">PAGE 1 — SRPE &amp; OUBLIS</div>'
+    + '<div class="rapport-eyebrow">RPE COLLECTIF</div>'
     + headerHtml
-    + '<div class="rapport-band">SRPE INDIVIDUEL</div>'
-    + '<div class="rapport-stats">'
-    + '<div class="rapport-stat"><div class="rs-lbl">sRPE max</div><div class="rs-name">' + (srpeMaxPlayer ? srpeMaxPlayer.name : '—') + '</div><div class="rs-val">' + (srpeMaxPlayer ? srpeMaxPlayer.srpe.toLocaleString('fr-FR') : '—') + '</div></div>'
-    + '<div class="rapport-stat"><div class="rs-lbl">Plus de séances manquées</div><div class="rs-name">' + (worstMissing ? worstMissing.name : '—') + '</div><div class="rs-val">' + (worstMissing ? worstMissing.missing : '—') + '</div></div>'
-    + '<div class="rapport-stat"><div class="rs-lbl">RPE moyen le plus élevé</div><div class="rs-name">' + (bestType ? bestType.type : '—') + '</div><div class="rs-val">' + (bestType ? bestType.avg.toFixed(1) + '/10' : '—') + '</div></div>'
+    + '<div class="rapport-band">RPE COLLECTIF</div>'
+    + '<div class="rapport-stats" style="grid-template-columns:repeat(2,1fr)">'
+    + '<div class="rapport-stat"><div class="rs-lbl">sRPE semaine</div><div class="rs-val">' + Math.round(curTotal).toLocaleString('fr-FR') + '</div></div>'
+    + '<div class="rapport-stat"><div class="rs-lbl">sRPE S-1</div><div class="rs-val">' + Math.round(prevTotal).toLocaleString('fr-FR') + '</div></div>'
     + '</div>'
-    + (chartImgSrpe ? '<div style="margin:14px 16px"><img src="' + chartImgSrpe + '" style="width:100%;max-height:260px;object-fit:contain;background:#fff"></div>' : '')
-    + '<div class="rapport-table-wrap"><table class="rapport-table"><thead><tr><th>Joueur</th><th>Séances</th><th>RPE moyen</th><th>sRPE (S)</th><th>sRPE (S-1)</th><th>Δ</th></tr></thead><tbody>'
-    + (srpeTableRows || '<tr><td colspan="6" style="color:#999">Aucune donnée cette semaine.</td></tr>')
-    + '</tbody></table></div>'
-    + '<div class="rapport-band">SÉANCES MANQUÉES</div>'
-    + '<div class="rapport-table-wrap"><table class="rapport-table"><thead><tr><th>Joueur</th><th>Manquées (S)</th><th>Manquées (S-1)</th></tr></thead><tbody>'
-    + missTableRows
-    + '</tbody></table></div>'
-    + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 1 sur 2</span></div>'
-    + '</div>'
-    + '<div class="rapport-page">'
-    + '<div class="rapport-topbar"><span>Rapport RPE — Suivi hebdomadaire</span><span>' + genStr + '</span></div>'
-    + '<div class="rapport-eyebrow">PAGE 2 — RÉPARTITION RPE</div>'
-    + headerHtml
-    + '<div class="rapport-band">RPE MOYEN PAR JOUR ET PAR TYPE (HORS TYPES EXCLUS DU SRPE)</div>'
-    + (chartImgRpe ? '<div style="margin:14px 16px"><img src="' + chartImgRpe + '" style="width:100%;max-height:340px;object-fit:contain;background:#fff"></div>' : '<div style="margin:14px 16px;color:#999;font-size:12px">Aucune séance RPE cette semaine.</div>')
-    + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 2 sur 2</span></div>'
+    + (chartImgRpe ? '<div style="margin:14px 16px"><img src="' + chartImgRpe + '" style="width:100%;max-height:300px;object-fit:contain;background:#fff"></div>' : '<div style="margin:14px 16px;color:#999;font-size:12px">Aucune séance RPE cette semaine.</div>')
+    + (chartImgDay ? '<div style="margin:14px 16px"><img src="' + chartImgDay + '" style="width:100%;max-height:300px;object-fit:contain;background:#fff"></div>' : '')
+    + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 1 sur 1</span></div>'
     + '</div>';
 
   document.getElementById('rapport-content').innerHTML = html;
