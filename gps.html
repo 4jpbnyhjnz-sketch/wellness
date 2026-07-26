@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-/* ── INDEX2 CSS ── */
+/* ══ INDEX2 CSS (Wellness/RPE dark theme) ══ */
 
   :root{
     --bg:#0a0a0a;
@@ -276,7 +276,7 @@
   @page{ size:A4; margin:8mm; }
 
 
-/* ── INDEX3 CSS ── */
+/* ══ INDEX3 CSS (GPS) ══ */
 
 :root {
   --red: #D6001C;
@@ -1277,172 +1277,135 @@ table.roster-table select { padding: 4px; }
 
 
 
-/* ════════════════════════════════════════
-   HUB GLOBAL
-   ════════════════════════════════════════ */
-*, *::before, *::after { box-sizing: border-box; }
+/* ══════════════════════════════════════════════════════
+   HUB OVERRIDES — corrigent tous les conflits
+   ══════════════════════════════════════════════════════ */
 
-/* Barre top minimale (hamburger + logo) */
+/* Reset body : on gère le fond par section */
+body {
+  margin: 0;
+  background: #0a0a0a;
+  font-family: 'Inter', 'Arial', sans-serif;
+  position: relative;
+}
+
+/* Page d'accueil et GPS : fond rouge hachuré */
+#hub-accueil { background-color:#580010;background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='.7' stroke-opacity='.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='.7' stroke-opacity='.2'/%3E%3C/svg%3E");background-size:auto,20px 20px;background-attachment:fixed; }
+#hub-gps main { background: transparent; }
+
+/* Wellness/Joueur : fond sombre index2 */
+#hub-wellness { background: var(--bg, #0a0a0a) !important; }
+#hub-joueur   { background: var(--bg, #0a0a0a) !important; }
+
+/* CORRECTION CRITIQUE : loading-screen ne doit PAS être position:fixed
+   (sinon il couvre tout le site même quand on est sur GPS) */
+#loading-screen {
+  position: relative !important;
+  inset: auto !important;
+  min-height: calc(100vh - 52px);
+  background: var(--bg, #0a0a0a) !important;
+  z-index: 1 !important;
+}
+
+/* Sections hub */
+.hub-section { display: none; min-height: 100vh; }
+.hub-section.active { display: block; }
+
+/* GPS : place sous la hub-topbar (52px) + sa propre topbar */
+#hub-gps { padding-top: 52px; }
+#hub-gps .topbar { position: sticky; top: 52px; z-index: 500; }
+
+/* Wellness : place sous la hub-topbar */
+#hub-wellness { padding-top: 52px; }
+
+/* BARRE TOP HUB */
 .hub-topbar {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 52px;
-  background: rgba(5,0,1,.95);
+  position: fixed; top: 0; left: 0; right: 0; height: 52px;
+  background: rgba(5,0,1,.97);
   border-bottom: 2px solid #D6001C;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 14px;
-  z-index: 1000;
-  backdrop-filter: blur(6px);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 14px; z-index: 1000;
 }
 .hub-hamburger {
-  width: 36px; height: 36px;
-  background: none;
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 6px;
-  color: #fff;
-  font-size: 18px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  transition: background .15s;
+  width: 36px; height: 36px; background: none;
+  border: 1px solid rgba(255,255,255,.2); border-radius: 6px;
+  color: #fff; font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .hub-hamburger:hover { background: rgba(255,255,255,.1); }
 .hub-topbar-logo {
-  width: 34px; height: 34px;
-  border: 2px solid #D6001C;
-  border-radius: 50%;
-  background: #fff center/contain no-repeat;
-  flex-shrink: 0;
+  width: 34px; height: 34px; border: 2px solid #D6001C;
+  border-radius: 50%; background: #fff center/contain no-repeat; flex-shrink: 0;
 }
-.hub-topbar-title {
-  font-size: 13px; font-weight: 800;
-  color: #fff; text-transform: uppercase;
-  letter-spacing: .05em;
-}
-.hub-topbar-sub {
-  font-size: 9px; color: #c9a84c;
-  text-transform: uppercase; letter-spacing: .12em;
-  display: block; margin-top: 1px;
-}
+.hub-topbar-name { font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .05em; }
+.hub-topbar-sub  { font-size: 9px; color: #c9a84c; text-transform: uppercase; letter-spacing: .12em; display: block; }
 .hub-back-btn {
-  margin-left: auto;
-  background: none; border: none;
-  color: rgba(255,255,255,.45);
-  font-size: 13px; cursor: pointer;
-  display: none; align-items: center; gap: 5px;
+  margin-left: auto; background: none; border: none; color: rgba(255,255,255,.45);
+  font-size: 13px; cursor: pointer; display: none; align-items: center; gap: 5px;
   font-family: inherit; font-weight: 600;
-  transition: color .15s;
 }
 .hub-back-btn:hover { color: #fff; }
 .hub-back-btn.visible { display: flex; }
 
-/* ── Overlay menu (sidebar) ── */
+/* OVERLAY + SIDEBAR */
 .hub-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.6);
-  z-index: 1900;
-  opacity: 0; pointer-events: none;
-  transition: opacity .25s;
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  z-index: 1900; opacity: 0; pointer-events: none; transition: opacity .25s;
 }
 .hub-overlay.open { opacity: 1; pointer-events: all; }
-
 .hub-sidebar {
-  position: fixed;
-  top: 0; left: 0; bottom: 0;
-  width: 280px;
-  background: #0d0002;
-  border-right: 2px solid #D6001C;
-  z-index: 2000;
-  display: flex; flex-direction: column;
-  transform: translateX(-100%);
-  transition: transform .28s cubic-bezier(.4,0,.2,1);
+  position: fixed; top: 0; left: 0; bottom: 0; width: 280px;
+  background: #0d0002; border-right: 2px solid #D6001C;
+  z-index: 2000; display: flex; flex-direction: column;
+  transform: translateX(-100%); transition: transform .28s cubic-bezier(.4,0,.2,1);
 }
 .hub-sidebar.open { transform: translateX(0); }
-
 .hub-sidebar-header {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,.08);
   display: flex; align-items: center; gap: 12px;
 }
 .hub-sidebar-logo {
-  width: 48px; height: 48px;
-  border: 2.5px solid #D6001C;
-  border-radius: 50%;
-  background: #fff center/contain no-repeat;
+  width: 48px; height: 48px; border: 2.5px solid #D6001C;
+  border-radius: 50%; background: #fff center/contain no-repeat; flex-shrink: 0;
 }
 .hub-sidebar-name { color: #fff; font-size: 16px; font-weight: 800; text-transform: uppercase; }
 .hub-sidebar-sub  { color: #c9a84c; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
-
-.hub-sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.hub-sidebar-nav  { flex: 1; padding: 12px 0; overflow-y: auto; }
 .hub-sidebar-item {
-  display: flex; align-items: center; gap: 14px;
-  padding: 15px 22px;
-  cursor: pointer;
-  color: rgba(255,255,255,.6);
-  font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; gap: 14px; padding: 15px 22px;
+  cursor: pointer; color: rgba(255,255,255,.6); font-size: 14px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .04em;
-  border-left: 3px solid transparent;
-  transition: all .15s;
-  user-select: none;
+  border-left: 3px solid transparent; transition: all .15s; user-select: none;
 }
 .hub-sidebar-item:hover { color: #fff; background: rgba(255,255,255,.04); }
-.hub-sidebar-item.active {
-  color: #fff;
-  background: rgba(214,0,28,.12);
-  border-left-color: #D6001C;
-}
+.hub-sidebar-item.active { color: #fff; background: rgba(214,0,28,.12); border-left-color: #D6001C; }
 .hub-sidebar-item-icon { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
-.hub-sidebar-divider {
-  height: 1px; background: rgba(255,255,255,.06);
-  margin: 8px 22px;
-}
+.hub-sidebar-divider { height: 1px; background: rgba(255,255,255,.06); margin: 6px 22px; }
 .hub-sidebar-section-label {
-  padding: 10px 22px 4px;
-  font-size: 9px; font-weight: 700;
-  color: rgba(255,255,255,.3);
-  text-transform: uppercase; letter-spacing: .1em;
+  padding: 10px 22px 4px; font-size: 9px; font-weight: 700;
+  color: rgba(255,255,255,.3); text-transform: uppercase; letter-spacing: .1em;
 }
-.hub-sidebar-footer {
-  padding: 16px 22px;
-  border-top: 1px solid rgba(255,255,255,.06);
-}
+.hub-sidebar-footer { padding: 16px 22px; border-top: 1px solid rgba(255,255,255,.06); }
 .hub-refresh-pill {
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  background: rgba(214,0,28,.1);
-  border: 1px solid rgba(214,0,28,.3);
-  border-radius: 20px;
-  padding: 8px 16px;
-  color: #ff4455; font-size: 12px; font-weight: 700;
-  cursor: pointer; font-family: inherit; width: 100%;
-  transition: background .15s;
+  background: rgba(214,0,28,.1); border: 1px solid rgba(214,0,28,.3);
+  border-radius: 20px; padding: 8px 16px; color: #ff4455; font-size: 12px;
+  font-weight: 700; cursor: pointer; font-family: inherit; width: 100%;
 }
 .hub-refresh-pill:hover { background: rgba(214,0,28,.2); }
 
-/* ── Page d'accueil ── */
+/* PAGE D'ACCUEIL */
 #hub-accueil {
-  min-height: 100vh;
-  background-color: #0d0002;
-  background-image:
-    radial-gradient(ellipse at 50% 30%, rgba(140,0,20,.4) 0%, rgba(5,0,1,.9) 60%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23D6001C' stroke-width='.5' stroke-opacity='.12'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23D6001C' stroke-width='.5' stroke-opacity='.07'/%3E%3C/svg%3E");
-  background-size: auto, 20px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 52px 0 40px;
+  display: none; flex-direction: column; align-items: center;
+  padding-top: 52px; min-height: 100vh;
 }
+#hub-accueil.active { display: flex; }
 .accueil-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 24px 36px;
-  text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 48px 24px 32px; text-align: center;
 }
 .accueil-logo-ring {
-  width: 120px; height: 120px;
-  border-radius: 50%;
+  width: 120px; height: 120px; border-radius: 50%;
   border: 2px solid rgba(214,0,28,.5);
   background: rgba(10,0,2,.8) center/70% no-repeat;
   display: flex; align-items: center; justify-content: center;
@@ -1450,112 +1413,63 @@ table.roster-table select { padding: 4px; }
   box-shadow: 0 0 0 8px rgba(214,0,28,.06), 0 0 0 16px rgba(214,0,28,.03);
 }
 .accueil-club-name {
-  font-size: 28px; font-weight: 900;
-  color: #fff; text-transform: uppercase;
-  letter-spacing: .06em; line-height: 1;
-  margin-bottom: 6px;
+  font-size: 28px; font-weight: 900; color: #fff;
+  text-transform: uppercase; letter-spacing: .06em; line-height: 1; margin-bottom: 6px;
 }
-.accueil-hub-label {
-  font-size: 11px; color: rgba(255,255,255,.35);
-  text-transform: uppercase; letter-spacing: .18em;
-}
-
-.accueil-nav {
-  width: 100%; max-width: 480px;
-  padding: 0 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+.accueil-hub-label { font-size: 11px; color: rgba(255,255,255,.35); text-transform: uppercase; letter-spacing: .18em; }
+.accueil-nav { width: 100%; max-width: 480px; padding: 0 24px; display: flex; flex-direction: column; gap: 12px; }
 .accueil-btn {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all .18s;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  position: relative;
-  overflow: hidden;
+  display: flex; align-items: center; gap: 16px; padding: 20px 24px;
+  background: rgba(20,0,3,.7); border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
+  cursor: pointer; transition: all .18s; text-align: left; width: 100%;
+  font-family: inherit; position: relative; overflow: hidden;
 }
 .accueil-btn::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: var(--btn-color, #D6001C);
-  border-radius: 0;
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--btn-color, #D6001C);
 }
-.accueil-btn:hover {
-  background: rgba(255,255,255,.07);
-  border-color: rgba(255,255,255,.2);
-  transform: translateX(3px);
-}
+.accueil-btn:hover { background: rgba(40,0,5,.8); border-color: rgba(255,255,255,.2); transform: translateX(3px); }
 .accueil-btn-icon { font-size: 26px; flex-shrink: 0; }
 .accueil-btn-text { flex: 1; }
-.accueil-btn-label {
-  display: block;
-  font-size: 15px; font-weight: 800;
-  color: #fff; text-transform: uppercase; letter-spacing: .06em;
-  margin-bottom: 3px;
-}
-.accueil-btn-sub {
-  display: block;
-  font-size: 11px; color: rgba(255,255,255,.38);
-}
-.accueil-btn-arrow {
-  color: rgba(255,255,255,.2);
-  font-size: 18px;
+.accueil-btn-label { display: block; font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+.accueil-btn-sub   { display: block; font-size: 11px; color: rgba(255,255,255,.38); }
+.accueil-btn-arrow { color: rgba(255,255,255,.25); font-size: 18px; }
+
+/* Joueur section placeholder */
+.joueur-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 52px); gap: 16px; padding: 40px; text-align: center;
 }
 
-/* ── Sections hub ── */
-.hub-section { display: none; padding-top: 52px; min-height: 100vh; }
-.hub-section.active { display: block; }
-#hub-accueil { display: none; }
-#hub-accueil.active { display: flex; }
-
-/* GPS garde son fond */
-#hub-gps { padding-top: 0; }
-#hub-gps .topbar { top: 52px; }
-
-/* Wellness fond sombre */
-#hub-wellness { background: var(--bg, #0a0a0a); }
-
+/* PRINT */
 @media print {
   .hub-topbar, .hub-sidebar, .hub-overlay { display: none !important; }
-  #hub-accueil, #hub-wellness { display: none !important; }
+  #hub-accueil, #hub-wellness, #hub-joueur { display: none !important; }
   #hub-gps { display: block !important; padding-top: 0; }
   #hub-gps .topbar { top: 0; }
+  body { background: #fff !important; }
+}
+
+@media (max-width:600px) {
+  .hub-topbar-name, .hub-topbar-sub { font-size: 11px; }
 }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════
-     BARRE TOPBAR FIXE
-     ═══════════════════════════════════════ -->
+<!-- HUB TOPBAR -->
 <div class="hub-topbar no-print">
-  <button class="hub-hamburger" onclick="openSidebar()" aria-label="Menu">☰</button>
+  <button class="hub-hamburger" onclick="openSidebar()">☰</button>
   <div class="hub-topbar-logo" id="topbarLogoSmall"></div>
   <div>
-    <span class="hub-topbar-title">Nissa Rugby</span>
+    <span class="hub-topbar-name">Nissa Rugby</span>
     <span class="hub-topbar-sub">Performance Hub</span>
   </div>
-  <button class="hub-back-btn" id="backBtn" onclick="switchHub('accueil')">
-    ← Accueil
-  </button>
+  <button class="hub-back-btn" id="backBtn" onclick="switchHub('accueil')">← Accueil</button>
 </div>
 
-<!-- ═══════════════════════════════════════
-     OVERLAY + SIDEBAR
-     ═══════════════════════════════════════ -->
+<!-- OVERLAY + SIDEBAR -->
 <div class="hub-overlay" id="hubOverlay" onclick="closeSidebar()"></div>
-
 <div class="hub-sidebar" id="hubSidebar">
   <div class="hub-sidebar-header">
     <div class="hub-sidebar-logo" id="sidebarLogo"></div>
@@ -1564,97 +1478,65 @@ table.roster-table select { padding: 4px; }
       <div class="hub-sidebar-sub">Performance Hub</div>
     </div>
   </div>
-
   <nav class="hub-sidebar-nav">
     <div class="hub-sidebar-section-label">Navigation</div>
-
     <div class="hub-sidebar-item active" id="nav-accueil" onclick="switchHub('accueil');closeSidebar()">
-      <span class="hub-sidebar-item-icon">🏠</span>
-      <span>Accueil</span>
+      <span class="hub-sidebar-item-icon">🏠</span><span>Accueil</span>
     </div>
-
     <div class="hub-sidebar-divider"></div>
     <div class="hub-sidebar-section-label">Outils</div>
-
     <div class="hub-sidebar-item" id="nav-gps" onclick="switchHub('gps');closeSidebar()">
-      <span class="hub-sidebar-item-icon">📊</span>
-      <span>Rapport GPS</span>
+      <span class="hub-sidebar-item-icon">📊</span><span>Rapport GPS</span>
     </div>
     <div class="hub-sidebar-item" id="nav-wellness" onclick="switchHub('wellness');closeSidebar()">
-      <span class="hub-sidebar-item-icon">💚</span>
-      <span>Wellness</span>
+      <span class="hub-sidebar-item-icon">💚</span><span>Wellness</span>
     </div>
     <div class="hub-sidebar-item" id="nav-rpe" onclick="switchHub('rpe');closeSidebar()">
-      <span class="hub-sidebar-item-icon">💪</span>
-      <span>RPE</span>
+      <span class="hub-sidebar-item-icon">💪</span><span>RPE</span>
     </div>
     <div class="hub-sidebar-item" id="nav-joueur" onclick="switchHub('joueur');closeSidebar()">
-      <span class="hub-sidebar-item-icon">👤</span>
-      <span>Joueur</span>
+      <span class="hub-sidebar-item-icon">👤</span><span>Joueur</span>
     </div>
   </nav>
-
   <div class="hub-sidebar-footer">
-    <button class="hub-refresh-pill" onclick="hubRefresh();closeSidebar()">
-      ⟳ Actualiser les données
-    </button>
+    <button class="hub-refresh-pill" onclick="hubRefresh();closeSidebar()">⟳ Actualiser les données</button>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════
-     PAGE D'ACCUEIL
-     ═══════════════════════════════════════ -->
+<!-- PAGE D'ACCUEIL -->
 <div id="hub-accueil" class="active">
   <div class="accueil-hero">
     <div class="accueil-logo-ring" id="accueilLogo"></div>
     <div class="accueil-club-name">Nissa Rugby</div>
     <div class="accueil-hub-label">Performance Hub · Saison 2025-2026</div>
   </div>
-
   <div class="accueil-nav">
     <button class="accueil-btn" style="--btn-color:#D6001C" onclick="switchHub('gps')">
       <span class="accueil-btn-icon">📊</span>
-      <span class="accueil-btn-text">
-        <span class="accueil-btn-label">Rapport GPS</span>
-        <span class="accueil-btn-sub">Séances · Matchs · PDF · Records</span>
-      </span>
+      <span class="accueil-btn-text"><span class="accueil-btn-label">Rapport GPS</span><span class="accueil-btn-sub">Séances · Matchs · PDF · Records</span></span>
       <span class="accueil-btn-arrow">›</span>
     </button>
-
     <button class="accueil-btn" style="--btn-color:#2ecc8a" onclick="switchHub('wellness')">
       <span class="accueil-btn-icon">💚</span>
-      <span class="accueil-btn-text">
-        <span class="accueil-btn-label">Wellness</span>
-        <span class="accueil-btn-sub">Hooper · Forme · Alertes collectives</span>
-      </span>
+      <span class="accueil-btn-text"><span class="accueil-btn-label">Wellness</span><span class="accueil-btn-sub">Hooper · Forme · Alertes collectives</span></span>
       <span class="accueil-btn-arrow">›</span>
     </button>
-
     <button class="accueil-btn" style="--btn-color:#5bc4f5" onclick="switchHub('rpe')">
       <span class="accueil-btn-icon">💪</span>
-      <span class="accueil-btn-text">
-        <span class="accueil-btn-label">RPE</span>
-        <span class="accueil-btn-sub">Charge · sRPE hebdomadaire · Individuel</span>
-      </span>
+      <span class="accueil-btn-text"><span class="accueil-btn-label">RPE</span><span class="accueil-btn-sub">Charge · sRPE hebdomadaire · Individuel</span></span>
       <span class="accueil-btn-arrow">›</span>
     </button>
-
     <button class="accueil-btn" style="--btn-color:#c9a84c" onclick="switchHub('joueur')">
       <span class="accueil-btn-icon">👤</span>
-      <span class="accueil-btn-text">
-        <span class="accueil-btn-label">Joueur</span>
-        <span class="accueil-btn-sub">Profil individuel · GPS · Wellness · RPE</span>
-      </span>
+      <span class="accueil-btn-text"><span class="accueil-btn-label">Joueur</span><span class="accueil-btn-sub">Profil individuel · GPS · Wellness · RPE</span></span>
       <span class="accueil-btn-arrow">›</span>
     </button>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════
-     GPS SECTION
-     ═══════════════════════════════════════ -->
+<!-- GPS SECTION -->
 <div id="hub-gps" class="hub-section">
-  <header class="topbar no-print" style="top:52px">
+  <header class="topbar no-print">
     <div class="topbar-inner">
       <h1>Rapport GPS</h1>
       <div id="topbarLogo"></div>
@@ -1666,7 +1548,6 @@ table.roster-table select { padding: 4px; }
       </nav>
     </div>
   </header>
-  <div style="padding-top:52px">
 <main>
 
   <!-- ===================== ONGLET IMPORTER UNE SEANCE ===================== -->
@@ -2032,30 +1913,14 @@ Petit Enzo ; 9</pre>
   </section>
 
   <!-- Conteneurs d'impression -->
-  <!-- ═══════════════════════════════════════
-     JOUEUR SECTION (à venir)
-     ═══════════════════════════════════════ -->
-<div id="hub-joueur" class="hub-section">
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px;padding:40px;text-align:center">
-    <span style="font-size:52px">👤</span>
-    <div style="font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.06em">Joueur</div>
-    <div style="font-size:14px;color:rgba(255,255,255,.35);max-width:300px;line-height:1.6">
-      Cette section est en cours de développement.<br>Elle permettra de consulter le profil complet d'un joueur.
-    </div>
-  </div>
-</div>
-
-<div id="sessionPrintRoot"></div>
+  <div id="sessionPrintRoot"></div>
 
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  </div>
 </div>
 
-<!-- ═══════════════════════════════════════
-     WELLNESS SECTION
-     ═══════════════════════════════════════ -->
+<!-- WELLNESS + RPE SECTION (partagée) -->
 <div id="hub-wellness" class="hub-section">
   <div id="loading-screen">
     <div class="loader-icon">🏉</div>
@@ -2391,119 +2256,120 @@ Petit Enzo ; 9</pre>
   </div>
 </div>
 
-<!-- RPE = onglet interne de hub-wellness -->
-
-<!-- ═══════════════════════════════════════
-     JOUEUR SECTION (à venir)
-     ═══════════════════════════════════════ -->
+<!-- JOUEUR SECTION (vide pour l'instant) -->
 <div id="hub-joueur" class="hub-section">
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px;padding:40px;text-align:center">
+  <div class="joueur-placeholder">
     <span style="font-size:52px">👤</span>
     <div style="font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.06em">Joueur</div>
     <div style="font-size:14px;color:rgba(255,255,255,.35);max-width:300px;line-height:1.6">
-      Cette section est en cours de développement.<br>Elle permettra de consulter le profil complet d'un joueur.
+      Section en cours de développement.<br>Elle permettra de consulter le profil complet d'un joueur.
     </div>
   </div>
 </div>
 
 <div id="sessionPrintRoot"></div>
 
-<!-- ═══════════════════════════════════════
-     NAVIGATION HUB (inline)
-     ═══════════════════════════════════════ -->
+<!-- ══ NAVIGATION HUB (inline) ══ -->
 <script>
 var wellnessLoaded = false;
 var currentSection = 'accueil';
+var SECTIONS = ['gps','wellness','joueur'];
 
-var SECTIONS = ['accueil','gps','wellness','joueur'];
+// Fond du body selon la section
+var RED_BG_CSS   = 'background-color:#580010;background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\'%3E%3Cline x1=\'0\' y1=\'0\' x2=\'20\' y2=\'20\' stroke=\'%23ff2040\' stroke-width=\'.7\' stroke-opacity=\'.3\'/%3E%3Cline x1=\'20\' y1=\'0\' x2=\'0\' y2=\'20\' stroke=\'%23000\' stroke-width=\'.7\' stroke-opacity=\'.2\'/%3E%3C/svg%3E");background-size:auto,20px 20px;background-attachment:fixed;';
+var DARK_BG_CSS  = 'background-color:#0a0a0a;background-image:none;';
+
+function setBodyBg(isRed) {
+  if (isRed) {
+    document.body.style.cssText = RED_BG_CSS;
+  } else {
+    document.body.style.backgroundColor = '#0a0a0a';
+    document.body.style.backgroundImage = 'none';
+  }
+}
 
 function switchHub(name) {
   currentSection = name;
 
-  // Sections
+  // Accueil
+  var ac = document.getElementById('hub-accueil');
+  if (ac) ac.style.display = name === 'accueil' ? 'flex' : 'none';
+
+  // Autres sections
   SECTIONS.forEach(function(s) {
     var el = document.getElementById('hub-' + s);
     if (!el) return;
-    if (s === 'accueil') {
-      el.style.display = (s === name) ? 'flex' : 'none';
-    } else {
-      el.style.display = (s === name) ? 'block' : 'none';
-    }
+    // wellness sert aussi pour RPE
+    var show = (s === name) || (s === 'wellness' && name === 'rpe');
+    el.style.display = show ? 'block' : 'none';
   });
+
+  // Fond du body
+  setBodyBg(name === 'accueil' || name === 'gps');
 
   // Bouton retour
   var back = document.getElementById('backBtn');
   if (back) back.classList.toggle('visible', name !== 'accueil');
 
-  // Nav sidebar actifs
-  SECTIONS.forEach(function(s) {
+  // Nav sidebar
+  ['accueil','gps','wellness','rpe','joueur'].forEach(function(s) {
     var ni = document.getElementById('nav-' + s);
     if (ni) ni.classList.toggle('active', s === name);
   });
 
-  // Wellness & RPE partagent #hub-wellness
+  // Wellness / RPE : charger et afficher
   if (name === 'wellness' || name === 'rpe') {
-    // Montrer hub-wellness dans tous les cas
-    var wEl = document.getElementById('hub-wellness');
-    if (wEl) wEl.style.display = 'block';
-
-    // Charger les données si première visite
     if (!wellnessLoaded) {
       wellnessLoaded = true;
       if (typeof init === 'function') {
         init().then(function() {
-          // Après chargement, basculer sur le bon onglet
-          setTimeout(function() {
-            if (typeof switchView === 'function') switchView(name);
-          }, 100);
-        }).catch(function(e){ console.warn('Wellness:', e.message); });
+          if (name === 'rpe' && typeof switchView === 'function') {
+            setTimeout(function(){ switchView('rpe'); }, 100);
+          }
+        }).catch(function(e){ console.warn('W:', e.message); });
       }
     } else {
-      // Données déjà chargées : basculer directement
-      setTimeout(function() {
-        if (typeof switchView === 'function') switchView(name);
-      }, 50);
+      // Données déjà chargées
+      if (typeof switchView === 'function') {
+        setTimeout(function(){ switchView(name); }, 50);
+      }
     }
-    return; // On a déjà géré l'affichage
   }
 }
 
-function openSidebar() {
-  document.getElementById('hubSidebar').classList.add('open');
-  document.getElementById('hubOverlay').classList.add('open');
-}
-function closeSidebar() {
-  document.getElementById('hubSidebar').classList.remove('open');
-  document.getElementById('hubOverlay').classList.remove('open');
-}
+function openSidebar()  { document.getElementById('hubSidebar').classList.add('open'); document.getElementById('hubOverlay').classList.add('open'); }
+function closeSidebar() { document.getElementById('hubSidebar').classList.remove('open'); document.getElementById('hubOverlay').classList.remove('open'); }
+document.addEventListener('click', function(e){ if (!e.target.closest('#hubMenuBtn') && !e.target.closest('#hubSidebar')) closeSidebar(); });
+function hubRefresh() { if (typeof refreshData === 'function') refreshData(); }
 
-function hubRefresh() {
-  if (typeof refreshData === 'function') refreshData();
-}
-
-// Injecter logo partout
 function injectLogos() {
   if (typeof NISSA_LOGO_B64 === 'undefined') return;
   var url = "url('" + NISSA_LOGO_B64 + "')";
   ['accueilLogo','sidebarLogo','topbarLogoSmall'].forEach(function(id){
     var el = document.getElementById(id);
-    if (el) { el.style.backgroundImage = url; el.style.backgroundSize = 'contain'; el.style.backgroundRepeat = 'no-repeat'; el.style.backgroundPosition = 'center'; }
+    if (!el) return;
+    el.style.backgroundImage = url;
+    el.style.backgroundSize = 'contain';
+    el.style.backgroundRepeat = 'no-repeat';
+    el.style.backgroundPosition = 'center';
   });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  // Fond initial = accueil (rouge)
+  setBodyBg(true);
   injectLogos();
   // Pré-charger wellness en arrière-plan
   setTimeout(function(){
-    if (!wellnessLoaded && typeof init === 'function') {
+    if (!wellnessLoaded) {
       wellnessLoaded = true;
-      init().catch(function(e){ console.warn('W:', e.message); });
+      if (typeof init === 'function') init().catch(function(e){ console.warn('W:', e); });
     }
-  }, 1500);
+  }, 2000);
 });
 </script>
 
-<!-- GPS Script (index3) -->
+<!-- GPS Script -->
 <script>
 /* =========================================================================
    RAPPORT GPS — logique principale
@@ -5914,7 +5780,7 @@ function initHeaderFields() {
 }
 </script>
 
-<!-- Wellness/RPE Script (index2) -->
+<!-- Wellness/RPE Script -->
 <script>
 var SHEET_ID = '1mCZoixP13DpIE1kMbkH0tZpTrPwfOIaF3tuPaZhIfIU';
 var GID = '219874091';
@@ -7244,18 +7110,10 @@ function moveDate(dir) {
 
 init();
 
-/* Surcharge init() pour hub — on laisse loadData() faire son travail,
-   on vérifie ALLDAYS après pour savoir si ça a marché */
+/* ── init() adapté pour hub ── */
 async function init() {
-  try {
-    await loadData();
-  } catch(e) {
-    console.warn('loadData error:', e);
-  }
-  if (!ALLDAYS || !ALLDAYS.length) {
-    console.warn('Aucune donnée chargée');
-    return;
-  }
+  try { await loadData(); } catch(e) { console.warn('loadData:', e); }
+  if (!ALLDAYS || !ALLDAYS.length) return;
   var sel = document.getElementById('dateSelect');
   if (sel) {
     sel.innerHTML = '';
@@ -7269,7 +7127,6 @@ async function init() {
   var app = document.getElementById('app');
   if (app) app.style.display = 'block';
   if (typeof render === 'function') render();
-  // Si on est déjà sur RPE, basculer l'onglet
   if (currentSection === 'rpe' && typeof switchView === 'function') {
     setTimeout(function(){ switchView('rpe'); }, 100);
   }
@@ -7277,14 +7134,12 @@ async function init() {
 
 async function refreshData() {
   var prev = document.getElementById('dateSelect') ? document.getElementById('dateSelect').value : null;
-  try { await loadData(); } catch(e) { console.warn('refresh error:', e); }
+  try { await loadData(); } catch(e) { console.warn('refresh:', e); }
   if (!ALLDAYS || !ALLDAYS.length) return;
   var sel = document.getElementById('dateSelect');
   if (sel) {
     sel.innerHTML = '';
-    ALLDAYS.forEach(function(d){
-      var o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
-    });
+    ALLDAYS.forEach(function(d){ var o=document.createElement('option');o.value=d;o.textContent=d;sel.appendChild(o); });
     sel.value = ALLDAYS.indexOf(prev) !== -1 ? prev : ALLDAYS[ALLDAYS.length-1];
   }
   if (typeof render === 'function') render();
