@@ -266,10 +266,20 @@
     #rapport-print-area,#rapport-print-area *{visibility:visible}
     #rapport-print-area{position:absolute;left:0;top:0;width:100%;margin:0}
     .rapport-actions,.rapport-topbar{display:none!important}
-    .rapport-wrap{border:none}
+    .rapport-wrap{border:none;background:#fff!important}
     .rapport-page{margin:0;page-break-after:always}
     .rapport-page:last-child{page-break-after:auto}
+    .rapport-eyebrow{padding:6px 16px 0}
+    .rapport-header{margin:6px 16px}
+    .rapport-header-field{padding:6px 12px}
+    .rapport-band{margin:8px 16px 0;padding:4px 16px}
+    .rapport-stats{margin:0 16px}
+    .rapport-stat{padding:8px 12px}
+    .rapport-stat .rs-val{font-size:16px}
+    #rapport-print-area img{max-height:190px!important;margin:6px 16px!important}
+    .rapport-footer{padding:6px 16px;margin-top:4px}
   }
+  @page{ size:A4; margin:8mm; }
 </style>
 </head>
 <body>
@@ -564,7 +574,7 @@
 
         <div class="section-label" style="margin-top:32px">Rapport hebdomadaire (imprimable)</div>
         <div class="rapport-actions">
-          <button onclick="window.print()">&#128424; Imprimer / Exporter en PDF</button>
+          <button onclick="printRapport()">&#128424; Imprimer / Exporter en PDF</button>
         </div>
         <div class="rapport-wrap" id="rapport-print-area">
           <div id="rapport-content"></div>
@@ -1789,13 +1799,24 @@ function renderRpeRapport() {
     + '<div class="rapport-stat"><div class="rs-lbl">sRPE semaine</div><div class="rs-val">' + Math.round(curTotal).toLocaleString('fr-FR') + '</div></div>'
     + '<div class="rapport-stat"><div class="rs-lbl">sRPE S-1</div><div class="rs-val">' + Math.round(prevTotal).toLocaleString('fr-FR') + '</div></div>'
     + '</div>'
-    + (chartImgRpe ? '<div style="margin:14px 16px"><img src="' + chartImgRpe + '" style="width:100%;max-height:300px;object-fit:contain;background:#fff"></div>' : '<div style="margin:14px 16px;color:#999;font-size:12px">Aucune séance RPE cette semaine.</div>')
+    + (chartImgRpe ? '<div style="margin:14px 16px"><img src="' + chartImgRpe + '" style="width:100%;max-height:210px;object-fit:contain;background:#fff"></div>' : '<div style="margin:14px 16px;color:#999;font-size:12px">Aucune séance RPE cette semaine.</div>')
     + '<div class="rapport-band">SRPE INDIVIDUEL</div>'
-    + (chartImgIndiv ? '<div style="margin:14px 16px"><img src="' + chartImgIndiv + '" style="width:100%;max-height:300px;object-fit:contain;background:#fff"></div>' : '')
+    + (chartImgIndiv ? '<div style="margin:14px 16px"><img src="' + chartImgIndiv + '" style="width:100%;max-height:210px;object-fit:contain;background:#fff"></div>' : '')
     + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 1 sur 1</span></div>'
     + '</div>';
 
   document.getElementById('rapport-content').innerHTML = html;
+}
+
+function printRapport() {
+  var reportHtml = document.getElementById('rapport-print-area').innerHTML;
+  var css = document.querySelector('style') ? document.querySelector('style').innerHTML : '';
+  var w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) { alert('La fenêtre d\'impression a été bloquée par le navigateur. Autorise les pop-ups pour ce site puis réessaie.'); return; }
+  w.document.open();
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport RPE</title><style>' + css + '\nbody{background:#fff;margin:0}\nbody *{visibility:visible!important}\n#rapport-print-area{position:static!important;width:auto!important}\n</style></head><body><div class="rapport-wrap" id="rapport-print-area">' + reportHtml + '</div></body></html>');
+  w.document.close();
+  setTimeout(function(){ w.focus(); w.print(); }, 350);
 }
 
 function saveWeek1Start() {
