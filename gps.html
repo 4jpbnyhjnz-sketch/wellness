@@ -2391,17 +2391,7 @@ Petit Enzo ; 9</pre>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════
-     RPE SECTION
-     (partage les données wellness)
-     ═══════════════════════════════════════ -->
-<div id="hub-rpe" class="hub-section">
-  <div id="rpe-shell" style="display:none; background:var(--bg,#0a0a0a); min-height:100vh; padding:20px">
-    <p id="rpe-loading-msg" style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:40px">
-      Chargement des données RPE...
-    </p>
-  </div>
-</div>
+<!-- RPE = onglet interne de hub-wellness -->
 
 <!-- ═══════════════════════════════════════
      JOUEUR SECTION (à venir)
@@ -2425,7 +2415,7 @@ Petit Enzo ; 9</pre>
 var wellnessLoaded = false;
 var currentSection = 'accueil';
 
-var SECTIONS = ['accueil','gps','wellness','rpe','joueur'];
+var SECTIONS = ['accueil','gps','wellness','joueur'];
 
 function switchHub(name) {
   currentSection = name;
@@ -2451,25 +2441,30 @@ function switchHub(name) {
     if (ni) ni.classList.toggle('active', s === name);
   });
 
-  // Wellness : charger si premier accès
-  if ((name === 'wellness' || name === 'rpe') && !wellnessLoaded) {
-    wellnessLoaded = true;
-    if (typeof init === 'function') {
-      init().catch(function(e){ console.warn('Wellness:', e.message); });
-    }
-  }
+  // Wellness & RPE partagent #hub-wellness
+  if (name === 'wellness' || name === 'rpe') {
+    // Montrer hub-wellness dans tous les cas
+    var wEl = document.getElementById('hub-wellness');
+    if (wEl) wEl.style.display = 'block';
 
-  // RPE : montrer le shell et basculer l'onglet
-  if (name === 'rpe') {
-    var shell = document.getElementById('rpe-shell');
-    if (shell) shell.style.display = 'block';
-    setTimeout(function(){
-      if (typeof switchView === 'function') switchView('rpe');
-      else {
-        var btn = document.querySelector('.view-switch-btn[data-view="rpe"]');
-        if (btn) btn.click();
+    // Charger les données si première visite
+    if (!wellnessLoaded) {
+      wellnessLoaded = true;
+      if (typeof init === 'function') {
+        init().then(function() {
+          // Après chargement, basculer sur le bon onglet
+          setTimeout(function() {
+            if (typeof switchView === 'function') switchView(name);
+          }, 100);
+        }).catch(function(e){ console.warn('Wellness:', e.message); });
       }
-    }, 400);
+    } else {
+      // Données déjà chargées : basculer directement
+      setTimeout(function() {
+        if (typeof switchView === 'function') switchView(name);
+      }, 50);
+    }
+    return; // On a déjà géré l'affichage
   }
 }
 
