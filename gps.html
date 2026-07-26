@@ -7244,38 +7244,50 @@ function moveDate(dir) {
 
 init();
 
-/* Surcharge init() pour hub */
+/* Surcharge init() pour hub — on laisse loadData() faire son travail,
+   on vérifie ALLDAYS après pour savoir si ça a marché */
 async function init() {
-  var ok = await loadData();
-  if (!ok) return;
+  try {
+    await loadData();
+  } catch(e) {
+    console.warn('loadData error:', e);
+  }
+  if (!ALLDAYS || !ALLDAYS.length) {
+    console.warn('Aucune donnée chargée');
+    return;
+  }
   var sel = document.getElementById('dateSelect');
-  if (!sel) return;
-  sel.innerHTML = '';
-  ALLDAYS.forEach(function(d){
-    var o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
-  });
-  sel.value = ALLDAYS[ALLDAYS.length-1];
+  if (sel) {
+    sel.innerHTML = '';
+    ALLDAYS.forEach(function(d){
+      var o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
+    });
+    sel.value = ALLDAYS[ALLDAYS.length-1];
+  }
   var ls = document.getElementById('loading-screen');
   if (ls) ls.style.display = 'none';
   var app = document.getElementById('app');
-  if (app) { app.style.display = 'block'; }
-  // Aussi montrer le shell RPE si on est sur RPE
-  var rpeShell = document.getElementById('rpe-shell');
-  if (rpeShell && currentSection === 'rpe') rpeShell.style.display = 'block';
-  render();
+  if (app) app.style.display = 'block';
+  if (typeof render === 'function') render();
+  // Si on est déjà sur RPE, basculer l'onglet
+  if (currentSection === 'rpe' && typeof switchView === 'function') {
+    setTimeout(function(){ switchView('rpe'); }, 100);
+  }
 }
 
 async function refreshData() {
   var prev = document.getElementById('dateSelect') ? document.getElementById('dateSelect').value : null;
-  var ok = await loadData();
-  if (!ok) return;
+  try { await loadData(); } catch(e) { console.warn('refresh error:', e); }
+  if (!ALLDAYS || !ALLDAYS.length) return;
   var sel = document.getElementById('dateSelect');
-  sel.innerHTML = '';
-  ALLDAYS.forEach(function(d){
-    var o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
-  });
-  sel.value = ALLDAYS.indexOf(prev) !== -1 ? prev : ALLDAYS[ALLDAYS.length-1];
-  render();
+  if (sel) {
+    sel.innerHTML = '';
+    ALLDAYS.forEach(function(d){
+      var o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
+    });
+    sel.value = ALLDAYS.indexOf(prev) !== -1 ? prev : ALLDAYS[ALLDAYS.length-1];
+  }
+  if (typeof render === 'function') render();
 }
 </script>
 
