@@ -1568,8 +1568,9 @@ var barDataLabelPlugin = {
   id: 'barDataLabelPlugin',
   afterDatasetsDraw: function(chart) {
     var ctx = chart.ctx;
+    var opts = (chart.options.plugins && chart.options.plugins.barDataLabelPlugin) || {};
     ctx.save();
-    ctx.fillStyle = '#f0f0f0';
+    ctx.fillStyle = opts.color || '#f0f0f0';
     ctx.font = "600 10px 'JetBrains Mono', monospace";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
@@ -1585,6 +1586,17 @@ var barDataLabelPlugin = {
     ctx.restore();
   }
 };
+function captureChartForPrint(chartInst, labelColor) {
+  if (!chartInst) return '';
+  chartInst.options.plugins = chartInst.options.plugins || {};
+  var prevOpt = chartInst.options.plugins.barDataLabelPlugin;
+  chartInst.options.plugins.barDataLabelPlugin = {color: labelColor};
+  chartInst.update('none');
+  var img = chartInst.toBase64Image();
+  chartInst.options.plugins.barDataLabelPlugin = prevOpt;
+  chartInst.update('none');
+  return img;
+}
 
 function computeIndividualSrpe(weekMonday) {
   var absences = getWeekAbsences(weekMonday);
@@ -1745,7 +1757,7 @@ function renderRpeRapport() {
   var now = new Date();
   var genStr = fmtFR(now) + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 
-  var chartImgRpe = (semaineRpeChartInst) ? semaineRpeChartInst.toBase64Image() : '';
+  var chartImgRpe = captureChartForPrint(semaineRpeChartInst, '#111');
   var chartImgIndiv = (semaineSrpeIndivChartInst) ? semaineSrpeIndivChartInst.toBase64Image() : '';
 
   var headerHtml = '<div class="rapport-header">'
