@@ -1588,14 +1588,26 @@ var barDataLabelPlugin = {
 };
 function captureChartForPrint(chartInst, labelColor) {
   if (!chartInst) return '';
-  chartInst.options.plugins = chartInst.options.plugins || {};
-  var prevOpt = chartInst.options.plugins.barDataLabelPlugin;
-  chartInst.options.plugins.barDataLabelPlugin = {color: labelColor};
-  chartInst.update('none');
-  var img = chartInst.toBase64Image();
-  chartInst.options.plugins.barDataLabelPlugin = prevOpt;
-  chartInst.update('none');
-  return img;
+  try {
+    var tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = chartInst.canvas.width || 700;
+    tmpCanvas.height = chartInst.canvas.height || 320;
+    var cfg = {
+      type: chartInst.config.type,
+      data: JSON.parse(JSON.stringify(chartInst.config.data)),
+      plugins: [barDataLabelPlugin],
+      options: Object.assign({}, chartInst.config.options, {
+        responsive:false, animation:false,
+        plugins: Object.assign({}, chartInst.config.options.plugins, {barDataLabelPlugin:{color:labelColor}})
+      })
+    };
+    var tmpChart = new Chart(tmpCanvas, cfg);
+    var img = tmpChart.toBase64Image();
+    tmpChart.destroy();
+    return img;
+  } catch(e) {
+    return chartInst.toBase64Image();
+  }
 }
 
 function computeIndividualSrpe(weekMonday) {
