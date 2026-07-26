@@ -269,15 +269,6 @@
     .rapport-wrap{border:none;background:#fff!important}
     .rapport-page{margin:0;page-break-after:always}
     .rapport-page:last-child{page-break-after:auto}
-    .rapport-eyebrow{padding:6px 16px 0}
-    .rapport-header{margin:6px 16px}
-    .rapport-header-field{padding:6px 12px}
-    .rapport-band{margin:8px 16px 0;padding:4px 16px}
-    .rapport-stats{margin:0 16px}
-    .rapport-stat{padding:8px 12px}
-    .rapport-stat .rs-val{font-size:16px}
-    #rapport-print-area img{max-height:190px!important;margin:6px 16px!important}
-    .rapport-footer{padding:6px 16px;margin-top:4px}
   }
   @page{ size:A4; margin:8mm; }
 </style>
@@ -1799,9 +1790,9 @@ function renderRpeRapport() {
     + '<div class="rapport-stat"><div class="rs-lbl">sRPE semaine</div><div class="rs-val">' + Math.round(curTotal).toLocaleString('fr-FR') + '</div></div>'
     + '<div class="rapport-stat"><div class="rs-lbl">sRPE S-1</div><div class="rs-val">' + Math.round(prevTotal).toLocaleString('fr-FR') + '</div></div>'
     + '</div>'
-    + (chartImgRpe ? '<div style="margin:14px 16px"><img src="' + chartImgRpe + '" style="width:100%;max-height:210px;object-fit:contain;background:#fff"></div>' : '<div style="margin:14px 16px;color:#999;font-size:12px">Aucune séance RPE cette semaine.</div>')
+    + (chartImgRpe ? '<div style="margin:14px 16px"><img src="' + chartImgRpe + '" style="width:100%;max-height:400px;object-fit:contain;background:#fff"></div>' : '<div style="margin:14px 16px;color:#999;font-size:12px">Aucune séance RPE cette semaine.</div>')
     + '<div class="rapport-band">SRPE INDIVIDUEL</div>'
-    + (chartImgIndiv ? '<div style="margin:14px 16px"><img src="' + chartImgIndiv + '" style="width:100%;max-height:210px;object-fit:contain;background:#fff"></div>' : '')
+    + (chartImgIndiv ? '<div style="margin:14px 16px"><img src="' + chartImgIndiv + '" style="width:100%;max-height:400px;object-fit:contain;background:#fff"></div>' : '')
     + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 1 sur 1</span></div>'
     + '</div>';
 
