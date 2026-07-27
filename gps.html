@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-/* ══ INDEX2 CSS (Wellness/RPE dark theme) ══ */
+/* ══ CSS INDEX2 ══ */
 
   :root{
     --bg:#0a0a0a;
@@ -276,7 +276,7 @@
   @page{ size:A4; margin:8mm; }
 
 
-/* ══ INDEX3 CSS (GPS) ══ */
+/* ══ CSS INDEX3 ══ */
 
 :root {
   --red: #D6001C;
@@ -1277,181 +1277,150 @@ table.roster-table select { padding: 4px; }
 
 
 
-/* ══════════════════════════════════════════════════════
-   HUB OVERRIDES — corrigent tous les conflits
-   ══════════════════════════════════════════════════════ */
+/* ══ HUB CSS ══ */
+body { margin:0; background:#0a0a0a; }
 
-/* Reset body : on gère le fond par section */
-body {
-  margin: 0;
-  background: #0a0a0a;
-  font-family: 'Inter', 'Arial', sans-serif;
-  position: relative;
-}
-
-/* Page d'accueil et GPS : fond rouge hachuré */
-#hub-accueil { background-color:#580010;background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='.7' stroke-opacity='.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='.7' stroke-opacity='.2'/%3E%3C/svg%3E");background-size:auto,20px 20px;background-attachment:fixed; }
-#hub-gps main { background: transparent; }
-
-/* Wellness/Joueur : fond sombre index2 */
-#hub-wellness { background: var(--bg, #0a0a0a) !important; }
-#hub-joueur   { background: var(--bg, #0a0a0a) !important; }
-
-/* CORRECTION CRITIQUE : loading-screen ne doit PAS être position:fixed
-   (sinon il couvre tout le site même quand on est sur GPS) */
-#loading-screen {
-  position: relative !important;
-  inset: auto !important;
-  min-height: calc(100vh - 52px);
-  background: var(--bg, #0a0a0a) !important;
-  z-index: 1 !important;
-}
-
-/* Sections hub */
-.hub-section { display: none; min-height: 100vh; }
-.hub-section.active { display: block; }
-
-/* GPS : place sous la hub-topbar (52px) + sa propre topbar */
-#hub-gps { padding-top: 52px; }
-#hub-gps .topbar { position: sticky; top: 52px; z-index: 500; }
-
-/* Wellness : place sous la hub-topbar */
-#hub-wellness { padding-top: 52px; }
-
-/* BARRE TOP HUB */
+/* Barre hub fixe */
 .hub-topbar {
-  position: fixed; top: 0; left: 0; right: 0; height: 52px;
-  background: rgba(5,0,1,.97);
-  border-bottom: 2px solid #D6001C;
-  display: flex; align-items: center;
-  padding: 0 16px; gap: 14px; z-index: 1000;
+  position:fixed; top:0; left:0; right:0; height:52px;
+  background:rgba(5,0,1,.97); border-bottom:2px solid #D6001C;
+  display:flex; align-items:center; padding:0 16px; gap:14px; z-index:1000;
 }
 .hub-hamburger {
-  width: 36px; height: 36px; background: none;
-  border: 1px solid rgba(255,255,255,.2); border-radius: 6px;
-  color: #fff; font-size: 18px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width:36px; height:36px; background:none;
+  border:1px solid rgba(255,255,255,.2); border-radius:6px;
+  color:#fff; font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.hub-hamburger:hover { background: rgba(255,255,255,.1); }
-.hub-topbar-logo {
-  width: 34px; height: 34px; border: 2px solid #D6001C;
-  border-radius: 50%; background: #fff center/contain no-repeat; flex-shrink: 0;
+.hub-hamburger:hover { background:rgba(255,255,255,.1); }
+.hub-logo-top {
+  width:34px; height:34px; border:2px solid #D6001C;
+  border-radius:50%; background:#fff center/contain no-repeat; flex-shrink:0;
 }
-.hub-topbar-name { font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .05em; }
-.hub-topbar-sub  { font-size: 9px; color: #c9a84c; text-transform: uppercase; letter-spacing: .12em; display: block; }
+.hub-top-name { font-size:13px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:.05em; line-height:1; }
+.hub-top-sub  { font-size:9px; color:#c9a84c; text-transform:uppercase; letter-spacing:.12em; display:block; margin-top:1px; }
 .hub-back-btn {
-  margin-left: auto; background: none; border: none; color: rgba(255,255,255,.45);
-  font-size: 13px; cursor: pointer; display: none; align-items: center; gap: 5px;
-  font-family: inherit; font-weight: 600;
+  margin-left:auto; background:none; border:none; color:rgba(255,255,255,.45);
+  font-size:13px; cursor:pointer; font-family:inherit; font-weight:600;
+  display:none; align-items:center; gap:5px;
 }
-.hub-back-btn:hover { color: #fff; }
-.hub-back-btn.visible { display: flex; }
+.hub-back-btn:hover { color:#fff; }
+.hub-back-btn.visible { display:flex; }
 
-/* OVERLAY + SIDEBAR */
+/* Sidebar */
 .hub-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.6);
-  z-index: 1900; opacity: 0; pointer-events: none; transition: opacity .25s;
+  position:fixed; inset:0; background:rgba(0,0,0,.6);
+  z-index:1900; opacity:0; pointer-events:none; transition:opacity .25s;
 }
-.hub-overlay.open { opacity: 1; pointer-events: all; }
+.hub-overlay.open { opacity:1; pointer-events:all; }
 .hub-sidebar {
-  position: fixed; top: 0; left: 0; bottom: 0; width: 280px;
-  background: #0d0002; border-right: 2px solid #D6001C;
-  z-index: 2000; display: flex; flex-direction: column;
-  transform: translateX(-100%); transition: transform .28s cubic-bezier(.4,0,.2,1);
+  position:fixed; top:0; left:0; bottom:0; width:280px;
+  background:#0d0002; border-right:2px solid #D6001C;
+  z-index:2000; display:flex; flex-direction:column;
+  transform:translateX(-100%); transition:transform .28s cubic-bezier(.4,0,.2,1);
 }
-.hub-sidebar.open { transform: translateX(0); }
-.hub-sidebar-header {
-  padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,.08);
-  display: flex; align-items: center; gap: 12px;
+.hub-sidebar.open { transform:translateX(0); }
+.hub-sb-header {
+  padding:20px; border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex; align-items:center; gap:12px;
 }
-.hub-sidebar-logo {
-  width: 48px; height: 48px; border: 2.5px solid #D6001C;
-  border-radius: 50%; background: #fff center/contain no-repeat; flex-shrink: 0;
+.hub-sb-logo {
+  width:48px; height:48px; border:2.5px solid #D6001C;
+  border-radius:50%; background:#fff center/contain no-repeat; flex-shrink:0;
 }
-.hub-sidebar-name { color: #fff; font-size: 16px; font-weight: 800; text-transform: uppercase; }
-.hub-sidebar-sub  { color: #c9a84c; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
-.hub-sidebar-nav  { flex: 1; padding: 12px 0; overflow-y: auto; }
-.hub-sidebar-item {
-  display: flex; align-items: center; gap: 14px; padding: 15px 22px;
-  cursor: pointer; color: rgba(255,255,255,.6); font-size: 14px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .04em;
-  border-left: 3px solid transparent; transition: all .15s; user-select: none;
+.hub-sb-name { color:#fff; font-size:16px; font-weight:800; text-transform:uppercase; }
+.hub-sb-sub  { color:#c9a84c; font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
+.hub-sb-nav  { flex:1; padding:12px 0; overflow-y:auto; }
+.hub-sb-item {
+  display:flex; align-items:center; gap:14px; padding:15px 22px;
+  cursor:pointer; color:rgba(255,255,255,.6); font-size:14px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.04em;
+  border-left:3px solid transparent; transition:all .15s;
 }
-.hub-sidebar-item:hover { color: #fff; background: rgba(255,255,255,.04); }
-.hub-sidebar-item.active { color: #fff; background: rgba(214,0,28,.12); border-left-color: #D6001C; }
-.hub-sidebar-item-icon { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
-.hub-sidebar-divider { height: 1px; background: rgba(255,255,255,.06); margin: 6px 22px; }
-.hub-sidebar-section-label {
-  padding: 10px 22px 4px; font-size: 9px; font-weight: 700;
-  color: rgba(255,255,255,.3); text-transform: uppercase; letter-spacing: .1em;
-}
-.hub-sidebar-footer { padding: 16px 22px; border-top: 1px solid rgba(255,255,255,.06); }
+.hub-sb-item:hover { color:#fff; background:rgba(255,255,255,.04); }
+.hub-sb-item.active { color:#fff; background:rgba(214,0,28,.12); border-left-color:#D6001C; }
+.hub-sb-icon { font-size:20px; width:26px; text-align:center; flex-shrink:0; }
+.hub-sb-div  { height:1px; background:rgba(255,255,255,.06); margin:6px 22px; }
+.hub-sb-label { padding:10px 22px 4px; font-size:9px; font-weight:700; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:.1em; }
+.hub-sb-footer { padding:16px 22px; border-top:1px solid rgba(255,255,255,.06); }
 .hub-refresh-pill {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  background: rgba(214,0,28,.1); border: 1px solid rgba(214,0,28,.3);
-  border-radius: 20px; padding: 8px 16px; color: #ff4455; font-size: 12px;
-  font-weight: 700; cursor: pointer; font-family: inherit; width: 100%;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  background:rgba(214,0,28,.1); border:1px solid rgba(214,0,28,.3);
+  border-radius:20px; padding:8px 16px; color:#ff4455;
+  font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; width:100%;
 }
-.hub-refresh-pill:hover { background: rgba(214,0,28,.2); }
+.hub-refresh-pill:hover { background:rgba(214,0,28,.2); }
 
-/* PAGE D'ACCUEIL */
+/* Sections */
+.hub-section { display:none; min-height:100vh; }
+.hub-section.active { display:block; }
+
+/* Accueil */
 #hub-accueil {
-  display: none; flex-direction: column; align-items: center;
-  padding-top: 52px; min-height: 100vh;
+  display:none; flex-direction:column; align-items:center;
+  min-height:100vh; padding-top:52px;
+  background-color:#580010;
+  background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='.7' stroke-opacity='.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='.7' stroke-opacity='.2'/%3E%3C/svg%3E");
+  background-size:auto,20px 20px; background-attachment:fixed;
 }
-#hub-accueil.active { display: flex; }
-.accueil-hero {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 48px 24px 32px; text-align: center;
+#hub-accueil.active { display:flex; }
+.ac-hero { display:flex; flex-direction:column; align-items:center; padding:48px 24px 32px; text-align:center; }
+.ac-logo {
+  width:120px; height:120px; border-radius:50%;
+  border:2px solid rgba(214,0,28,.5);
+  background:rgba(10,0,2,.8) center/70% no-repeat;
+  margin-bottom:24px;
+  box-shadow:0 0 0 8px rgba(214,0,28,.06),0 0 0 16px rgba(214,0,28,.03);
 }
-.accueil-logo-ring {
-  width: 120px; height: 120px; border-radius: 50%;
-  border: 2px solid rgba(214,0,28,.5);
-  background: rgba(10,0,2,.8) center/70% no-repeat;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 24px;
-  box-shadow: 0 0 0 8px rgba(214,0,28,.06), 0 0 0 16px rgba(214,0,28,.03);
+.ac-name { font-size:28px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+.ac-sub  { font-size:11px; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.18em; }
+.ac-nav  { width:100%; max-width:480px; padding:0 24px; display:flex; flex-direction:column; gap:12px; }
+.ac-btn {
+  display:flex; align-items:center; gap:16px; padding:20px 24px;
+  background:rgba(20,0,3,.75); border:1px solid rgba(255,255,255,.1); border-radius:10px;
+  cursor:pointer; transition:all .18s; text-align:left; width:100%; font-family:inherit;
+  position:relative; overflow:hidden;
 }
-.accueil-club-name {
-  font-size: 28px; font-weight: 900; color: #fff;
-  text-transform: uppercase; letter-spacing: .06em; line-height: 1; margin-bottom: 6px;
-}
-.accueil-hub-label { font-size: 11px; color: rgba(255,255,255,.35); text-transform: uppercase; letter-spacing: .18em; }
-.accueil-nav { width: 100%; max-width: 480px; padding: 0 24px; display: flex; flex-direction: column; gap: 12px; }
-.accueil-btn {
-  display: flex; align-items: center; gap: 16px; padding: 20px 24px;
-  background: rgba(20,0,3,.7); border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
-  cursor: pointer; transition: all .18s; text-align: left; width: 100%;
-  font-family: inherit; position: relative; overflow: hidden;
-}
-.accueil-btn::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-  width: 3px; background: var(--btn-color, #D6001C);
-}
-.accueil-btn:hover { background: rgba(40,0,5,.8); border-color: rgba(255,255,255,.2); transform: translateX(3px); }
-.accueil-btn-icon { font-size: 26px; flex-shrink: 0; }
-.accueil-btn-text { flex: 1; }
-.accueil-btn-label { display: block; font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
-.accueil-btn-sub   { display: block; font-size: 11px; color: rgba(255,255,255,.38); }
-.accueil-btn-arrow { color: rgba(255,255,255,.25); font-size: 18px; }
+.ac-btn::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--c,#D6001C); }
+.ac-btn:hover { background:rgba(40,0,5,.85); border-color:rgba(255,255,255,.2); transform:translateX(4px); }
+.ac-icon  { font-size:26px; flex-shrink:0; }
+.ac-text  { flex:1; }
+.ac-label { display:block; font-size:15px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:.06em; margin-bottom:3px; }
+.ac-desc  { display:block; font-size:11px; color:rgba(255,255,255,.38); }
+.ac-arrow { color:rgba(255,255,255,.25); font-size:18px; }
 
-/* Joueur section placeholder */
-.joueur-placeholder {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-height: calc(100vh - 52px); gap: 16px; padding: 40px; text-align: center;
+/* GPS section : fond rouge */
+#hub-gps {
+  padding-top:52px;
+  background-color:#580010;
+  background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='.7' stroke-opacity='.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='.7' stroke-opacity='.2'/%3E%3C/svg%3E");
+  background-size:auto,20px 20px; background-attachment:fixed;
+}
+#hub-gps .topbar { position:sticky; top:52px; z-index:500; }
+
+/* Wellness/RPE : masquer le header de index2 (on a le nôtre) */
+#hub-wellness { padding-top:52px; }
+#hub-wellness .header { display:none !important; }
+
+/* loading-screen : RELATIF, pas fixed */
+#loading-screen {
+  position:relative !important; inset:auto !important; z-index:1 !important;
+  min-height:calc(100vh - 52px);
 }
 
-/* PRINT */
+/* Joueur */
+#hub-joueur { background:var(--bg,#0a0a0a); }
+.joueur-ph {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:calc(100vh - 52px); gap:16px; padding:40px; text-align:center;
+}
+
 @media print {
-  .hub-topbar, .hub-sidebar, .hub-overlay { display: none !important; }
-  #hub-accueil, #hub-wellness, #hub-joueur { display: none !important; }
-  #hub-gps { display: block !important; padding-top: 0; }
-  #hub-gps .topbar { top: 0; }
-  body { background: #fff !important; }
-}
-
-@media (max-width:600px) {
-  .hub-topbar-name, .hub-topbar-sub { font-size: 11px; }
+  .hub-topbar,.hub-sidebar,.hub-overlay { display:none !important; }
+  #hub-accueil,#hub-wellness,#hub-joueur { display:none !important; }
+  #hub-gps { display:block !important; padding-top:0; }
+  #hub-gps .topbar { top:0; }
+  body { background:#fff !important; }
 }
 </style>
 </head>
@@ -1460,10 +1429,10 @@ body {
 <!-- HUB TOPBAR -->
 <div class="hub-topbar no-print">
   <button class="hub-hamburger" onclick="openSidebar()">☰</button>
-  <div class="hub-topbar-logo" id="topbarLogoSmall"></div>
+  <div class="hub-logo-top" id="topbarLogoSmall"></div>
   <div>
-    <span class="hub-topbar-name">Nissa Rugby</span>
-    <span class="hub-topbar-sub">Performance Hub</span>
+    <span class="hub-top-name">Nissa Rugby</span>
+    <span class="hub-top-sub">Performance Hub</span>
   </div>
   <button class="hub-back-btn" id="backBtn" onclick="switchHub('accueil')">← Accueil</button>
 </div>
@@ -1471,65 +1440,62 @@ body {
 <!-- OVERLAY + SIDEBAR -->
 <div class="hub-overlay" id="hubOverlay" onclick="closeSidebar()"></div>
 <div class="hub-sidebar" id="hubSidebar">
-  <div class="hub-sidebar-header">
-    <div class="hub-sidebar-logo" id="sidebarLogo"></div>
-    <div>
-      <div class="hub-sidebar-name">Nissa Rugby</div>
-      <div class="hub-sidebar-sub">Performance Hub</div>
-    </div>
+  <div class="hub-sb-header">
+    <div class="hub-sb-logo" id="sidebarLogo"></div>
+    <div><div class="hub-sb-name">Nissa Rugby</div><div class="hub-sb-sub">Performance Hub</div></div>
   </div>
-  <nav class="hub-sidebar-nav">
-    <div class="hub-sidebar-section-label">Navigation</div>
-    <div class="hub-sidebar-item active" id="nav-accueil" onclick="switchHub('accueil');closeSidebar()">
-      <span class="hub-sidebar-item-icon">🏠</span><span>Accueil</span>
+  <nav class="hub-sb-nav">
+    <div class="hub-sb-label">Navigation</div>
+    <div class="hub-sb-item active" id="nav-accueil" onclick="switchHub('accueil');closeSidebar()">
+      <span class="hub-sb-icon">🏠</span><span>Accueil</span>
     </div>
-    <div class="hub-sidebar-divider"></div>
-    <div class="hub-sidebar-section-label">Outils</div>
-    <div class="hub-sidebar-item" id="nav-gps" onclick="switchHub('gps');closeSidebar()">
-      <span class="hub-sidebar-item-icon">📊</span><span>Rapport GPS</span>
+    <div class="hub-sb-div"></div>
+    <div class="hub-sb-label">Outils</div>
+    <div class="hub-sb-item" id="nav-gps" onclick="switchHub('gps');closeSidebar()">
+      <span class="hub-sb-icon">📊</span><span>Rapport GPS</span>
     </div>
-    <div class="hub-sidebar-item" id="nav-wellness" onclick="switchHub('wellness');closeSidebar()">
-      <span class="hub-sidebar-item-icon">💚</span><span>Wellness</span>
+    <div class="hub-sb-item" id="nav-wellness" onclick="switchHub('wellness');closeSidebar()">
+      <span class="hub-sb-icon">💚</span><span>Wellness</span>
     </div>
-    <div class="hub-sidebar-item" id="nav-rpe" onclick="switchHub('rpe');closeSidebar()">
-      <span class="hub-sidebar-item-icon">💪</span><span>RPE</span>
+    <div class="hub-sb-item" id="nav-rpe" onclick="switchHub('rpe');closeSidebar()">
+      <span class="hub-sb-icon">💪</span><span>RPE</span>
     </div>
-    <div class="hub-sidebar-item" id="nav-joueur" onclick="switchHub('joueur');closeSidebar()">
-      <span class="hub-sidebar-item-icon">👤</span><span>Joueur</span>
+    <div class="hub-sb-item" id="nav-joueur" onclick="switchHub('joueur');closeSidebar()">
+      <span class="hub-sb-icon">👤</span><span>Joueur</span>
     </div>
   </nav>
-  <div class="hub-sidebar-footer">
+  <div class="hub-sb-footer">
     <button class="hub-refresh-pill" onclick="hubRefresh();closeSidebar()">⟳ Actualiser les données</button>
   </div>
 </div>
 
 <!-- PAGE D'ACCUEIL -->
 <div id="hub-accueil" class="active">
-  <div class="accueil-hero">
-    <div class="accueil-logo-ring" id="accueilLogo"></div>
-    <div class="accueil-club-name">Nissa Rugby</div>
-    <div class="accueil-hub-label">Performance Hub · Saison 2025-2026</div>
+  <div class="ac-hero">
+    <div class="ac-logo" id="accueilLogo"></div>
+    <div class="ac-name">Nissa Rugby</div>
+    <div class="ac-sub">Performance Hub · Saison 2025-2026</div>
   </div>
-  <div class="accueil-nav">
-    <button class="accueil-btn" style="--btn-color:#D6001C" onclick="switchHub('gps')">
-      <span class="accueil-btn-icon">📊</span>
-      <span class="accueil-btn-text"><span class="accueil-btn-label">Rapport GPS</span><span class="accueil-btn-sub">Séances · Matchs · PDF · Records</span></span>
-      <span class="accueil-btn-arrow">›</span>
+  <div class="ac-nav">
+    <button class="ac-btn" style="--c:#D6001C" onclick="switchHub('gps')">
+      <span class="ac-icon">📊</span>
+      <span class="ac-text"><span class="ac-label">Rapport GPS</span><span class="ac-desc">Séances · Matchs · PDF · Records</span></span>
+      <span class="ac-arrow">›</span>
     </button>
-    <button class="accueil-btn" style="--btn-color:#2ecc8a" onclick="switchHub('wellness')">
-      <span class="accueil-btn-icon">💚</span>
-      <span class="accueil-btn-text"><span class="accueil-btn-label">Wellness</span><span class="accueil-btn-sub">Hooper · Forme · Alertes collectives</span></span>
-      <span class="accueil-btn-arrow">›</span>
+    <button class="ac-btn" style="--c:#2ecc8a" onclick="switchHub('wellness')">
+      <span class="ac-icon">💚</span>
+      <span class="ac-text"><span class="ac-label">Wellness</span><span class="ac-desc">Hooper · Forme · Alertes collectives</span></span>
+      <span class="ac-arrow">›</span>
     </button>
-    <button class="accueil-btn" style="--btn-color:#5bc4f5" onclick="switchHub('rpe')">
-      <span class="accueil-btn-icon">💪</span>
-      <span class="accueil-btn-text"><span class="accueil-btn-label">RPE</span><span class="accueil-btn-sub">Charge · sRPE hebdomadaire · Individuel</span></span>
-      <span class="accueil-btn-arrow">›</span>
+    <button class="ac-btn" style="--c:#5bc4f5" onclick="switchHub('rpe')">
+      <span class="ac-icon">💪</span>
+      <span class="ac-text"><span class="ac-label">RPE</span><span class="ac-desc">Charge · sRPE hebdomadaire · Individuel</span></span>
+      <span class="ac-arrow">›</span>
     </button>
-    <button class="accueil-btn" style="--btn-color:#c9a84c" onclick="switchHub('joueur')">
-      <span class="accueil-btn-icon">👤</span>
-      <span class="accueil-btn-text"><span class="accueil-btn-label">Joueur</span><span class="accueil-btn-sub">Profil individuel · GPS · Wellness · RPE</span></span>
-      <span class="accueil-btn-arrow">›</span>
+    <button class="ac-btn" style="--c:#c9a84c" onclick="switchHub('joueur')">
+      <span class="ac-icon">👤</span>
+      <span class="ac-text"><span class="ac-label">Joueur</span><span class="ac-desc">Profil individuel · GPS · Wellness · RPE</span></span>
+      <span class="ac-arrow">›</span>
     </button>
   </div>
 </div>
@@ -1920,21 +1886,44 @@ Petit Enzo ; 9</pre>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </div>
 
-<!-- WELLNESS + RPE SECTION (partagée) -->
+<!-- WELLNESS + RPE SECTION — body INDEX2 EXACT -->
 <div id="hub-wellness" class="hub-section">
-  <div id="loading-screen">
-    <div class="loader-icon">🏉</div>
-    <div class="loader-title">Wellness Dashboard</div>
-    <div class="loader-sub" id="loader-sub">Connexion au Google Sheet...</div>
-    <div class="loader-bar-track"><div class="loader-bar-fill" id="loader-bar"></div></div>
-    <div id="loader-error" style="display:none">
-      <div class="err-title">⚠ Erreur de connexion</div>
-      <code id="err-detail"></code>
+<div id="loading-screen">
+  <div class="loader-icon">&#127945;</div>
+  <div class="loader-title">Chargement des données</div>
+  <div class="loader-sub" id="loader-sub">Connexion au Google Sheet...</div>
+  <div class="loader-bar-track"><div class="loader-bar-fill" id="loader-bar"></div></div>
+  <div class="loader-error" id="loader-error">
+    <div class="err-title">&#9888; Impossible de charger les données</div>
+    <p id="err-msg">Vérifiez que le Google Sheet est partagé en accès public.</p>
+    <code id="err-detail"></code>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-wrap">
+        <img class="logo-icon" src="https://nissarugby.fr/main_logo.svg" alt="Nissa Rugby" onerror="this.style.display='none'">
+        <div class="club-name">
+          <div class="club-name-main">Nissa Rugby</div>
+        </div>
+      </div>
+      <div class="header-divider"></div>
+      <div class="dashboard-label">
+        <div class="dashboard-label-main">Wellness Dashboard</div>
+        <div class="dashboard-label-sub">Suivi de l'état de forme — Équipe Espoirs</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <a class="btn-refresh" href="index.html" style="text-decoration:none">Équipe Pro &#8594;</a>
+      <div class="live-dot"></div>
+      <span class="header-badge" id="stats-badge">–</span>
+      <button class="btn-refresh" id="btn-refresh" onclick="refreshData()"><span class="spin">&#8635;</span> Actualiser</button>
     </div>
   </div>
-  <div id="app" style="display:none">
-    <div id="last-updated" style="display:none"></div>
-<div class="view-switch">
+  <div class="main">
+    <div class="view-switch">
       <button class="view-switch-btn active" id="vs-wellness" onclick="switchView('wellness')">&#128154; Wellness</button>
       <button class="view-switch-btn" id="vs-rpe" onclick="switchView('rpe')">&#128293; RPE</button>
     </div>
@@ -2253,99 +2242,76 @@ Petit Enzo ; 9</pre>
       </div>
     </div>
   </div>
-  </div>
+  <div class="footer">Nissa Rugby &#183; Wellness Dashboard &#183; Données en direct depuis Google Sheets &#183; <span id="last-updated"></span></div>
+</div>
 </div>
 
-<!-- JOUEUR SECTION (vide pour l'instant) -->
+<!-- JOUEUR SECTION -->
 <div id="hub-joueur" class="hub-section">
-  <div class="joueur-placeholder">
+  <div class="joueur-ph">
     <span style="font-size:52px">👤</span>
     <div style="font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.06em">Joueur</div>
-    <div style="font-size:14px;color:rgba(255,255,255,.35);max-width:300px;line-height:1.6">
-      Section en cours de développement.<br>Elle permettra de consulter le profil complet d'un joueur.
-    </div>
+    <div style="font-size:14px;color:rgba(255,255,255,.35);max-width:300px;line-height:1.6">Section en cours de développement.</div>
   </div>
 </div>
 
 <div id="sessionPrintRoot"></div>
 
-<!-- ══ NAVIGATION HUB (inline) ══ -->
+<!-- HUB NAV SCRIPT -->
 <script>
 var wellnessLoaded = false;
 var currentSection = 'accueil';
-var SECTIONS = ['gps','wellness','joueur'];
-
-// Fond du body selon la section
-var RED_BG_CSS   = 'background-color:#580010;background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\'%3E%3Cline x1=\'0\' y1=\'0\' x2=\'20\' y2=\'20\' stroke=\'%23ff2040\' stroke-width=\'.7\' stroke-opacity=\'.3\'/%3E%3Cline x1=\'20\' y1=\'0\' x2=\'0\' y2=\'20\' stroke=\'%23000\' stroke-width=\'.7\' stroke-opacity=\'.2\'/%3E%3C/svg%3E");background-size:auto,20px 20px;background-attachment:fixed;';
-var DARK_BG_CSS  = 'background-color:#0a0a0a;background-image:none;';
-
-function setBodyBg(isRed) {
-  if (isRed) {
-    document.body.style.cssText = RED_BG_CSS;
-  } else {
-    document.body.style.backgroundColor = '#0a0a0a';
-    document.body.style.backgroundImage = 'none';
-  }
-}
 
 function switchHub(name) {
   currentSection = name;
-
   // Accueil
   var ac = document.getElementById('hub-accueil');
   if (ac) ac.style.display = name === 'accueil' ? 'flex' : 'none';
-
-  // Autres sections
-  SECTIONS.forEach(function(s) {
+  // Sections
+  ['gps','joueur'].forEach(function(s) {
     var el = document.getElementById('hub-' + s);
-    if (!el) return;
-    // wellness sert aussi pour RPE
-    var show = (s === name) || (s === 'wellness' && name === 'rpe');
-    el.style.display = show ? 'block' : 'none';
+    if (el) el.style.display = s === name ? 'block' : 'none';
   });
-
-  // Fond du body
-  setBodyBg(name === 'accueil' || name === 'gps');
+  // Wellness sert aussi pour RPE
+  var hw = document.getElementById('hub-wellness');
+  if (hw) hw.style.display = (name === 'wellness' || name === 'rpe') ? 'block' : 'none';
 
   // Bouton retour
   var back = document.getElementById('backBtn');
   if (back) back.classList.toggle('visible', name !== 'accueil');
 
-  // Nav sidebar
+  // Sidebar actifs
   ['accueil','gps','wellness','rpe','joueur'].forEach(function(s) {
     var ni = document.getElementById('nav-' + s);
     if (ni) ni.classList.toggle('active', s === name);
   });
 
-  // Wellness / RPE : charger et afficher
-  if (name === 'wellness' || name === 'rpe') {
-    if (!wellnessLoaded) {
-      wellnessLoaded = true;
-      if (typeof init === 'function') {
-        init().then(function() {
-          if (name === 'rpe' && typeof switchView === 'function') {
-            setTimeout(function(){ switchView('rpe'); }, 100);
-          }
-        }).catch(function(e){ console.warn('W:', e.message); });
-      }
-    } else {
-      // Données déjà chargées
-      if (typeof switchView === 'function') {
-        setTimeout(function(){ switchView(name); }, 50);
-      }
+  // Charger wellness si premier accès
+  if ((name === 'wellness' || name === 'rpe') && !wellnessLoaded) {
+    wellnessLoaded = true;
+    if (typeof init === 'function') {
+      init().then(function() {
+        if (name === 'rpe' && typeof switchView === 'function') {
+          setTimeout(function() { switchView('rpe'); }, 100);
+        }
+      }).catch(function(e) { console.warn('init:', e); });
+    }
+  } else if (wellnessLoaded && (name === 'wellness' || name === 'rpe')) {
+    if (typeof switchView === 'function') {
+      setTimeout(function() { switchView(name); }, 50);
     }
   }
 }
 
 function openSidebar()  { document.getElementById('hubSidebar').classList.add('open'); document.getElementById('hubOverlay').classList.add('open'); }
 function closeSidebar() { document.getElementById('hubSidebar').classList.remove('open'); document.getElementById('hubOverlay').classList.remove('open'); }
-document.addEventListener('click', function(e){ if (!e.target.closest('#hubMenuBtn') && !e.target.closest('#hubSidebar')) closeSidebar(); });
+document.addEventListener('click', function(e) { if (!e.target.closest('#hubSidebar') && !e.target.closest('.hub-hamburger')) closeSidebar(); });
 function hubRefresh() { if (typeof refreshData === 'function') refreshData(); }
 
 function injectLogos() {
   if (typeof NISSA_LOGO_B64 === 'undefined') return;
   var url = "url('" + NISSA_LOGO_B64 + "')";
-  ['accueilLogo','sidebarLogo','topbarLogoSmall'].forEach(function(id){
+  ['accueilLogo','sidebarLogo','topbarLogoSmall'].forEach(function(id) {
     var el = document.getElementById(id);
     if (!el) return;
     el.style.backgroundImage = url;
@@ -2355,21 +2321,10 @@ function injectLogos() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  // Fond initial = accueil (rouge)
-  setBodyBg(true);
-  injectLogos();
-  // Pré-charger wellness en arrière-plan
-  setTimeout(function(){
-    if (!wellnessLoaded) {
-      wellnessLoaded = true;
-      if (typeof init === 'function') init().catch(function(e){ console.warn('W:', e); });
-    }
-  }, 2000);
-});
+document.addEventListener('DOMContentLoaded', function() { injectLogos(); });
 </script>
 
-<!-- GPS Script -->
+<!-- GPS SCRIPT (index3) -->
 <script>
 /* =========================================================================
    RAPPORT GPS — logique principale
@@ -5780,7 +5735,7 @@ function initHeaderFields() {
 }
 </script>
 
-<!-- Wellness/RPE Script -->
+<!-- WELLNESS/RPE SCRIPT (index2 exact) -->
 <script>
 var SHEET_ID = '1mCZoixP13DpIE1kMbkH0tZpTrPwfOIaF3tuPaZhIfIU';
 var GID = '219874091';
@@ -7109,41 +7064,6 @@ function moveDate(dir) {
 }
 
 init();
-
-/* ── init() adapté pour hub ── */
-async function init() {
-  try { await loadData(); } catch(e) { console.warn('loadData:', e); }
-  if (!ALLDAYS || !ALLDAYS.length) return;
-  var sel = document.getElementById('dateSelect');
-  if (sel) {
-    sel.innerHTML = '';
-    ALLDAYS.forEach(function(d){
-      var o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
-    });
-    sel.value = ALLDAYS[ALLDAYS.length-1];
-  }
-  var ls = document.getElementById('loading-screen');
-  if (ls) ls.style.display = 'none';
-  var app = document.getElementById('app');
-  if (app) app.style.display = 'block';
-  if (typeof render === 'function') render();
-  if (currentSection === 'rpe' && typeof switchView === 'function') {
-    setTimeout(function(){ switchView('rpe'); }, 100);
-  }
-}
-
-async function refreshData() {
-  var prev = document.getElementById('dateSelect') ? document.getElementById('dateSelect').value : null;
-  try { await loadData(); } catch(e) { console.warn('refresh:', e); }
-  if (!ALLDAYS || !ALLDAYS.length) return;
-  var sel = document.getElementById('dateSelect');
-  if (sel) {
-    sel.innerHTML = '';
-    ALLDAYS.forEach(function(d){ var o=document.createElement('option');o.value=d;o.textContent=d;sel.appendChild(o); });
-    sel.value = ALLDAYS.indexOf(prev) !== -1 ? prev : ALLDAYS[ALLDAYS.length-1];
-  }
-  if (typeof render === 'function') render();
-}
 </script>
 
 </body>
