@@ -1437,8 +1437,15 @@ body { margin:0; background:#0a0a0a; }
 }
 
 @media print {
+  /* CORRECTION CRITIQUE : index2 CSS fait body*{visibility:hidden}
+     On rétablit la visibilité pour tout le GPS */
+  body * { visibility: visible !important; }
+  body { visibility: visible !important; }
+
+  /* Cacher les éléments hors GPS */
   .hub-topbar,.hub-sidebar,.hub-overlay { display:none !important; }
   #hub-accueil,#hub-wellness,#hub-joueur { display:none !important; }
+
   #hub-gps {
     display:block !important;
     padding-top:0 !important;
