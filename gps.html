@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-/* ══ CSS INDEX2 ══ */
+/* ══ CSS INDEX2 (Wellness/RPE) ══ */
 
   :root{
     --bg:#0a0a0a;
@@ -276,7 +276,7 @@
   @page{ size:A4; margin:8mm; }
 
 
-/* ══ CSS INDEX3 ══ */
+/* ══ CSS INDEX3 GPS — identique à l'original ══ */
 
 :root {
   --red: #D6001C;
@@ -792,27 +792,11 @@ table.data-table td.cell-overridden {
   #reportCard, .report-card {
     border: none;
   }
-  /* Structure hub: main est dans #hub-gps */
-  body.printing-saved-session #hub-gps > main > *:not(#sessionPrintRoot),
-  body.printing-saved-session #hub-gps > div > main > *:not(#sessionPrintRoot),
   body.printing-saved-session > main > *:not(#sessionPrintRoot) {
     display: none !important;
   }
   body.printing-saved-session #sessionPrintRoot {
     display: block !important;
-  }
-  /* Cacher tout sauf GPS en impression */
-  body.printing-saved-session #hub-accueil,
-  body.printing-saved-session #hub-wellness,
-  body.printing-saved-session #hub-joueur,
-  body.printing-saved-session .hub-topbar,
-  body.printing-saved-session .hub-sidebar,
-  body.printing-saved-session .hub-overlay {
-    display: none !important;
-  }
-  body.printing-saved-session #hub-gps {
-    display: block !important;
-    padding-top: 0 !important;
   }
 
   /* ===== OPTION D — Style visuel PDF ===== */
@@ -1293,218 +1277,152 @@ table.roster-table select { padding: 4px; }
 
 
 
-/* ══ HUB CSS ══ */
-body { margin:0; background:#0a0a0a; }
+/* ══ HUB CSS (écran uniquement) ══ */
+@media screen {
+  body { margin:0; background:#0a0a0a; }
 
-/* Barre hub fixe */
-.hub-topbar {
-  position:fixed; top:0; left:0; right:0; height:52px;
-  background:rgba(5,0,1,.97); border-bottom:2px solid #D6001C;
-  display:flex; align-items:center; padding:0 16px; gap:14px; z-index:1000;
-}
-.hub-hamburger {
-  width:36px; height:36px; background:none;
-  border:1px solid rgba(255,255,255,.2); border-radius:6px;
-  color:#fff; font-size:18px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-}
-.hub-hamburger:hover { background:rgba(255,255,255,.1); }
-.hub-logo-top {
-  width:34px; height:34px; border:2px solid #D6001C;
-  border-radius:50%; background:#fff center/contain no-repeat; flex-shrink:0;
-}
-.hub-top-name { font-size:13px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:.05em; line-height:1; }
-.hub-top-sub  { font-size:9px; color:#c9a84c; text-transform:uppercase; letter-spacing:.12em; display:block; margin-top:1px; }
-.hub-back-btn {
-  margin-left:auto; background:none; border:none; color:rgba(255,255,255,.45);
-  font-size:13px; cursor:pointer; font-family:inherit; font-weight:600;
-  display:none; align-items:center; gap:5px;
-}
-.hub-back-btn:hover { color:#fff; }
-.hub-back-btn.visible { display:flex; }
+  /* Barre hub */
+  .hub-topbar {
+    position:fixed; top:0; left:0; right:0; height:52px;
+    background:rgba(5,0,1,.97); border-bottom:2px solid #D6001C;
+    display:flex; align-items:center; padding:0 16px; gap:14px; z-index:1000;
+  }
+  .hub-hamburger {
+    width:36px; height:36px; background:none;
+    border:1px solid rgba(255,255,255,.2); border-radius:6px;
+    color:#fff; font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .hub-hamburger:hover { background:rgba(255,255,255,.1); }
+  .hub-logo-top {
+    width:34px; height:34px; border:2px solid #D6001C;
+    border-radius:50%; background:#fff center/contain no-repeat; flex-shrink:0;
+  }
+  .hub-top-name { font-size:13px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:.05em; line-height:1; }
+  .hub-top-sub  { font-size:9px; color:#c9a84c; text-transform:uppercase; letter-spacing:.12em; display:block; margin-top:1px; }
+  .hub-back-btn {
+    margin-left:auto; background:none; border:none; color:rgba(255,255,255,.45);
+    font-size:13px; cursor:pointer; font-family:inherit; font-weight:600;
+    display:none; align-items:center; gap:5px;
+  }
+  .hub-back-btn:hover { color:#fff; }
+  .hub-back-btn.visible { display:flex; }
 
-/* Sidebar */
-.hub-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,.6);
-  z-index:1900; opacity:0; pointer-events:none; transition:opacity .25s;
-}
-.hub-overlay.open { opacity:1; pointer-events:all; }
-.hub-sidebar {
-  position:fixed; top:0; left:0; bottom:0; width:280px;
-  background:#0d0002; border-right:2px solid #D6001C;
-  z-index:2000; display:flex; flex-direction:column;
-  transform:translateX(-100%); transition:transform .28s cubic-bezier(.4,0,.2,1);
-}
-.hub-sidebar.open { transform:translateX(0); }
-.hub-sb-header {
-  padding:20px; border-bottom:1px solid rgba(255,255,255,.08);
-  display:flex; align-items:center; gap:12px;
-}
-.hub-sb-logo {
-  width:48px; height:48px; border:2.5px solid #D6001C;
-  border-radius:50%; background:#fff center/contain no-repeat; flex-shrink:0;
-}
-.hub-sb-name { color:#fff; font-size:16px; font-weight:800; text-transform:uppercase; }
-.hub-sb-sub  { color:#c9a84c; font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
-.hub-sb-nav  { flex:1; padding:12px 0; overflow-y:auto; }
-.hub-sb-item {
-  display:flex; align-items:center; gap:14px; padding:15px 22px;
-  cursor:pointer; color:rgba(255,255,255,.6); font-size:14px; font-weight:700;
-  text-transform:uppercase; letter-spacing:.04em;
-  border-left:3px solid transparent; transition:all .15s;
-}
-.hub-sb-item:hover { color:#fff; background:rgba(255,255,255,.04); }
-.hub-sb-item.active { color:#fff; background:rgba(214,0,28,.12); border-left-color:#D6001C; }
-.hub-sb-icon { font-size:20px; width:26px; text-align:center; flex-shrink:0; }
-.hub-sb-div  { height:1px; background:rgba(255,255,255,.06); margin:6px 22px; }
-.hub-sb-label { padding:10px 22px 4px; font-size:9px; font-weight:700; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:.1em; }
-.hub-sb-footer { padding:16px 22px; border-top:1px solid rgba(255,255,255,.06); }
-.hub-refresh-pill {
-  display:flex; align-items:center; justify-content:center; gap:6px;
-  background:rgba(214,0,28,.1); border:1px solid rgba(214,0,28,.3);
-  border-radius:20px; padding:8px 16px; color:#ff4455;
-  font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; width:100%;
-}
-.hub-refresh-pill:hover { background:rgba(214,0,28,.2); }
+  /* Sidebar */
+  .hub-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.6);
+    z-index:1900; opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .hub-overlay.open { opacity:1; pointer-events:all; }
+  .hub-sidebar {
+    position:fixed; top:0; left:0; bottom:0; width:280px;
+    background:#0d0002; border-right:2px solid #D6001C;
+    z-index:2000; display:flex; flex-direction:column;
+    transform:translateX(-100%); transition:transform .28s cubic-bezier(.4,0,.2,1);
+  }
+  .hub-sidebar.open { transform:translateX(0); }
+  .hub-sb-header {
+    padding:20px; border-bottom:1px solid rgba(255,255,255,.08);
+    display:flex; align-items:center; gap:12px;
+  }
+  .hub-sb-logo {
+    width:48px; height:48px; border:2.5px solid #D6001C;
+    border-radius:50%; background:#fff center/contain no-repeat; flex-shrink:0;
+  }
+  .hub-sb-name { color:#fff; font-size:16px; font-weight:800; text-transform:uppercase; }
+  .hub-sb-sub  { color:#c9a84c; font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
+  .hub-sb-nav  { flex:1; padding:12px 0; overflow-y:auto; }
+  .hub-sb-item {
+    display:flex; align-items:center; gap:14px; padding:15px 22px;
+    cursor:pointer; color:rgba(255,255,255,.6); font-size:14px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.04em;
+    border-left:3px solid transparent; transition:all .15s;
+  }
+  .hub-sb-item:hover { color:#fff; background:rgba(255,255,255,.04); }
+  .hub-sb-item.active { color:#fff; background:rgba(214,0,28,.12); border-left-color:#D6001C; }
+  .hub-sb-icon { font-size:20px; width:26px; text-align:center; flex-shrink:0; }
+  .hub-sb-div  { height:1px; background:rgba(255,255,255,.06); margin:6px 22px; }
+  .hub-sb-label { padding:10px 22px 4px; font-size:9px; font-weight:700; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:.1em; }
+  .hub-sb-footer { padding:16px 22px; border-top:1px solid rgba(255,255,255,.06); }
+  .hub-refresh-pill {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    background:rgba(214,0,28,.1); border:1px solid rgba(214,0,28,.3);
+    border-radius:20px; padding:8px 16px; color:#ff4455;
+    font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; width:100%;
+  }
+  .hub-refresh-pill:hover { background:rgba(214,0,28,.2); }
 
-/* Sections */
-.hub-section { display:none; min-height:100vh; }
-.hub-section.active { display:block; }
+  /* Sections */
+  .hub-section { display:none; min-height:100vh; }
+  .hub-section.active { display:block; }
 
-/* Accueil */
-#hub-accueil {
-  display:none; flex-direction:column; align-items:center;
-  min-height:100vh; padding-top:52px;
-  background-color:#580010;
-  background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='.7' stroke-opacity='.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='.7' stroke-opacity='.2'/%3E%3C/svg%3E");
-  background-size:auto,20px 20px; background-attachment:fixed;
-}
-#hub-accueil.active { display:flex; }
-.ac-hero { display:flex; flex-direction:column; align-items:center; padding:48px 24px 32px; text-align:center; }
-.ac-logo {
-  width:120px; height:120px; border-radius:50%;
-  border:2px solid rgba(214,0,28,.5);
-  background:rgba(10,0,2,.8) center/70% no-repeat;
-  margin-bottom:24px;
-  box-shadow:0 0 0 8px rgba(214,0,28,.06),0 0 0 16px rgba(214,0,28,.03);
-}
-.ac-name { font-size:28px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-.ac-sub  { font-size:11px; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.18em; }
-.ac-nav  { width:100%; max-width:480px; padding:0 24px; display:flex; flex-direction:column; gap:12px; }
-.ac-btn {
-  display:flex; align-items:center; gap:16px; padding:20px 24px;
-  background:rgba(20,0,3,.75); border:1px solid rgba(255,255,255,.1); border-radius:10px;
-  cursor:pointer; transition:all .18s; text-align:left; width:100%; font-family:inherit;
-  position:relative; overflow:hidden;
-}
-.ac-btn::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--c,#D6001C); }
-.ac-btn:hover { background:rgba(40,0,5,.85); border-color:rgba(255,255,255,.2); transform:translateX(4px); }
-.ac-icon  { font-size:26px; flex-shrink:0; }
-.ac-text  { flex:1; }
-.ac-label { display:block; font-size:15px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:.06em; margin-bottom:3px; }
-.ac-desc  { display:block; font-size:11px; color:rgba(255,255,255,.38); }
-.ac-arrow { color:rgba(255,255,255,.25); font-size:18px; }
+  /* Accueil */
+  #hub-accueil {
+    display:none; flex-direction:column; align-items:center;
+    min-height:100vh; padding-top:52px;
+    background-color:#580010;
+    background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='.7' stroke-opacity='.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='.7' stroke-opacity='.2'/%3E%3C/svg%3E");
+    background-size:auto,20px 20px; background-attachment:fixed;
+  }
+  #hub-accueil.active { display:flex; }
+  .ac-hero { display:flex; flex-direction:column; align-items:center; padding:48px 24px 32px; text-align:center; }
+  .ac-logo {
+    width:120px; height:120px; border-radius:50%;
+    border:2px solid rgba(214,0,28,.5);
+    background:rgba(10,0,2,.8) center/70% no-repeat;
+    margin-bottom:24px;
+    box-shadow:0 0 0 8px rgba(214,0,28,.06),0 0 0 16px rgba(214,0,28,.03);
+  }
+  .ac-name { font-size:28px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .ac-sub  { font-size:11px; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.18em; }
+  .ac-nav  { width:100%; max-width:480px; padding:0 24px; display:flex; flex-direction:column; gap:12px; }
+  .ac-btn {
+    display:flex; align-items:center; gap:16px; padding:20px 24px;
+    background:rgba(20,0,3,.75); border:1px solid rgba(255,255,255,.1); border-radius:10px;
+    cursor:pointer; transition:all .18s; text-align:left; width:100%; font-family:inherit;
+    position:relative; overflow:hidden;
+  }
+  .ac-btn::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--c,#D6001C); }
+  .ac-btn:hover { background:rgba(40,0,5,.85); border-color:rgba(255,255,255,.2); transform:translateX(4px); }
+  .ac-icon  { font-size:26px; flex-shrink:0; }
+  .ac-text  { flex:1; }
+  .ac-label { display:block; font-size:15px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:.06em; margin-bottom:3px; }
+  .ac-desc  { display:block; font-size:11px; color:rgba(255,255,255,.38); }
+  .ac-arrow { color:rgba(255,255,255,.25); font-size:18px; }
 
-/* GPS section : fond rouge */
-#hub-gps {
-  padding-top:52px;
-  background-color:#580010;
-  background-image:radial-gradient(ellipse at 40% 50%,rgba(160,0,30,.5) 0%,rgba(60,0,10,.6) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cline x1='0' y1='0' x2='20' y2='20' stroke='%23ff2040' stroke-width='.7' stroke-opacity='.3'/%3E%3Cline x1='20' y1='0' x2='0' y2='20' stroke='%23000' stroke-width='.7' stroke-opacity='.2'/%3E%3C/svg%3E");
-  background-size:auto,20px 20px; background-attachment:fixed;
-}
-#hub-gps .topbar { position:sticky; top:52px; z-index:500; }
+  /* GPS section */
+  #hub-gps { padding-top:52px; }
+  #hub-gps .topbar { position:sticky; top:52px; z-index:500; }
 
-/* Wellness/RPE : masquer le header de index2 (on a le nôtre) */
-#hub-wellness { padding-top:52px; position:relative; z-index:1; }
-#hub-wellness .header { display:none !important; }
+  /* Wellness/Joueur */
+  #hub-wellness { padding-top:52px; }
+  #hub-wellness .header { display:none !important; }
+  #loading-screen { position:relative !important; inset:auto !important; z-index:1 !important; min-height:calc(100vh - 52px); }
+  #loading-screen.hidden { display:none !important; }
+  #hub-joueur { background:var(--bg,#0a0a0a); }
+  .joueur-ph { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 52px); gap:16px; padding:40px; text-align:center; }
 
-/* loading-screen : RELATIF, pas fixed, et disparaît vraiment */
-#loading-screen {
-  position:relative !important; inset:auto !important; z-index:1 !important;
-  min-height:calc(100vh - 52px);
-}
-#loading-screen.hidden {
-  display:none !important;
-  opacity:0 !important;
-  pointer-events:none !important;
+  /* Logo watermark GPS */
+  #bgLogoWatermark { display:none; }
 }
 
-/* Joueur */
-#hub-joueur { background:var(--bg,#0a0a0a); position:relative; z-index:1; }
-.joueur-ph {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-height:calc(100vh - 52px); gap:16px; padding:40px; text-align:center;
-}
-
+/* ══ HUB PRINT — minimal, laisse le CSS index3 gérer ══ */
 @media print {
-  /* CORRECTION CRITIQUE : index2 CSS fait body*{visibility:hidden}
-     On rétablit la visibilité pour tout le GPS */
-  body * { visibility: visible !important; }
-  body { visibility: visible !important; }
+  /* Restaurer visibilité (annule le body*{visibility:hidden} de index2) */
+  body * { visibility:visible !important; }
+  body  { visibility:visible !important; }
 
-  /* Cacher les éléments hors GPS */
-  .hub-topbar,.hub-sidebar,.hub-overlay { display:none !important; }
-  #hub-accueil,#hub-wellness,#hub-joueur { display:none !important; }
+  /* Cacher tout ce qui n'est pas GPS */
+  .hub-topbar, .hub-sidebar, .hub-overlay { display:none !important; }
+  #hub-accueil, #hub-wellness, #hub-joueur { display:none !important; }
 
-  #hub-gps {
-    display:block !important;
-    padding-top:0 !important;
-    background:none !important;
-    background-color:#fff !important;
-    background-image:none !important;
-  }
+  /* Montrer GPS sans padding du hub */
+  #hub-gps { display:block !important; padding-top:0 !important; }
   #hub-gps .topbar { top:0 !important; position:relative !important; }
-  #hub-gps main { padding-top:0 !important; }
-  body {
-    background:#fff !important;
-    background-image:none !important;
-    background-color:#fff !important;
-  }
-  #sessionPrintRoot { display:block; }
+
+  /* Adapter les sélecteurs printing-saved-session pour la structure hub */
+  body.printing-saved-session #hub-gps main > *:not(#sessionPrintRoot) { display:none !important; }
 }
-
-/* ══ Corrections couleurs wellness dans hub ══ */
-#hub-wellness .player-name,
-#hub-wellness .player-card,
-#hub-wellness .player-card * { color: var(--text, #f0f0f0); }
-
-/* Noms invisibles : forcer blanc */
-#hub-wellness .nom-cell,
-#hub-wellness td,
-#hub-wellness th,
-#hub-wellness .player-name,
-#hub-wellness h3,
-#hub-wellness h4,
-#hub-wellness p,
-#hub-wellness span,
-#hub-wellness label,
-#hub-wellness .section-label,
-#hub-wellness .date-nav-info,
-#hub-wellness .rpe-type-name,
-#hub-wellness .rpe-type-sub,
-#hub-wellness .rpe-summary-label,
-#hub-wellness .alert-item,
-#hub-wellness .absent-chip {
-  color: var(--text, #f0f0f0);
-}
-
-/* Fond des cartes joueurs */
-#hub-wellness .player-card {
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.08);
-}
-
-/* Texte sur fond sombre */
-#hub-wellness body { color: var(--text, #f0f0f0); }
-
-/* Tab panels wellness : s'assurer qu'ils sont visibles quand actifs */
-#hub-wellness .tab-panel { display: none; }
-#hub-wellness .tab-panel.active { display: block !important; }
-
-/* View panels RPE/Wellness */
-#hub-wellness #view-wellness,
-#hub-wellness #view-rpe { }
-
 </style>
 </head>
 <body>
@@ -1969,8 +1887,10 @@ Petit Enzo ; 9</pre>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </div>
 
-<!-- WELLNESS + RPE SECTION — body INDEX2 EXACT -->
+<!-- WELLNESS + RPE (body index2 exact) -->
 <div id="hub-wellness" class="hub-section">
+
+
 <div id="loading-screen">
   <div class="loader-icon">&#127945;</div>
   <div class="loader-title">Chargement des données</div>
@@ -2327,9 +2247,11 @@ Petit Enzo ; 9</pre>
   </div>
   <div class="footer">Nissa Rugby &#183; Wellness Dashboard &#183; Données en direct depuis Google Sheets &#183; <span id="last-updated"></span></div>
 </div>
+
+
 </div>
 
-<!-- JOUEUR SECTION -->
+<!-- JOUEUR -->
 <div id="hub-joueur" class="hub-section">
   <div class="joueur-ph">
     <span style="font-size:52px">👤</span>
@@ -2340,78 +2262,60 @@ Petit Enzo ; 9</pre>
 
 <div id="sessionPrintRoot"></div>
 
-<!-- HUB NAV SCRIPT -->
+<!-- HUB NAV -->
 <script>
 var wellnessLoaded = false;
 var currentSection = 'accueil';
+var SECTIONS = ['gps','wellness','joueur'];
 
 function switchHub(name) {
   currentSection = name;
-  // Accueil
   var ac = document.getElementById('hub-accueil');
-  if (ac) ac.style.display = name === 'accueil' ? 'flex' : 'none';
-  // Sections
-  ['gps','joueur'].forEach(function(s) {
-    var el = document.getElementById('hub-' + s);
-    if (el) el.style.display = s === name ? 'block' : 'none';
+  if (ac) ac.style.display = name==='accueil' ? 'flex' : 'none';
+  SECTIONS.forEach(function(s) {
+    var el = document.getElementById('hub-'+s);
+    if (!el) return;
+    var show = s===name || (s==='wellness' && name==='rpe');
+    el.style.display = show ? 'block' : 'none';
   });
-  // Wellness sert aussi pour RPE
-  var hw = document.getElementById('hub-wellness');
-  if (hw) hw.style.display = (name === 'wellness' || name === 'rpe') ? 'block' : 'none';
-
-  // Bouton retour
   var back = document.getElementById('backBtn');
-  if (back) back.classList.toggle('visible', name !== 'accueil');
-
-  // Sidebar actifs
-  ['accueil','gps','wellness','rpe','joueur'].forEach(function(s) {
-    var ni = document.getElementById('nav-' + s);
-    if (ni) ni.classList.toggle('active', s === name);
+  if (back) back.classList.toggle('visible', name!=='accueil');
+  ['accueil','gps','wellness','rpe','joueur'].forEach(function(s){
+    var ni = document.getElementById('nav-'+s);
+    if (ni) ni.classList.toggle('active', s===name);
   });
-
-  // Montrer/cacher le logo watermark GPS
-  var gpsLogo = document.querySelector('[data-gps-logo="1"]');
-  if (gpsLogo) gpsLogo.style.display = (name === 'gps' || name === 'accueil') ? 'block' : 'none';
-
-  // Charger wellness si premier accès
-  if ((name === 'wellness' || name === 'rpe') && !wellnessLoaded) {
+  // Logo watermark : visible seulement sur GPS
+  var gpsLogo = document.getElementById('bgLogoWatermark');
+  if (gpsLogo) gpsLogo.style.display = (name==='gps'||name==='accueil') ? 'block' : 'none';
+  // Wellness
+  if ((name==='wellness'||name==='rpe') && !wellnessLoaded) {
     wellnessLoaded = true;
-    if (typeof init === 'function') {
-      init().then(function() {
-        if (name === 'rpe' && typeof switchView === 'function') {
-          setTimeout(function() { switchView('rpe'); }, 100);
-        }
-      }).catch(function(e) { console.warn('init:', e); });
+    if (typeof init==='function') {
+      init().then(function(){
+        if (name==='rpe' && typeof switchView==='function') setTimeout(function(){ switchView('rpe'); },100);
+      }).catch(function(e){ console.warn('W:',e); });
     }
-  } else if (wellnessLoaded && (name === 'wellness' || name === 'rpe')) {
-    if (typeof switchView === 'function') {
-      setTimeout(function() { switchView(name); }, 50);
-    }
+  } else if (wellnessLoaded && (name==='wellness'||name==='rpe')) {
+    if (typeof switchView==='function') setTimeout(function(){ switchView(name); },50);
   }
 }
-
 function openSidebar()  { document.getElementById('hubSidebar').classList.add('open'); document.getElementById('hubOverlay').classList.add('open'); }
 function closeSidebar() { document.getElementById('hubSidebar').classList.remove('open'); document.getElementById('hubOverlay').classList.remove('open'); }
-document.addEventListener('click', function(e) { if (!e.target.closest('#hubSidebar') && !e.target.closest('.hub-hamburger')) closeSidebar(); });
-function hubRefresh() { if (typeof refreshData === 'function') refreshData(); }
-
+document.addEventListener('click',function(e){ if(!e.target.closest('#hubSidebar')&&!e.target.closest('.hub-hamburger')) closeSidebar(); });
+function hubRefresh() { if(typeof refreshData==='function') refreshData(); }
 function injectLogos() {
-  if (typeof NISSA_LOGO_B64 === 'undefined') return;
-  var url = "url('" + NISSA_LOGO_B64 + "')";
-  ['accueilLogo','sidebarLogo','topbarLogoSmall'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.style.backgroundImage = url;
-    el.style.backgroundSize = 'contain';
-    el.style.backgroundRepeat = 'no-repeat';
-    el.style.backgroundPosition = 'center';
+  if(typeof NISSA_LOGO_B64==='undefined') return;
+  var url="url('"+NISSA_LOGO_B64+"')";
+  ['accueilLogo','sidebarLogo','topbarLogoSmall'].forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    el.style.backgroundImage=url; el.style.backgroundSize='contain';
+    el.style.backgroundRepeat='no-repeat'; el.style.backgroundPosition='center';
   });
 }
-
-document.addEventListener('DOMContentLoaded', function() { injectLogos(); });
+document.addEventListener('DOMContentLoaded', function(){ injectLogos(); });
 </script>
 
-<!-- GPS SCRIPT (index3) -->
+<!-- GPS SCRIPT (index3 exact) -->
 <script>
 /* =========================================================================
    RAPPORT GPS — logique principale
@@ -5359,7 +5263,9 @@ function initExport() {
   });
 
   document.getElementById("printBtn").addEventListener("click", () => {
-    window.print();
+    const t = document.title;
+    document.title = "Rapport GPS — Suivi quotidien";
+    setTimeout(() => { window.print(); document.title = t; }, 50);
   });
 }
 
@@ -5601,9 +5507,9 @@ function initAnalyseTab() {
     analyseState.count = e.target.value; renderAnalyseTab();
   });
 
-  document.querySelectorAll("#hub-gps .toggle-btn[data-atype]").forEach(btn => {
+  document.querySelectorAll(".toggle-btn[data-atype]").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("#hub-gps .toggle-btn[data-atype]").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".toggle-btn[data-atype]").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       analyseState.type = btn.dataset.atype;
       renderAnalyseTab();
@@ -5729,9 +5635,9 @@ function initJoueurTab() {
     joueurState.name = e.target.value; renderJoueurTab();
   });
 
-  document.querySelectorAll("#hub-gps .toggle-btn[data-ptype]").forEach(btn => {
+  document.querySelectorAll(".toggle-btn[data-ptype]").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("#hub-gps .toggle-btn[data-ptype]").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".toggle-btn[data-ptype]").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       joueurState.type = btn.dataset.ptype;
       renderJoueurTab();
@@ -5777,19 +5683,17 @@ function initHeaderFields() {
   const bgLogo = document.createElement("div");
   bgLogo.id = "bgLogoWatermark";
   bgLogo.style.cssText = [
-    "position:fixed",
+    "position:absolute",
     "top:50vh",
     "left:50%",
     "transform:translate(-50%, -50%)",
     "width:600px",
     "height:600px",
     `background:url('${NISSA_LOGO_B64}') center/contain no-repeat`,
-    "opacity:0.12",
+    "opacity:0.18",
     "pointer-events:none",
-    "z-index:-1",
-    "display:none",
+    "z-index:0",
   ].join(";");
-  bgLogo.dataset.gpsLogo = "1";
   document.body.appendChild(bgLogo);
 
   const CLUB_KEY = "gpsClubName_v1";
@@ -5824,7 +5728,7 @@ function initHeaderFields() {
 }
 </script>
 
-<!-- WELLNESS/RPE SCRIPT (index2 exact) -->
+<!-- WELLNESS/RPE SCRIPT (index2 exact, sans auto-init) -->
 <script>
 var SHEET_ID = '1mCZoixP13DpIE1kMbkH0tZpTrPwfOIaF3tuPaZhIfIU';
 var GID = '219874091';
@@ -7151,7 +7055,6 @@ function moveDate(dir) {
   var idx=CUR_SEASON_DAYS.indexOf(sel.value),next=idx+dir;
   if (next>=0&&next<CUR_SEASON_DAYS.length){sel.value=CUR_SEASON_DAYS[next];render();}
 }
-
 // init() appelé par switchHub()
 </script>
 
