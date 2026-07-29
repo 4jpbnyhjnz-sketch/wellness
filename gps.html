@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nissa Rugby — Performance Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 /* ══ CSS INDEX2 (Wellness/RPE) ══ */
@@ -1404,6 +1405,172 @@ table.roster-table select { padding: 4px; }
 
   /* Logo watermark GPS */
   #bgLogoWatermark { display:none; }
+
+/* ══ JOUEUR & PERF PHYSIQUE ══ */
+.joueur-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+  gap:14px; padding:20px;
+}
+.joueur-card {
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+  border-radius:12px; padding:16px 10px; cursor:pointer; transition:all .15s;
+  position:relative;
+}
+.joueur-card:hover { background:rgba(255,255,255,.1); transform:translateY(-2px); }
+.joueur-card.statut-vert  { border-top:3px solid #2ecc8a; }
+.joueur-card.statut-jaune { border-top:3px solid #e0b341; }
+.joueur-card.statut-orange{ border-top:3px solid #e8862e; }
+.joueur-card.statut-rouge { border-top:3px solid #cc1122; }
+.joueur-avatar {
+  width:64px; height:64px; border-radius:50%;
+  background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.15);
+  overflow:hidden; display:flex; align-items:flex-end; justify-content:center;
+}
+.joueur-avatar svg { width:52px; height:52px; }
+.joueur-avatar img { width:100%; height:100%; object-fit:cover; }
+.joueur-card-name {
+  font-size:11px; font-weight:700; color:#fff; text-align:center;
+  text-transform:uppercase; letter-spacing:.03em; line-height:1.2;
+}
+.joueur-card-status { font-size:9px; color:rgba(255,255,255,.4); }
+
+/* Profil joueur */
+.joueur-profile { display:none; padding:0 0 60px; }
+.joueur-profile.active { display:block; }
+.joueur-profile-back {
+  display:flex; align-items:center; gap:8px; padding:14px 20px;
+  background:rgba(255,255,255,.05); border-bottom:1px solid rgba(255,255,255,.08);
+  cursor:pointer; color:rgba(255,255,255,.6); font-size:13px; font-weight:600;
+  transition:color .15s;
+}
+.joueur-profile-back:hover { color:#fff; }
+.joueur-profile-header {
+  display:flex; align-items:center; gap:20px; padding:20px;
+  background:linear-gradient(135deg,rgba(214,0,28,.12),rgba(255,255,255,.03));
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.joueur-profile-avatar {
+  width:80px; height:80px; border-radius:50%;
+  background:rgba(255,255,255,.08); border:2.5px solid #D6001C;
+  overflow:hidden; display:flex; align-items:flex-end; justify-content:center; flex-shrink:0;
+}
+.joueur-profile-avatar svg { width:66px; height:66px; }
+.joueur-profile-info h2 { font-size:22px; font-weight:800; color:#fff; margin-bottom:4px; }
+.joueur-profile-meta { font-size:12px; color:rgba(255,255,255,.5); line-height:1.8; }
+.joueur-profile-meta span { color:rgba(255,255,255,.8); font-weight:600; }
+.joueur-section-title {
+  font-size:11px; font-weight:700; color:rgba(255,255,255,.4);
+  text-transform:uppercase; letter-spacing:.1em;
+  padding:16px 20px 8px; border-top:1px solid rgba(255,255,255,.06); margin-top:8px;
+}
+
+/* Wellness 5 jours */
+.wellness-5days { display:flex; gap:8px; padding:0 20px 16px; flex-wrap:wrap; }
+.w5-card {
+  flex:1; min-width:70px; max-width:90px;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+  border-radius:10px; padding:10px 8px; text-align:center; cursor:pointer;
+  transition:all .15s; position:relative;
+}
+.w5-card:hover { background:rgba(255,255,255,.1); }
+.w5-card.s-vert  { border-top:3px solid #2ecc8a; }
+.w5-card.s-jaune { border-top:3px solid #e0b341; }
+.w5-card.s-orange{ border-top:3px solid #e8862e; }
+.w5-card.s-rouge { border-top:3px solid #cc1122; }
+.w5-date { font-size:9px; color:rgba(255,255,255,.4); margin-bottom:5px; }
+.w5-score { font-size:20px; font-weight:800; color:#fff; font-family:'JetBrains Mono',monospace; line-height:1; }
+.w5-sub { font-size:8px; color:rgba(255,255,255,.35); margin-top:3px; }
+
+/* sRPE recap */
+.srpe-recap { padding:0 20px 16px; }
+.srpe-total-card {
+  display:flex; align-items:center; justify-content:space-between;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+  border-radius:10px; padding:14px 18px; margin-bottom:10px;
+}
+.srpe-total-val { font-size:28px; font-weight:800; color:#D6001C; font-family:'JetBrains Mono',monospace; }
+.srpe-weeks-mini { display:flex; gap:3px; align-items:flex-end; height:40px; }
+.srpe-week-bar { flex:1; background:rgba(214,0,28,.4); border-radius:2px 2px 0 0; min-width:6px; transition:background .15s; }
+.srpe-week-bar:hover { background:#D6001C; }
+
+/* Tests physiques joueur */
+.joueur-tests-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:0 20px 16px; }
+.joueur-test-card {
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+  border-radius:10px; padding:14px; cursor:pointer; transition:all .15s;
+}
+.joueur-test-card:hover { background:rgba(255,255,255,.09); }
+.joueur-test-icon { font-size:22px; margin-bottom:6px; }
+.joueur-test-name { font-size:10px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; }
+.joueur-test-val { font-size:24px; font-weight:800; color:#fff; font-family:'JetBrains Mono',monospace; margin:4px 0; }
+.joueur-test-unit { font-size:10px; color:rgba(255,255,255,.4); }
+.joueur-test-date { font-size:9px; color:rgba(255,255,255,.3); margin-top:4px; }
+.joueur-test-empty { color:rgba(255,255,255,.2); font-size:13px; text-align:center; padding:8px 0; }
+
+/* Modal détail wellness + graphique test */
+.joueur-modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.7);
+  z-index:3000; align-items:center; justify-content:center; padding:20px;
+}
+.joueur-modal-overlay.open { display:flex; }
+.joueur-modal {
+  background:#111; border:1px solid rgba(255,255,255,.12); border-radius:14px;
+  padding:24px; max-width:500px; width:100%; max-height:80vh; overflow-y:auto;
+  position:relative;
+}
+.joueur-modal-close {
+  position:absolute; top:14px; right:14px;
+  background:none; border:none; color:rgba(255,255,255,.5);
+  font-size:20px; cursor:pointer; line-height:1;
+}
+.joueur-modal-close:hover { color:#fff; }
+.joueur-modal-title { font-size:16px; font-weight:700; color:#fff; margin-bottom:16px; }
+.w-detail-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06);
+  font-size:13px; color:rgba(255,255,255,.7);
+}
+.w-detail-val { font-weight:700; color:#fff; font-family:'JetBrains Mono',monospace; }
+
+/* Perf Physique */
+.perf-section-wrap { padding:20px; }
+.perf-form-card {
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+  border-radius:12px; padding:20px; margin-bottom:20px;
+}
+.perf-form-title { font-size:13px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:.05em; margin-bottom:16px; }
+.perf-form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px; }
+.perf-field { display:flex; flex-direction:column; gap:5px; flex:1; min-width:120px; }
+.perf-field label { font-size:10px; font-weight:600; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; }
+.perf-input {
+  background:#1a1a1a; border:1px solid rgba(255,255,255,.15); border-radius:6px;
+  color:#fff; font-size:13px; font-family:inherit; padding:8px 10px; outline:none;
+}
+.perf-input:focus { border-color:#D6001C; }
+.perf-entries { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.perf-entry {
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  background:rgba(255,255,255,.03); border-radius:8px; padding:10px;
+}
+.perf-entry .perf-input { flex:1; }
+.perf-btn-remove { background:none; border:none; color:#cc3333; cursor:pointer; font-size:16px; padding:4px; }
+.perf-results-table { width:100%; border-collapse:collapse; font-size:12px; }
+.perf-results-table th { background:rgba(255,255,255,.08); color:rgba(255,255,255,.5); text-align:left; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+.perf-results-table td { padding:8px 10px; border-top:1px solid rgba(255,255,255,.06); color:#fff; }
+.perf-results-table tr:hover td { background:rgba(255,255,255,.03); }
+.perf-empty { font-size:13px; color:rgba(255,255,255,.3); text-align:center; padding:30px; }
+.perf-chart-wrap { background:rgba(255,255,255,.03); border-radius:8px; padding:12px; margin-top:10px; }
+.perf-chart-wrap svg { width:100%; height:auto; }
+.xlsx-drop {
+  border:2px dashed rgba(255,255,255,.2); border-radius:10px;
+  padding:30px; text-align:center; cursor:pointer; transition:all .15s;
+}
+.xlsx-drop:hover, .xlsx-drop.drag { border-color:#D6001C; background:rgba(214,0,28,.05); }
+.xlsx-drop-icon { font-size:36px; margin-bottom:8px; }
+.xlsx-drop-text { font-size:13px; color:rgba(255,255,255,.5); }
+.xlsx-drop-sub  { font-size:11px; color:rgba(255,255,255,.3); margin-top:4px; }
+
 }
 
 /* ══ HUB PRINT — minimal, laisse le CSS index3 gérer ══ */
@@ -1464,6 +1631,9 @@ table.roster-table select { padding: 4px; }
     <div class="hub-sb-item" id="nav-joueur" onclick="switchHub('joueur');closeSidebar()">
       <span class="hub-sb-icon">👤</span><span>Joueur</span>
     </div>
+    <div class="hub-sb-item" id="nav-perf-physique" onclick="switchHub('perf-physique');closeSidebar()">
+      <span class="hub-sb-icon">🏋️</span><span>Perf Physique</span>
+    </div>
   </nav>
   <div class="hub-sb-footer">
     <button class="hub-refresh-pill" onclick="hubRefresh();closeSidebar()">⟳ Actualiser les données</button>
@@ -1496,6 +1666,11 @@ table.roster-table select { padding: 4px; }
     <button class="ac-btn" style="--c:#c9a84c" onclick="switchHub('joueur')">
       <span class="ac-icon">👤</span>
       <span class="ac-text"><span class="ac-label">Joueur</span><span class="ac-desc">Profil individuel · GPS · Wellness · RPE</span></span>
+      <span class="ac-arrow">›</span>
+    </button>
+    <button class="ac-btn" style="--c:#ff9500" onclick="switchHub('perf-physique')">
+      <span class="ac-icon">🏋️</span>
+      <span class="ac-text"><span class="ac-label">Perf Physique</span><span class="ac-desc">Tests DC Squat · Clean · CMJ · Broad Jump</span></span>
       <span class="ac-arrow">›</span>
     </button>
   </div>
@@ -1880,7 +2055,72 @@ Petit Enzo ; 9</pre>
   </section>
 
   <!-- Conteneurs d'impression -->
-  <div id="sessionPrintRoot"></div>
+  <!-- PERF PHYSIQUE SECTION -->
+<div id="hub-perf-physique" class="hub-section">
+  <div class="perf-section-wrap">
+
+    <!-- Saisie manuelle -->
+    <div class="perf-form-card">
+      <div class="perf-form-title">➕ Saisir des tests</div>
+      <div class="perf-form-row">
+        <div class="perf-field">
+          <label>Date</label>
+          <input type="date" id="perfDate" class="perf-input">
+        </div>
+        <div class="perf-field">
+          <label>Contexte</label>
+          <input type="text" id="perfContext" class="perf-input" placeholder="ex: Début de saison">
+        </div>
+      </div>
+      <div class="perf-entries" id="perfEntries"></div>
+      <button onclick="addPerfEntry()" class="hub-refresh-pill" style="width:auto;padding:6px 16px;font-size:12px;margin-bottom:12px">+ Ajouter un test</button>
+      <button onclick="savePerfTests()" class="hub-refresh-pill" style="width:auto;padding:8px 20px;font-size:13px;background:rgba(214,0,28,.25);border-color:#D6001C">💾 Enregistrer</button>
+    </div>
+
+    <!-- Import Excel -->
+    <div class="perf-form-card">
+      <div class="perf-form-title">📊 Import Excel</div>
+      <div class="perf-form-row" style="margin-bottom:10px">
+        <div style="font-size:12px;color:rgba(255,255,255,.4);line-height:1.6">
+          Format attendu : colonnes <strong style="color:#fff">Joueur | Date | Test | Valeur</strong><br>
+          Tests valides : DC Squat, Clean, CMJ, Broad Jump
+        </div>
+      </div>
+      <div class="xlsx-drop" id="xlsxDrop" onclick="document.getElementById('xlsxInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleXlsxDrop(event)">
+        <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" hidden onchange="handleXlsxFile(this.files[0])">
+        <div class="xlsx-drop-icon">📁</div>
+        <div class="xlsx-drop-text">Déposez votre fichier Excel ici</div>
+        <div class="xlsx-drop-sub">ou cliquez pour parcourir (.xlsx / .xls / .csv)</div>
+      </div>
+      <div id="xlsxStatus" style="margin-top:10px;font-size:12px;color:#2ecc8a;display:none"></div>
+    </div>
+
+    <!-- Historique -->
+    <div class="perf-form-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="perf-form-title" style="margin-bottom:0">📋 Historique des tests</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="perfFilterTest" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
+            <option value="">Tous les tests</option>
+            <option value="dcsquat">DC Squat</option>
+            <option value="clean">Clean</option>
+            <option value="cmj">CMJ</option>
+            <option value="broadjump">Broad Jump</option>
+          </select>
+          <select id="perfFilterPlayer" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
+            <option value="">Tous les joueurs</option>
+          </select>
+        </div>
+      </div>
+      <div id="perfHistoryContent"></div>
+    </div>
+  </div>
+</div>
+
+<div id="sessionPrintRoot"></div>
 
 </main>
 
@@ -2253,10 +2493,143 @@ Petit Enzo ; 9</pre>
 
 <!-- JOUEUR -->
 <div id="hub-joueur" class="hub-section">
-  <div class="joueur-ph">
-    <span style="font-size:52px">👤</span>
-    <div style="font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.06em">Joueur</div>
-    <div style="font-size:14px;color:rgba(255,255,255,.35);max-width:300px;line-height:1.6">Section en cours de développement.</div>
+  <!-- Grille joueurs -->
+  <div id="joueur-grid-view">
+    <div style="padding:16px 20px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.05em">Joueurs</div>
+      <input id="joueurSearch" type="text" placeholder="🔍 Rechercher..." class="perf-input" style="max-width:200px;padding:7px 12px;font-size:12px">
+    </div>
+    <div class="joueur-grid" id="joueurGrid"></div>
+  </div>
+
+  <!-- Profil joueur (caché par défaut) -->
+  <div class="joueur-profile" id="joueurProfile">
+    <div class="joueur-profile-back" onclick="closeJoueurProfile()">
+      ← Retour à la liste
+    </div>
+    <div class="joueur-profile-header">
+      <div class="joueur-profile-avatar" id="profileAvatar">
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="40" cy="28" r="16" fill="rgba(255,255,255,.25)"/>
+          <path d="M8 80 Q8 50 40 50 Q72 50 72 80Z" fill="rgba(255,255,255,.25)"/>
+        </svg>
+      </div>
+      <div class="joueur-profile-info">
+        <h2 id="profileName">—</h2>
+        <div class="joueur-profile-meta" id="profileMeta"></div>
+      </div>
+    </div>
+
+    <!-- Données anthropométriques -->
+    <div class="joueur-section-title">📏 Données anthropométriques</div>
+    <div id="profileAnthropo" style="padding:0 20px 12px;display:flex;gap:10px;flex-wrap:wrap"></div>
+    <div style="padding:0 20px 8px;display:flex;gap:8px;align-items:center">
+      <button onclick="openAnthropoEdit()" class="hub-refresh-pill" style="width:auto;padding:5px 14px;font-size:11px">✏️ Modifier</button>
+    </div>
+
+    <!-- Wellness 5 derniers jours -->
+    <div class="joueur-section-title">💚 Wellness — 5 derniers jours</div>
+    <div class="wellness-5days" id="profileWellness5"></div>
+
+    <!-- sRPE année -->
+    <div class="joueur-section-title">💪 Charge annuelle (sRPE)</div>
+    <div class="srpe-recap" id="profileSrpe"></div>
+
+    <!-- Tests physiques -->
+    <div class="joueur-section-title">🏋️ Tests physiques</div>
+    <div class="joueur-tests-grid" id="profileTests"></div>
+  </div>
+
+  <!-- Modal détail wellness -->
+  <div class="joueur-modal-overlay" id="wellnessDetailModal" onclick="closeModal('wellnessDetailModal')">
+    <div class="joueur-modal" onclick="event.stopPropagation()">
+      <button class="joueur-modal-close" onclick="closeModal('wellnessDetailModal')">✕</button>
+      <div class="joueur-modal-title" id="wellnessDetailTitle"></div>
+      <div id="wellnessDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Modal graphique test -->
+  <div class="joueur-modal-overlay" id="testEvoModal" onclick="closeModal('testEvoModal')">
+    <div class="joueur-modal" onclick="event.stopPropagation()">
+      <button class="joueur-modal-close" onclick="closeModal('testEvoModal')">✕</button>
+      <div class="joueur-modal-title" id="testEvoTitle"></div>
+      <div class="perf-chart-wrap" id="testEvoChart"></div>
+    </div>
+  </div>
+
+  <!-- Modal edit anthropo -->
+  <div class="joueur-modal-overlay" id="anthroModal" onclick="closeModal('anthroModal')">
+    <div class="joueur-modal" onclick="event.stopPropagation()">
+      <button class="joueur-modal-close" onclick="closeModal('anthroModal')">✕</button>
+      <div class="joueur-modal-title" id="anthroTitle">Données anthropométriques</div>
+      <div id="anthroBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PERF PHYSIQUE SECTION -->
+<div id="hub-perf-physique" class="hub-section">
+  <div class="perf-section-wrap">
+
+    <!-- Saisie manuelle -->
+    <div class="perf-form-card">
+      <div class="perf-form-title">➕ Saisir des tests</div>
+      <div class="perf-form-row">
+        <div class="perf-field">
+          <label>Date</label>
+          <input type="date" id="perfDate" class="perf-input">
+        </div>
+        <div class="perf-field">
+          <label>Contexte</label>
+          <input type="text" id="perfContext" class="perf-input" placeholder="ex: Début de saison">
+        </div>
+      </div>
+      <div class="perf-entries" id="perfEntries"></div>
+      <button onclick="addPerfEntry()" class="hub-refresh-pill" style="width:auto;padding:6px 16px;font-size:12px;margin-bottom:12px">+ Ajouter un test</button>
+      <button onclick="savePerfTests()" class="hub-refresh-pill" style="width:auto;padding:8px 20px;font-size:13px;background:rgba(214,0,28,.25);border-color:#D6001C">💾 Enregistrer</button>
+    </div>
+
+    <!-- Import Excel -->
+    <div class="perf-form-card">
+      <div class="perf-form-title">📊 Import Excel</div>
+      <div class="perf-form-row" style="margin-bottom:10px">
+        <div style="font-size:12px;color:rgba(255,255,255,.4);line-height:1.6">
+          Format attendu : colonnes <strong style="color:#fff">Joueur | Date | Test | Valeur</strong><br>
+          Tests valides : DC Squat, Clean, CMJ, Broad Jump
+        </div>
+      </div>
+      <div class="xlsx-drop" id="xlsxDrop" onclick="document.getElementById('xlsxInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleXlsxDrop(event)">
+        <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" hidden onchange="handleXlsxFile(this.files[0])">
+        <div class="xlsx-drop-icon">📁</div>
+        <div class="xlsx-drop-text">Déposez votre fichier Excel ici</div>
+        <div class="xlsx-drop-sub">ou cliquez pour parcourir (.xlsx / .xls / .csv)</div>
+      </div>
+      <div id="xlsxStatus" style="margin-top:10px;font-size:12px;color:#2ecc8a;display:none"></div>
+    </div>
+
+    <!-- Historique -->
+    <div class="perf-form-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="perf-form-title" style="margin-bottom:0">📋 Historique des tests</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="perfFilterTest" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
+            <option value="">Tous les tests</option>
+            <option value="dcsquat">DC Squat</option>
+            <option value="clean">Clean</option>
+            <option value="cmj">CMJ</option>
+            <option value="broadjump">Broad Jump</option>
+          </select>
+          <select id="perfFilterPlayer" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
+            <option value="">Tous les joueurs</option>
+          </select>
+        </div>
+      </div>
+      <div id="perfHistoryContent"></div>
+    </div>
   </div>
 </div>
 
@@ -2266,7 +2639,7 @@ Petit Enzo ; 9</pre>
 <script>
 var wellnessLoaded = false;
 var currentSection = 'accueil';
-var SECTIONS = ['gps','wellness','joueur'];
+var SECTIONS = ['gps','wellness','joueur','perf-physique'];
 
 function switchHub(name) {
   currentSection = name;
@@ -7058,5 +7431,575 @@ function moveDate(dir) {
 // init() appelé par switchHub()
 </script>
 
+<!-- MODULE JOUEUR + PERF PHYSIQUE -->
+<script>
+/* =========================================================================
+   MODULE JOUEUR + PERF PHYSIQUE
+   ========================================================================= */
+
+const PLAYER_PROFILES_KEY = 'nissaPlayerProfiles_v1';
+const PHYSICAL_TESTS_KEY  = 'nissaPhysicalTests_v1';
+
+const TEST_DEFS = [
+  { id:'dcsquat',   label:'DC Squat',    unit:'kg', icon:'🏋️' },
+  { id:'clean',     label:'Clean',       unit:'kg', icon:'⚡'  },
+  { id:'cmj',       label:'CMJ',         unit:'cm', icon:'⬆️'  },
+  { id:'broadjump', label:'Broad Jump',  unit:'cm', icon:'↔️'  },
+];
+
+const ANTHRPO_FIELDS = [
+  { key:'poste',     label:'Poste',       type:'text' },
+  { key:'taille',    label:'Taille (cm)', type:'number' },
+  { key:'poids',     label:'Poids (kg)',  type:'number' },
+  { key:'naissance', label:'Date naiss.', type:'date'   },
+];
+
+let playerProfiles = {};
+let physicalTests  = [];
+
+function loadPlayerProfiles() {
+  try { return JSON.parse(localStorage.getItem(PLAYER_PROFILES_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+function savePlayerProfiles() {
+  localStorage.setItem(PLAYER_PROFILES_KEY, JSON.stringify(playerProfiles));
+}
+function loadPhysicalTests() {
+  try { return JSON.parse(localStorage.getItem(PHYSICAL_TESTS_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function savePhysicalTests() {
+  localStorage.setItem(PHYSICAL_TESTS_KEY, JSON.stringify(physicalTests));
+}
+
+/* ── Utilitaires ── */
+function getAllWellnessPlayers() {
+  if (typeof WD === 'undefined' || !WD) return [];
+  const names = new Set();
+  Object.values(WD).forEach(function(day) {
+    if (day.r) day.r.forEach(function(p) { names.add(p.n); });
+  });
+  return Array.from(names).sort(function(a,b){ return a.localeCompare(b); });
+}
+
+function getPlayerLastStatus(playerName) {
+  if (typeof ALLDAYS === 'undefined' || !ALLDAYS.length) return '';
+  for (var i = ALLDAYS.length - 1; i >= 0; i--) {
+    var day = WD[ALLDAYS[i]];
+    if (!day || !day.r) continue;
+    var p = day.r.find(function(r){ return r.n === playerName; });
+    if (p) {
+      var fa = Math.min(100, Math.max(0, ((35 - p.S) / 30) * 100));
+      if (fa >= 60) return 'statut-vert';
+      if (fa >= 45) return 'statut-jaune';
+      if (fa >= 30) return 'statut-orange';
+      return 'statut-rouge';
+    }
+  }
+  return '';
+}
+
+function getPlayerWellnessLastN(playerName, n) {
+  if (typeof ALLDAYS === 'undefined') return [];
+  var results = [];
+  for (var i = ALLDAYS.length - 1; i >= 0 && results.length < n; i--) {
+    var day = WD[ALLDAYS[i]];
+    if (!day || !day.r) continue;
+    var p = day.r.find(function(r){ return r.n === playerName; });
+    if (p) results.unshift({ date: ALLDAYS[i], data: p });
+  }
+  return results;
+}
+
+function getPlayerSrpe(playerName) {
+  if (typeof RPE === 'undefined' || typeof RPEDAYS === 'undefined') return { total:0, weeks:[] };
+  var weekMap = {};
+  RPEDAYS.forEach(function(d) {
+    var rpeDay = RPE[d];
+    if (!rpeDay) return;
+    (rpeDay.sessions || []).filter(function(s){ return s.n === playerName; }).forEach(function(s) {
+      // ISO week
+      var dt = d.split('/'); // dd/mm/yyyy
+      var date = new Date(+dt[2], +dt[1]-1, +dt[0]);
+      var wk = getISOWeek(date);
+      weekMap[wk] = (weekMap[wk] || 0) + (s.srpe || 0);
+    });
+  });
+  var weeks = Object.entries(weekMap).sort(function(a,b){ return a[0].localeCompare(b[0]); });
+  var total = weeks.reduce(function(s,w){ return s + w[1]; }, 0);
+  return { total: Math.round(total), weeks: weeks.slice(-12) };
+}
+
+function getISOWeek(date) {
+  var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  var dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  var wk = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return d.getUTCFullYear() + '-W' + String(wk).padStart(2,'0');
+}
+
+function getPlayerTests(playerName, testId) {
+  return physicalTests
+    .filter(function(t){ return t.player === playerName && t.type === testId; })
+    .sort(function(a,b){ return a.date.localeCompare(b.date); });
+}
+
+function getStatusClass(data) {
+  var fa = Math.min(100, Math.max(0, ((35 - data.S) / 30) * 100));
+  if (fa >= 60) return 's-vert';
+  if (fa >= 45) return 's-jaune';
+  if (fa >= 30) return 's-orange';
+  return 's-rouge';
+}
+
+/* ── Grille joueurs ── */
+function renderJoueurGrid() {
+  var grid = document.getElementById('joueurGrid');
+  if (!grid) return;
+  var players = getAllWellnessPlayers();
+  var search = (document.getElementById('joueurSearch') || {}).value || '';
+  if (search) players = players.filter(function(n){ return n.toLowerCase().includes(search.toLowerCase()); });
+
+  if (!players.length) {
+    grid.innerHTML = '<p style="color:rgba(255,255,255,.3);text-align:center;padding:40px;grid-column:1/-1">Aucun joueur trouvé — chargez Wellness d\'abord.</p>';
+    return;
+  }
+
+  grid.innerHTML = players.map(function(name) {
+    var status = getPlayerLastStatus(name);
+    var shortName = name.length > 12 ? name.slice(0,12)+'…' : name;
+    return '<div class="joueur-card ' + status + '" onclick="openJoueurProfile(\'' + name.replace(/'/g,"\\'") + '\')">'
+      + '<div class="joueur-avatar">'
+      + '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">'
+      + '<circle cx="40" cy="28" r="16" fill="rgba(255,255,255,.3)"/>'
+      + '<path d="M8 80 Q8 50 40 50 Q72 50 72 80Z" fill="rgba(255,255,255,.3)"/>'
+      + '</svg></div>'
+      + '<div class="joueur-card-name">' + shortName + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+var currentProfilePlayer = '';
+
+function openJoueurProfile(name) {
+  currentProfilePlayer = name;
+  document.getElementById('joueur-grid-view').style.display = 'none';
+  document.getElementById('joueurProfile').classList.add('active');
+
+  document.getElementById('profileName').textContent = name;
+  renderProfileMeta(name);
+  renderProfileAnthropo(name);
+  renderProfileWellness5(name);
+  renderProfileSrpe(name);
+  renderProfileTests(name);
+}
+
+function closeJoueurProfile() {
+  document.getElementById('joueur-grid-view').style.display = 'block';
+  document.getElementById('joueurProfile').classList.remove('active');
+  currentProfilePlayer = '';
+}
+
+function renderProfileMeta(name) {
+  var prof = playerProfiles[name] || {};
+  var html = '';
+  if (prof.poste) html += '<span>' + prof.poste + '</span> · ';
+  if (prof.taille) html += '<span>' + prof.taille + ' cm</span> · ';
+  if (prof.poids) html += '<span>' + prof.poids + ' kg</span> · ';
+  if (prof.naissance) html += '<span>' + prof.naissance + '</span>';
+  document.getElementById('profileMeta').innerHTML = html || '<span style="color:rgba(255,255,255,.3)">Données non renseignées</span>';
+}
+
+function renderProfileAnthropo(name) {
+  var prof = playerProfiles[name] || {};
+  var chips = ANTHRPO_FIELDS.map(function(f) {
+    var val = prof[f.key] || '—';
+    return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px;text-align:center">'
+      + '<div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">' + f.label + '</div>'
+      + '<div style="font-size:15px;font-weight:700;color:#fff">' + val + '</div>'
+      + '</div>';
+  }).join('');
+  document.getElementById('profileAnthropo').innerHTML = chips;
+}
+
+function renderProfileWellness5(name) {
+  var days = getPlayerWellnessLastN(name, 5);
+  var el = document.getElementById('profileWellness5');
+  if (!days.length) {
+    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px">Aucune donnée wellness.</p>';
+    return;
+  }
+  el.innerHTML = days.map(function(d) {
+    var p = d.data;
+    var fa = Math.min(100, Math.max(0, ((35 - p.S) / 30) * 100));
+    var sc = getStatusClass(p);
+    var shortDate = d.date.slice(0,5); // dd/mm
+    return '<div class="w5-card ' + sc + '" onclick="showWellnessDetail(\'' + name.replace(/'/g,"\\'") + '\',\'' + d.date + '\')">'
+      + '<div class="w5-date">' + shortDate + '</div>'
+      + '<div class="w5-score">' + Math.round(fa) + '</div>'
+      + '<div class="w5-sub">/100</div>'
+      + '</div>';
+  }).join('');
+}
+
+function renderProfileSrpe(name) {
+  var data = getPlayerSrpe(name);
+  var el = document.getElementById('profileSrpe');
+  if (!data.total) {
+    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px">Aucune donnée sRPE.</p>';
+    return;
+  }
+  var maxW = Math.max.apply(null, data.weeks.map(function(w){ return w[1]; })) || 1;
+  var bars = data.weeks.map(function(w) {
+    var h = Math.round((w[1] / maxW) * 40);
+    return '<div class="srpe-week-bar" style="height:' + h + 'px" title="' + w[0] + ' : ' + Math.round(w[1]) + ' UA"></div>';
+  }).join('');
+
+  el.innerHTML = '<div class="srpe-total-card">'
+    + '<div><div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Total sRPE annuel</div>'
+    + '<div class="srpe-total-val">' + data.total.toLocaleString('fr-FR') + ' <span style="font-size:14px;color:rgba(255,255,255,.4)">UA</span></div></div>'
+    + '<div class="srpe-weeks-mini" title="12 dernières semaines">' + bars + '</div>'
+    + '</div>';
+}
+
+function renderProfileTests(name) {
+  var el = document.getElementById('profileTests');
+  el.innerHTML = TEST_DEFS.map(function(test) {
+    var history = getPlayerTests(name, test.id);
+    var last = history[history.length - 1];
+    var prev = history[history.length - 2];
+    var trend = '';
+    if (last && prev) {
+      var diff = last.value - prev.value;
+      trend = diff > 0 ? ' <span style="color:#2ecc8a;font-size:10px">▲' + diff.toFixed(1) + '</span>'
+                       : ' <span style="color:#cc1122;font-size:10px">▼' + Math.abs(diff).toFixed(1) + '</span>';
+    }
+    return '<div class="joueur-test-card" onclick="showTestEvo(\'' + name.replace(/'/g,"\\'") + '\',\'' + test.id + '\')">'
+      + '<div class="joueur-test-icon">' + test.icon + '</div>'
+      + '<div class="joueur-test-name">' + test.label + '</div>'
+      + (last
+        ? '<div class="joueur-test-val">' + last.value + trend + '</div>'
+          + '<div class="joueur-test-unit">' + test.unit + '</div>'
+          + '<div class="joueur-test-date">' + last.date + '</div>'
+        : '<div class="joueur-test-empty">— à renseigner</div>')
+      + '</div>';
+  }).join('');
+}
+
+/* ── Modals ── */
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function showWellnessDetail(playerName, date) {
+  var day = WD[date];
+  if (!day || !day.r) return;
+  var p = day.r.find(function(r){ return r.n === playerName; });
+  if (!p) return;
+  var fa = Math.min(100, Math.max(0, ((35 - p.S) / 30) * 100));
+  document.getElementById('wellnessDetailTitle').textContent = playerName + ' — ' + date;
+  var items = [
+    { label: 'Score global', val: Math.round(fa) + '/100' },
+    { label: 'Score Hooper', val: p.S + '/35' },
+    { label: 'Sommeil', val: p.s + '/7' },
+    { label: 'Fatigue', val: p.f + '/7' },
+    { label: 'Stress', val: p.t + '/7' },
+    { label: 'Courbatures haut', val: p.H + '/7' },
+    { label: 'Courbatures bas', val: p.B + '/7' },
+  ];
+  if (p.c) items.push({ label: 'Commentaire', val: p.c });
+  document.getElementById('wellnessDetailBody').innerHTML = items.map(function(i) {
+    return '<div class="w-detail-row"><span>' + i.label + '</span><span class="w-detail-val">' + i.val + '</span></div>';
+  }).join('');
+  document.getElementById('wellnessDetailModal').classList.add('open');
+}
+
+function showTestEvo(playerName, testId) {
+  var test = TEST_DEFS.find(function(t){ return t.id === testId; });
+  var history = getPlayerTests(playerName, testId);
+  document.getElementById('testEvoTitle').textContent = test.label + ' — ' + playerName;
+
+  if (!history.length) {
+    document.getElementById('testEvoChart').innerHTML = '<p style="color:rgba(255,255,255,.3);text-align:center;padding:20px">Aucun résultat enregistré.</p>';
+    document.getElementById('testEvoModal').classList.add('open');
+    return;
+  }
+
+  var xLabels = history.map(function(t){ return t.date.slice(0,5); });
+  var values  = history.map(function(t){ return t.value; });
+
+  // Graphique SVG
+  var W=420, H=180, ml=36, mb=30, mt=12, mr=12;
+  var pw=W-ml-mr, ph=H-mt-mb;
+  var yMin=Math.min.apply(null,values)*0.95, yMax=Math.max.apply(null,values)*1.05;
+  if (yMin===yMax) { yMin-=1; yMax+=1; }
+  var n=values.length;
+  var sx=function(i){ return ml + (n>1 ? i/(n-1)*pw : pw/2); };
+  var sy=function(v){ return mt+ph-((v-yMin)/(yMax-yMin))*ph; };
+
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" font-family="Inter,Arial,sans-serif">';
+  // Grid
+  [0,1,2,3,4].forEach(function(i){
+    var yv=yMin+(yMax-yMin)*i/4;
+    var y=sy(yv);
+    svg+='<line x1="'+ml+'" y1="'+y.toFixed(1)+'" x2="'+(ml+pw)+'" y2="'+y.toFixed(1)+'" stroke="rgba(255,255,255,.08)"/>';
+    svg+='<text x="'+(ml-4)+'" y="'+(y+3).toFixed(1)+'" font-size="8" text-anchor="end" fill="rgba(255,255,255,.4)">'+yv.toFixed(1)+'</text>';
+  });
+  // Axes
+  svg+='<line x1="'+ml+'" y1="'+mt+'" x2="'+ml+'" y2="'+(mt+ph)+'" stroke="rgba(255,255,255,.2)"/>';
+  svg+='<line x1="'+ml+'" y1="'+(mt+ph)+'" x2="'+(ml+pw)+'" y2="'+(mt+ph)+'" stroke="rgba(255,255,255,.2)"/>';
+  // X labels
+  xLabels.forEach(function(l,i){
+    var x=sx(i);
+    svg+='<text x="'+x.toFixed(1)+'" y="'+(mt+ph+14).toFixed(1)+'" font-size="8" text-anchor="middle" fill="rgba(255,255,255,.35)">'+l+'</text>';
+  });
+  // Line
+  var path='';
+  values.forEach(function(v,i){
+    path+=(i===0?'M':'L')+sx(i).toFixed(1)+','+sy(v).toFixed(1);
+  });
+  svg+='<path d="'+path+'" fill="none" stroke="#D6001C" stroke-width="2"/>';
+  // Dots
+  values.forEach(function(v,i){
+    svg+='<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(v).toFixed(1)+'" r="4" fill="#D6001C" stroke="#111" stroke-width="1.5">';
+    svg+='<title>'+xLabels[i]+' : '+v+' '+test.unit+'</title></circle>';
+  });
+  // Best marker
+  var best=Math.max.apply(null,values);
+  var bi=values.lastIndexOf(best);
+  svg+='<text x="'+sx(bi).toFixed(1)+'" y="'+(sy(best)-8).toFixed(1)+'" font-size="9" text-anchor="middle" fill="#2ecc8a" font-weight="700">'+best+' '+test.unit+'</text>';
+  svg+='</svg>';
+
+  document.getElementById('testEvoChart').innerHTML = svg;
+  document.getElementById('testEvoModal').classList.add('open');
+}
+
+function openAnthropoEdit() {
+  var name = currentProfilePlayer;
+  if (!name) return;
+  var prof = playerProfiles[name] || {};
+  document.getElementById('anthroTitle').textContent = 'Modifier — ' + name;
+  document.getElementById('anthroBody').innerHTML = ANTHRPO_FIELDS.map(function(f) {
+    return '<div class="perf-field" style="margin-bottom:12px">'
+      + '<label>' + f.label + '</label>'
+      + '<input type="' + f.type + '" id="anthroinput-' + f.key + '" class="perf-input" value="' + (prof[f.key]||'') + '">'
+      + '</div>';
+  }).join('')
+  + '<button onclick="saveAnthropo(\'' + name.replace(/'/g,"\\'") + '\')" class="hub-refresh-pill" style="width:100%;background:rgba(214,0,28,.25);border-color:#D6001C">💾 Enregistrer</button>';
+  document.getElementById('anthroModal').classList.add('open');
+}
+
+function saveAnthropo(name) {
+  if (!playerProfiles[name]) playerProfiles[name] = {};
+  ANTHRPO_FIELDS.forEach(function(f) {
+    var el = document.getElementById('anthroinput-' + f.key);
+    if (el) playerProfiles[name][f.key] = el.value;
+  });
+  savePlayerProfiles();
+  renderProfileMeta(name);
+  renderProfileAnthropo(name);
+  closeModal('anthroModal');
+}
+
+/* ── PERF PHYSIQUE ── */
+var perfEntryCount = 0;
+
+function addPerfEntry() {
+  var players = getAllWellnessPlayers();
+  var idx = perfEntryCount++;
+  var div = document.createElement('div');
+  div.className = 'perf-entry';
+  div.id = 'perf-entry-' + idx;
+
+  var selPlayer = '<select class="perf-input" id="pe-player-'+idx+'">'
+    + '<option value="">— Joueur —</option>'
+    + players.map(function(n){ return '<option>'+n+'</option>'; }).join('')
+    + '</select>';
+
+  var selTest = '<select class="perf-input" id="pe-test-'+idx+'">'
+    + TEST_DEFS.map(function(t){ return '<option value="'+t.id+'">'+t.label+' ('+t.unit+')</option>'; }).join('')
+    + '</select>';
+
+  div.innerHTML = selPlayer + selTest
+    + '<input type="number" step="0.1" class="perf-input" id="pe-val-'+idx+'" placeholder="Valeur" style="width:90px">'
+    + '<button class="perf-btn-remove" onclick="document.getElementById(\'perf-entry-'+idx+'\').remove()">✕</button>';
+
+  document.getElementById('perfEntries').appendChild(div);
+}
+
+function savePerfTests() {
+  var date = document.getElementById('perfDate').value;
+  var context = document.getElementById('perfContext').value.trim();
+  if (!date) { alert('Veuillez sélectionner une date.'); return; }
+
+  var entries = document.querySelectorAll('.perf-entry');
+  var saved = 0;
+  entries.forEach(function(entry) {
+    var idx = entry.id.replace('perf-entry-','');
+    var player = (document.getElementById('pe-player-'+idx)||{}).value;
+    var type   = (document.getElementById('pe-test-'+idx)||{}).value;
+    var val    = parseFloat((document.getElementById('pe-val-'+idx)||{}).value);
+    if (!player || !type || isNaN(val)) return;
+    physicalTests.push({ id: Date.now()+Math.random(), player:player, type:type, value:val, date:date, context:context });
+    saved++;
+  });
+
+  if (!saved) { alert('Aucun test valide à enregistrer.'); return; }
+  savePhysicalTests();
+  document.getElementById('perfEntries').innerHTML = '';
+  perfEntryCount = 0;
+  renderPerfHistory();
+  if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+  alert('✓ ' + saved + ' test(s) enregistré(s) !');
+}
+
+function renderPerfHistory() {
+  var el = document.getElementById('perfHistoryContent');
+  if (!el) return;
+  var filterTest   = (document.getElementById('perfFilterTest')||{}).value || '';
+  var filterPlayer = (document.getElementById('perfFilterPlayer')||{}).value || '';
+
+  var tests = physicalTests
+    .filter(function(t){ return (!filterTest||t.type===filterTest) && (!filterPlayer||t.player===filterPlayer); })
+    .sort(function(a,b){ return b.date.localeCompare(a.date); });
+
+  // Populate player filter
+  var sel = document.getElementById('perfFilterPlayer');
+  if (sel && sel.options.length <= 1) {
+    var players = [...new Set(physicalTests.map(function(t){ return t.player; }))].sort();
+    players.forEach(function(p){ var o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
+  }
+
+  if (!tests.length) {
+    el.innerHTML = '<div class="perf-empty">Aucun résultat enregistré.</div>';
+    return;
+  }
+
+  el.innerHTML = '<table class="perf-results-table"><thead><tr>'
+    + '<th>Date</th><th>Joueur</th><th>Test</th><th>Valeur</th><th>Contexte</th><th></th>'
+    + '</tr></thead><tbody>'
+    + tests.slice(0,50).map(function(t) {
+        var def = TEST_DEFS.find(function(d){ return d.id===t.type; }) || { label:t.type, unit:'' };
+        return '<tr><td style="color:rgba(255,255,255,.5);font-size:11px">'+t.date+'</td>'
+          + '<td style="font-weight:600">'+t.player+'</td>'
+          + '<td>'+def.icon+' '+def.label+'</td>'
+          + '<td style="color:#D6001C;font-weight:700;font-family:monospace">'+t.value+' '+def.unit+'</td>'
+          + '<td style="font-size:11px;color:rgba(255,255,255,.35)">'+( t.context||'—')+'</td>'
+          + '<td><button onclick="deletePerfTest(\''+t.id+'\')" style="background:none;border:none;color:#cc3333;cursor:pointer;font-size:13px">✕</button></td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>';
+}
+
+function deletePerfTest(id) {
+  if (!confirm('Supprimer ce résultat ?')) return;
+  physicalTests = physicalTests.filter(function(t){ return String(t.id) !== String(id); });
+  savePhysicalTests();
+  renderPerfHistory();
+}
+
+/* ── Import Excel ── */
+function handleXlsxDrop(e) {
+  e.preventDefault();
+  document.getElementById('xlsxDrop').classList.remove('drag');
+  var file = e.dataTransfer.files[0];
+  if (file) handleXlsxFile(file);
+}
+
+function handleXlsxFile(file) {
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+
+      var testMap = { 'dc squat':'dcsquat', 'dcsquat':'dcsquat', 'squat':'dcsquat',
+                      'clean':'clean', 'cmj':'cmj', 'broad jump':'broadjump', 'broadjump':'broadjump', 'saut':'broadjump' };
+      var saved = 0, errors = 0;
+
+      rows.forEach(function(row) {
+        var player  = String(row['Joueur']||row['joueur']||row['JOUEUR']||'').trim();
+        var date    = row['Date']||row['date']||row['DATE']||'';
+        var testRaw = String(row['Test']||row['test']||row['TEST']||'').trim().toLowerCase();
+        var val     = parseFloat(row['Valeur']||row['valeur']||row['VALEUR']||'');
+        var ctx     = String(row['Contexte']||row['contexte']||'').trim();
+
+        if (!player || !testRaw || isNaN(val)) { errors++; return; }
+
+        var testId = testMap[testRaw];
+        if (!testId) { errors++; return; }
+
+        // Formater la date
+        var dateStr = '';
+        if (date instanceof Date) {
+          dateStr = date.toISOString().split('T')[0];
+        } else if (typeof date === 'string' && date) {
+          dateStr = date;
+        } else if (typeof date === 'number') {
+          var d = new Date(Math.round((date - 25569) * 86400 * 1000));
+          dateStr = d.toISOString().split('T')[0];
+        }
+        if (!dateStr) { errors++; return; }
+
+        physicalTests.push({ id:Date.now()+Math.random(), player:player, type:testId, value:val, date:dateStr, context:ctx });
+        saved++;
+      });
+
+      savePhysicalTests();
+      renderPerfHistory();
+      if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+
+      var status = document.getElementById('xlsxStatus');
+      status.style.display = 'block';
+      status.textContent = '✓ ' + saved + ' résultat(s) importé(s)' + (errors ? ' (' + errors + ' ligne(s) ignorée(s))' : '');
+      setTimeout(function(){ status.style.display='none'; }, 5000);
+
+    } catch(err) {
+      alert('Erreur lecture fichier : ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ── Init ── */
+function initJoueurModule() {
+  playerProfiles = loadPlayerProfiles();
+  physicalTests  = loadPhysicalTests();
+
+  // Recherche joueurs
+  var search = document.getElementById('joueurSearch');
+  if (search) search.addEventListener('input', renderJoueurGrid);
+
+  // Date par défaut perf physique
+  var perfDate = document.getElementById('perfDate');
+  if (perfDate) perfDate.value = new Date().toISOString().split('T')[0];
+
+  // Premier test entry
+  addPerfEntry();
+  renderPerfHistory();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  initJoueurModule();
+});
+
+// Relancer la grille quand on arrive sur l'onglet joueur
+var _origSwitchHub = switchHub;
+switchHub = function(name) {
+  _origSwitchHub(name);
+  if (name === 'joueur') {
+    setTimeout(function() {
+      renderJoueurGrid();
+    }, 200); // laisser le temps aux données wellness de charger
+  }
+  if (name === 'perf-physique') {
+    renderPerfHistory();
+  }
+};
+
+</script>
 </body>
 </html>
