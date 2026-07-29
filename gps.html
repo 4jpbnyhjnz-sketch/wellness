@@ -792,11 +792,27 @@ table.data-table td.cell-overridden {
   #reportCard, .report-card {
     border: none;
   }
+  /* Structure hub: main est dans #hub-gps */
+  body.printing-saved-session #hub-gps > main > *:not(#sessionPrintRoot),
+  body.printing-saved-session #hub-gps > div > main > *:not(#sessionPrintRoot),
   body.printing-saved-session > main > *:not(#sessionPrintRoot) {
     display: none !important;
   }
   body.printing-saved-session #sessionPrintRoot {
     display: block !important;
+  }
+  /* Cacher tout sauf GPS en impression */
+  body.printing-saved-session #hub-accueil,
+  body.printing-saved-session #hub-wellness,
+  body.printing-saved-session #hub-joueur,
+  body.printing-saved-session .hub-topbar,
+  body.printing-saved-session .hub-sidebar,
+  body.printing-saved-session .hub-overlay {
+    display: none !important;
+  }
+  body.printing-saved-session #hub-gps {
+    display: block !important;
+    padding-top: 0 !important;
   }
 
   /* ===== OPTION D — Style visuel PDF ===== */
@@ -1399,17 +1415,22 @@ body { margin:0; background:#0a0a0a; }
 #hub-gps .topbar { position:sticky; top:52px; z-index:500; }
 
 /* Wellness/RPE : masquer le header de index2 (on a le nôtre) */
-#hub-wellness { padding-top:52px; }
+#hub-wellness { padding-top:52px; position:relative; z-index:1; }
 #hub-wellness .header { display:none !important; }
 
-/* loading-screen : RELATIF, pas fixed */
+/* loading-screen : RELATIF, pas fixed, et disparaît vraiment */
 #loading-screen {
   position:relative !important; inset:auto !important; z-index:1 !important;
   min-height:calc(100vh - 52px);
 }
+#loading-screen.hidden {
+  display:none !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
 
 /* Joueur */
-#hub-joueur { background:var(--bg,#0a0a0a); }
+#hub-joueur { background:var(--bg,#0a0a0a); position:relative; z-index:1; }
 .joueur-ph {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   min-height:calc(100vh - 52px); gap:16px; padding:40px; text-align:center;
@@ -1418,10 +1439,65 @@ body { margin:0; background:#0a0a0a; }
 @media print {
   .hub-topbar,.hub-sidebar,.hub-overlay { display:none !important; }
   #hub-accueil,#hub-wellness,#hub-joueur { display:none !important; }
-  #hub-gps { display:block !important; padding-top:0; }
-  #hub-gps .topbar { top:0; }
-  body { background:#fff !important; }
+  #hub-gps {
+    display:block !important;
+    padding-top:0 !important;
+    background:none !important;
+    background-color:#fff !important;
+    background-image:none !important;
+  }
+  #hub-gps .topbar { top:0 !important; position:relative !important; }
+  #hub-gps main { padding-top:0 !important; }
+  body {
+    background:#fff !important;
+    background-image:none !important;
+    background-color:#fff !important;
+  }
+  #sessionPrintRoot { display:block; }
 }
+
+/* ══ Corrections couleurs wellness dans hub ══ */
+#hub-wellness .player-name,
+#hub-wellness .player-card,
+#hub-wellness .player-card * { color: var(--text, #f0f0f0); }
+
+/* Noms invisibles : forcer blanc */
+#hub-wellness .nom-cell,
+#hub-wellness td,
+#hub-wellness th,
+#hub-wellness .player-name,
+#hub-wellness h3,
+#hub-wellness h4,
+#hub-wellness p,
+#hub-wellness span,
+#hub-wellness label,
+#hub-wellness .section-label,
+#hub-wellness .date-nav-info,
+#hub-wellness .rpe-type-name,
+#hub-wellness .rpe-type-sub,
+#hub-wellness .rpe-summary-label,
+#hub-wellness .alert-item,
+#hub-wellness .absent-chip {
+  color: var(--text, #f0f0f0);
+}
+
+/* Fond des cartes joueurs */
+#hub-wellness .player-card {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+/* Texte sur fond sombre */
+#hub-wellness body { color: var(--text, #f0f0f0); }
+
+/* Tab panels wellness : s'assurer qu'ils sont visibles quand actifs */
+#hub-wellness .tab-panel { display: none; }
+#hub-wellness .tab-panel.active { display: block !important; }
+
+/* View panels RPE/Wellness */
+#hub-wellness #view-wellness,
+#hub-wellness #view-rpe { }
+
 </style>
 </head>
 <body>
@@ -2285,6 +2361,10 @@ function switchHub(name) {
     var ni = document.getElementById('nav-' + s);
     if (ni) ni.classList.toggle('active', s === name);
   });
+
+  // Montrer/cacher le logo watermark GPS
+  var gpsLogo = document.querySelector('[data-gps-logo="1"]');
+  if (gpsLogo) gpsLogo.style.display = (name === 'gps' || name === 'accueil') ? 'block' : 'none';
 
   // Charger wellness si premier accès
   if ((name === 'wellness' || name === 'rpe') && !wellnessLoaded) {
@@ -5128,11 +5208,11 @@ function initUpload() {
 }
 
 function initTabs() {
-  const buttons = document.querySelectorAll(".tab-btn");
+  const buttons = document.querySelectorAll("#hub-gps .tab-btn");
   buttons.forEach((btn) => {
     btn.addEventListener("click", () => {
       buttons.forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+      document.querySelectorAll("#hub-gps .tab-panel").forEach((p) => p.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
     });
@@ -5514,9 +5594,9 @@ function initAnalyseTab() {
     analyseState.count = e.target.value; renderAnalyseTab();
   });
 
-  document.querySelectorAll(".toggle-btn[data-atype]").forEach(btn => {
+  document.querySelectorAll("#hub-gps .toggle-btn[data-atype]").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".toggle-btn[data-atype]").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("#hub-gps .toggle-btn[data-atype]").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       analyseState.type = btn.dataset.atype;
       renderAnalyseTab();
@@ -5642,9 +5722,9 @@ function initJoueurTab() {
     joueurState.name = e.target.value; renderJoueurTab();
   });
 
-  document.querySelectorAll(".toggle-btn[data-ptype]").forEach(btn => {
+  document.querySelectorAll("#hub-gps .toggle-btn[data-ptype]").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".toggle-btn[data-ptype]").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("#hub-gps .toggle-btn[data-ptype]").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       joueurState.type = btn.dataset.ptype;
       renderJoueurTab();
@@ -5690,17 +5770,19 @@ function initHeaderFields() {
   const bgLogo = document.createElement("div");
   bgLogo.id = "bgLogoWatermark";
   bgLogo.style.cssText = [
-    "position:absolute",
+    "position:fixed",
     "top:50vh",
     "left:50%",
     "transform:translate(-50%, -50%)",
     "width:600px",
     "height:600px",
     `background:url('${NISSA_LOGO_B64}') center/contain no-repeat`,
-    "opacity:0.18",
+    "opacity:0.12",
     "pointer-events:none",
-    "z-index:0",
+    "z-index:-1",
+    "display:none",
   ].join(";");
+  bgLogo.dataset.gpsLogo = "1";
   document.body.appendChild(bgLogo);
 
   const CLUB_KEY = "gpsClubName_v1";
@@ -7063,7 +7145,7 @@ function moveDate(dir) {
   if (next>=0&&next<CUR_SEASON_DAYS.length){sel.value=CUR_SEASON_DAYS[next];render();}
 }
 
-init();
+// init() appelé par switchHub()
 </script>
 
 </body>
