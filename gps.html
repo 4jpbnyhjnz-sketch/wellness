@@ -2671,7 +2671,7 @@ function switchHub(name) {
   });
   // Logo watermark : visible seulement sur GPS
   var gpsLogo = document.getElementById('bgLogoWatermark');
-  if (gpsLogo) gpsLogo.style.display = (name==='gps'||name==='accueil') ? 'block' : 'none';
+  if (gpsLogo) gpsLogo.style.display = name==='gps' ? 'block' : 'none';
   // Wellness
   if ((name==='wellness'||name==='rpe') && !wellnessLoaded) {
     wellnessLoaded = true;
