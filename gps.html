@@ -7571,6 +7571,8 @@ function openJoueurProfile(name) {
   var profile  = document.getElementById('joueurProfile');
   if (gridView) gridView.style.display = 'none';
   if (profile)  { profile.classList.add('active'); profile.style.display = 'block'; }
+  var backBtn = document.getElementById('joueurBackBtn');
+  if (backBtn) backBtn.style.display = 'block';
 
   document.getElementById('profileName').textContent = name;
   var bc = document.getElementById('profileBreadcrumb');
@@ -7587,6 +7589,8 @@ function closeJoueurProfile() {
   var profile  = document.getElementById('joueurProfile');
   if (gridView) gridView.style.display = 'block';
   if (profile)  { profile.classList.remove('active'); profile.style.display = 'none'; }
+  var backBtn = document.getElementById('joueurBackBtn');
+  if (backBtn) backBtn.style.display = 'none';
   currentProfilePlayer = '';
 }
 
@@ -8009,6 +8013,31 @@ function handleXlsxFile(file) {
 
 /* ── Init ── */
 function initJoueurModule() {
+  // Créer un bouton retour fixe dans le DOM
+  var btn = document.createElement('button');
+  btn.id = 'joueurBackBtn';
+  btn.innerHTML = '&#8592; Retour aux joueurs';
+  btn.style.cssText = [
+    'display:none',
+    'position:fixed',
+    'top:60px',
+    'left:20px',
+    'z-index:9999',
+    'background:#D6001C',
+    'color:#ffffff',
+    'border:none',
+    'border-radius:8px',
+    'padding:10px 20px',
+    'font-size:14px',
+    'font-weight:800',
+    'cursor:pointer',
+    'font-family:inherit',
+    'box-shadow:0 4px 16px rgba(0,0,0,.5)',
+    'letter-spacing:.03em',
+  ].join(';');
+  btn.addEventListener('click', closeJoueurProfile);
+  document.body.appendChild(btn);
+
   playerProfiles = loadPlayerProfiles();
   physicalTests  = loadPhysicalTests();
 
