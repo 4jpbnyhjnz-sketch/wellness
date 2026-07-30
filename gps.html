@@ -1571,6 +1571,18 @@ table.roster-table select { padding: 4px; }
 .xlsx-drop-text { font-size:13px; color:rgba(255,255,255,.5); }
 .xlsx-drop-sub  { font-size:11px; color:rgba(255,255,255,.3); margin-top:4px; }
 
+  /* ══ Texte blanc dans toute la section wellness ══ */
+  #hub-wellness { color: #f0f0f0; }
+  #hub-wellness * { color: #f0f0f0; }
+  #hub-wellness .statut-vert   { color: #06160d !important; }
+  #hub-wellness .statut-jaune  { color: #1a1606 !important; }
+  #hub-wellness .statut-orange { color: #1a1106 !important; }
+  #hub-wellness .statut-rouge  { color: #fff    !important; }
+  #hub-wellness select, #hub-wellness option { color: #f0f0f0; background: #1a1a1a; }
+  #hub-wellness .rpe-missing-chip { color: #f5a0a0 !important; }
+  #hub-wellness .absent-chip      { color: #f5a0a0 !important; }
+  #hub-wellness .somme-pill       { color: #000 !important; }
+
 }
 
 /* ══ HUB PRINT — minimal, laisse le CSS index3 gérer ══ */
@@ -7473,13 +7485,10 @@ function savePhysicalTests() {
 }
 
 /* ── Utilitaires ── */
+var FIXED_ROSTER = ["Aouad", "Arsac", "Asquini", "Batique", "Bedjaoui", "Bergamaschi", "Berger", "Bertolin", "Bielle Biarrey", "Blondin", "Blooworth", "Bosseray", "Bouye", "Castaignede", "Chikhladze", "Clément", "Codoul", "Decourteix", "Delpias", "Diaz", "Dubois", "Dusautois", "Escard", "Faustin", "Ferrari", "Flambart", "Gomis", "Goyffon", "Jean-baptiste", "John", "Jones", "Jouglas", "Kaindrava", "Kefford", "Kodad", "Lamacchia", "Lateulade", "Laurans", "Mallego", "Mapone", "Marcoux", "Navarrate", "Niel", "Paget", "Philippe", "Pies", "Provencel", "Putterill", "Ribeiro", "Samadi", "Scotto", "Testelin", "Vidal", "Wolsink", "Yilmaz", "Zamora", "Zelioli", "oulerich"];
+
 function getAllWellnessPlayers() {
-  if (typeof WD === 'undefined' || !WD) return [];
-  const names = new Set();
-  Object.values(WD).forEach(function(day) {
-    if (day.r) day.r.forEach(function(p) { names.add(p.n); });
-  });
-  return Array.from(names).sort(function(a,b){ return a.localeCompare(b); });
+  return FIXED_ROSTER;
 }
 
 function getPlayerLastStatus(playerName) {
