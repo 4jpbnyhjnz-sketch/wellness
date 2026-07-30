@@ -1583,6 +1583,17 @@ table.roster-table select { padding: 4px; }
   #hub-wellness .absent-chip      { color: #f5a0a0 !important; }
   /* somme-pill : couleur gérée par le JS inline, fond plus opaque */
 
+  /* Texte blanc dans joueur et perf physique */
+  #hub-joueur, #hub-perf-physique { color: #f0f0f0; }
+  #hub-joueur *, #hub-perf-physique * { color: #f0f0f0; }
+  #hub-joueur input, #hub-joueur select,
+  #hub-perf-physique input, #hub-perf-physique select {
+    color: #f0f0f0 !important; background: #1a1a1a !important;
+  }
+  /* Fond des sections sombres */
+  #hub-perf-physique { background: #0a0a0a; min-height:100vh; padding-top:52px; }
+  #hub-joueur { background: #0a0a0a; }
+
 }
 
 /* ══ HUB PRINT — minimal, laisse le CSS index3 gérer ══ */
