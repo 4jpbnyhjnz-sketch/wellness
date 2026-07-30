@@ -1495,7 +1495,7 @@ table.roster-table select { padding: 4px; }
 .srpe-week-bar:hover { background:#D6001C; }
 
 /* Tests physiques joueur */
-.joueur-tests-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:0 20px 16px; }
+.joueur-tests-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:0 20px 16px; }
 .joueur-test-card {
   background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
   border-radius:10px; padding:14px; cursor:pointer; transition:all .15s;
@@ -2463,8 +2463,24 @@ Petit Enzo ; 9</pre>
 
   <!-- Profil joueur (caché par défaut) -->
   <div class="joueur-profile" id="joueurProfile">
-    <div class="joueur-profile-back" onclick="closeJoueurProfile()">
-      ← Retour à la liste
+    <div style="padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)">
+      <button onclick="closeJoueurProfile()" style="
+        display:flex;align-items:center;gap:8px;
+        background:rgba(255,255,255,.1);
+        border:1px solid rgba(255,255,255,.25);
+        border-radius:8px;
+        padding:9px 18px;
+        color:#fff;
+        font-size:14px;
+        font-weight:700;
+        cursor:pointer;
+        font-family:inherit;
+        transition:background .15s;
+      " onmouseover="this.style.background='rgba(255,255,255,.2)'"
+         onmouseout="this.style.background='rgba(255,255,255,.1)'">
+        ← Retour
+      </button>
+      <span style="color:rgba(255,255,255,.4);font-size:13px" id="profileBreadcrumb">Joueurs</span>
     </div>
     <div class="joueur-profile-header">
       <div class="joueur-profile-avatar" id="profileAvatar">
@@ -2554,8 +2570,8 @@ Petit Enzo ; 9</pre>
       <div class="perf-form-title">📊 Import Excel</div>
       <div class="perf-form-row" style="margin-bottom:10px">
         <div style="font-size:12px;color:rgba(255,255,255,.4);line-height:1.6">
-          Format attendu : colonnes <strong style="color:#fff">Joueur | Date | Test | Valeur</strong><br>
-          Tests valides : DC Squat, Clean, CMJ, Broad Jump
+          Format attendu : colonnes <strong style="color:#fff">DATES | TEST | VALEURS | NOMS</strong> (ou Joueur/Date/Test/Valeur)<br>
+          Tests reconnus : 10m, 20m, 30m, 50m, Yoyo, Bronco, DC, Back squat, Clean, CMJ, SJ, BJ/SDT, Traction, Vmax…
         </div>
       </div>
       <div class="xlsx-drop" id="xlsxDrop" onclick="document.getElementById('xlsxInput').click()"
@@ -2577,9 +2593,19 @@ Petit Enzo ; 9</pre>
         <div style="display:flex;gap:8px;align-items:center">
           <select id="perfFilterTest" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
             <option value="">Tous les tests</option>
+            <option value="10m">10m</option>
+            <option value="20m">20m</option>
+            <option value="30m">30m</option>
+            <option value="50m">50m</option>
+            <option value="yoyo">Yo-Yo</option>
+            <option value="bronco">Bronco</option>
+            <option value="vmax">Vmax</option>
             <option value="dcsquat">DC Squat</option>
+            <option value="backsquat">Back Squat</option>
             <option value="clean">Clean</option>
+            <option value="traction">Traction</option>
             <option value="cmj">CMJ</option>
+            <option value="sj">SJ</option>
             <option value="broadjump">Broad Jump</option>
           </select>
           <select id="perfFilterPlayer" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
@@ -7400,10 +7426,24 @@ const PLAYER_PROFILES_KEY = 'nissaPlayerProfiles_v1';
 const PHYSICAL_TESTS_KEY  = 'nissaPhysicalTests_v1';
 
 const TEST_DEFS = [
-  { id:'dcsquat',   label:'DC Squat',    unit:'kg', icon:'🏋️' },
-  { id:'clean',     label:'Clean',       unit:'kg', icon:'⚡'  },
-  { id:'cmj',       label:'CMJ',         unit:'cm', icon:'⬆️'  },
-  { id:'broadjump', label:'Broad Jump',  unit:'cm', icon:'↔️'  },
+  { id:'10m',       label:'10m',         unit:'s',  icon:'⚡', lower:true  },
+  { id:'20m',       label:'20m',         unit:'s',  icon:'⚡', lower:true  },
+  { id:'30m',       label:'30m',         unit:'s',  icon:'⚡', lower:true  },
+  { id:'50m',       label:'50m',         unit:'s',  icon:'⚡', lower:true  },
+  { id:'5m',        label:'5m',          unit:'s',  icon:'⚡', lower:true  },
+  { id:'yoyo',      label:'Yo-Yo',       unit:'m',  icon:'🔄', lower:false },
+  { id:'bronco',    label:'Bronco',      unit:'s',  icon:'⏱️', lower:true  },
+  { id:'vmax',      label:'Vmax',        unit:'km/h',icon:'💨',lower:false },
+  { id:'dcsquat',   label:'DC Squat',    unit:'kg', icon:'🏋️', lower:false },
+  { id:'backsquat', label:'Back Squat',  unit:'kg', icon:'🏋️', lower:false },
+  { id:'clean',     label:'Clean',       unit:'kg', icon:'🔱', lower:false },
+  { id:'trapbar',   label:'Trap Bar',    unit:'kg', icon:'🏋️', lower:false },
+  { id:'pendlay',   label:'Pendlay Row', unit:'kg', icon:'🏋️', lower:false },
+  { id:'traction',  label:'Traction',    unit:'reps',icon:'🔝',lower:false },
+  { id:'cmj',       label:'CMJ',         unit:'cm', icon:'⬆️', lower:false },
+  { id:'sj',        label:'SJ',          unit:'cm', icon:'⬆️', lower:false },
+  { id:'broadjump', label:'Broad Jump',  unit:'cm', icon:'↔️', lower:false },
+  { id:'rsi',       label:'RSI',         unit:'',   icon:'📊', lower:false },
 ];
 
 const ANTHRPO_FIELDS = [
@@ -7540,10 +7580,14 @@ var currentProfilePlayer = '';
 
 function openJoueurProfile(name) {
   currentProfilePlayer = name;
-  document.getElementById('joueur-grid-view').style.display = 'none';
-  document.getElementById('joueurProfile').classList.add('active');
+  var gridView = document.getElementById('joueur-grid-view');
+  var profile  = document.getElementById('joueurProfile');
+  if (gridView) gridView.style.display = 'none';
+  if (profile)  { profile.classList.add('active'); profile.style.display = 'block'; }
 
   document.getElementById('profileName').textContent = name;
+  var bc = document.getElementById('profileBreadcrumb');
+  if (bc) bc.textContent = '› ' + name;
   renderProfileMeta(name);
   renderProfileAnthropo(name);
   renderProfileWellness5(name);
@@ -7552,8 +7596,10 @@ function openJoueurProfile(name) {
 }
 
 function closeJoueurProfile() {
-  document.getElementById('joueur-grid-view').style.display = 'block';
-  document.getElementById('joueurProfile').classList.remove('active');
+  var gridView = document.getElementById('joueur-grid-view');
+  var profile  = document.getElementById('joueurProfile');
+  if (gridView) gridView.style.display = 'block';
+  if (profile)  { profile.classList.remove('active'); profile.style.display = 'none'; }
   currentProfilePlayer = '';
 }
 
@@ -7619,9 +7665,12 @@ function renderProfileSrpe(name) {
     + '</div>';
 }
 
+var PROFILE_TEST_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump'];
+
 function renderProfileTests(name) {
   var el = document.getElementById('profileTests');
-  el.innerHTML = TEST_DEFS.map(function(test) {
+  var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_TEST_IDS.includes(t.id); });
+  el.innerHTML = testsToShow.map(function(test) {
     var history = getPlayerTests(name, test.id);
     var last = history[history.length - 1];
     var prev = history[history.length - 2];
@@ -7868,34 +7917,77 @@ function handleXlsxFile(file) {
   var reader = new FileReader();
   reader.onload = function(e) {
     try {
+      if (typeof XLSX === 'undefined') {
+        alert('La librairie Excel (SheetJS) n\'est pas encore chargée. Attendez quelques secondes et réessayez.');
+        return;
+      }
       var wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
       var ws = wb.Sheets[wb.SheetNames[0]];
-      var rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+      // Essayer d'abord avec les headers auto, puis avec header:1 pour voir les colonnes brutes
+      var rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+      if (!rows.length) {
+        alert('Fichier vide ou format non reconnu.');
+        return;
+      }
+      // Détecter les colonnes disponibles
+      var firstRow = rows[0];
+      var cols = Object.keys(firstRow);
+      console.log('Colonnes détectées:', cols);
 
-      var testMap = { 'dc squat':'dcsquat', 'dcsquat':'dcsquat', 'squat':'dcsquat',
-                      'clean':'clean', 'cmj':'cmj', 'broad jump':'broadjump', 'broadjump':'broadjump', 'saut':'broadjump' };
-      var saved = 0, errors = 0;
+      // Mapping flexible : gère les variantes de noms (casse, abréviations)
+      var testMap = {
+        '10m':'10m', '20m':'20m', '30m':'30m', '50m':'50m', '5m':'5m',
+        'yoyo':'yoyo', 'yo-yo':'yoyo', 'yo yo':'yoyo', 'yyir':'yoyo',
+        'bronco':'bronco', 'temps bronco':'bronco',
+        'vmax':'vmax',
+        'dc':'dcsquat', 'dc squat':'dcsquat', 'dcsquat':'dcsquat',
+        'back squat':'backsquat', 'backsquat':'backsquat',
+        'clean':'clean',
+        'trap bar':'trapbar', 'trapbar':'trapbar',
+        'pendlay row':'pendlay', 'pendlay':'pendlay',
+        'traction':'traction', 'tirage':'traction', 'tp':'traction',
+        'cmj':'cmj',
+        'sj':'sj',
+        'bj':'broadjump', 'broad jump':'broadjump', 'sdt':'broadjump',
+        'rsi':'rsi',
+        'mg':'mg',
+      };
+
+      // Détecter l'ordre des colonnes (format DATES/TEST/VALEURS/NOMS ou Joueur/Date/Test/Valeur)
+      var saved = 0, errors = 0, skipped = 0;
+      var ignoredTests = new Set();
+
+      // Auto-détecter les colonnes (chercher dans toutes les clés)
+      function findCol(row, candidates) {
+        for (var i=0; i<candidates.length; i++) {
+          if (row[candidates[i]] !== undefined && row[candidates[i]] !== '') return row[candidates[i]];
+        }
+        return '';
+      }
 
       rows.forEach(function(row) {
-        var player  = String(row['Joueur']||row['joueur']||row['JOUEUR']||'').trim();
-        var date    = row['Date']||row['date']||row['DATE']||'';
-        var testRaw = String(row['Test']||row['test']||row['TEST']||'').trim().toLowerCase();
-        var val     = parseFloat(row['Valeur']||row['valeur']||row['VALEUR']||'');
-        var ctx     = String(row['Contexte']||row['contexte']||'').trim();
+        var player  = String(findCol(row, ['NOMS','Joueur','joueur','JOUEUR','NOM','Nom','nom','Player','PLAYER'])||'').trim();
+        var dateRaw = findCol(row, ['DATES','Date','date','DATE','Dates','dates']);
+        var testRaw = String(findCol(row, ['TEST','Test','test','TYPE','Type','type'])||'').trim().toLowerCase();
+        var val     = parseFloat(String(findCol(row, ['VALEURS','Valeur','valeur','VALEUR','VALUE','Value','value'])||'').replace(',','.'));
+        var ctx     = String(findCol(row, ['Contexte','contexte','CONTEXTE','Context','context'])||'').trim();
 
         if (!player || !testRaw || isNaN(val)) { errors++; return; }
 
+        // Ignorer poids/taille (données anthropométriques, pas des tests perf)
+        if (['poids','taille','weight','height','mg'].includes(testRaw)) { skipped++; return; }
+
         var testId = testMap[testRaw];
-        if (!testId) { errors++; return; }
+        if (!testId) { ignoredTests.add(testRaw); errors++; return; }
 
         // Formater la date
         var dateStr = '';
-        if (date instanceof Date) {
-          dateStr = date.toISOString().split('T')[0];
-        } else if (typeof date === 'string' && date) {
-          dateStr = date;
-        } else if (typeof date === 'number') {
-          var d = new Date(Math.round((date - 25569) * 86400 * 1000));
+        if (dateRaw instanceof Date) {
+          dateStr = dateRaw.toISOString().split('T')[0];
+        } else if (typeof dateRaw === 'string' && dateRaw) {
+          dateStr = dateRaw;
+        } else if (typeof dateRaw === 'number') {
+          var d = new Date(Math.round((dateRaw - 25569) * 86400 * 1000));
           dateStr = d.toISOString().split('T')[0];
         }
         if (!dateStr) { errors++; return; }
@@ -7908,13 +8000,21 @@ function handleXlsxFile(file) {
       renderPerfHistory();
       if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
 
+      // Mettre à jour les filtres
+      document.getElementById('perfFilterPlayer').innerHTML = '<option value="">Tous les joueurs</option>';
+
       var status = document.getElementById('xlsxStatus');
       status.style.display = 'block';
-      status.textContent = '✓ ' + saved + ' résultat(s) importé(s)' + (errors ? ' (' + errors + ' ligne(s) ignorée(s))' : '');
-      setTimeout(function(){ status.style.display='none'; }, 5000);
+      var msg = '✓ ' + saved + ' résultat(s) importé(s)';
+      if (skipped) msg += ' · ' + skipped + ' ligne(s) ignorée(s) (poids/taille)';
+      if (ignoredTests.size) msg += ' · Tests non reconnus : ' + Array.from(ignoredTests).join(', ');
+      status.style.color = saved > 0 ? '#2ecc8a' : '#e8564a';
+      status.textContent = msg;
+      setTimeout(function(){ status.style.display='none'; }, 8000);
 
     } catch(err) {
       alert('Erreur lecture fichier : ' + err.message);
+      console.error(err);
     }
   };
   reader.readAsArrayBuffer(file);
