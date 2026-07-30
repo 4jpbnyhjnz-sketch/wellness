@@ -2463,24 +2463,11 @@ Petit Enzo ; 9</pre>
 
   <!-- Profil joueur (caché par défaut) -->
   <div class="joueur-profile" id="joueurProfile">
-    <div style="padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)">
-      <button onclick="closeJoueurProfile()" style="
-        display:flex;align-items:center;gap:8px;
-        background:rgba(255,255,255,.1);
-        border:1px solid rgba(255,255,255,.25);
-        border-radius:8px;
-        padding:9px 18px;
-        color:#fff;
-        font-size:14px;
-        font-weight:700;
-        cursor:pointer;
-        font-family:inherit;
-        transition:background .15s;
-      " onmouseover="this.style.background='rgba(255,255,255,.2)'"
-         onmouseout="this.style.background='rgba(255,255,255,.1)'">
-        ← Retour
+    <div style="padding:14px 20px;background:#1a0003;border-bottom:2px solid #D6001C;display:flex;align-items:center;gap:12px">
+      <button onclick="closeJoueurProfile()" style="display:inline-flex;align-items:center;gap:8px;background:#D6001C;border:none;border-radius:8px;padding:10px 20px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.03em">
+        ← Retour aux joueurs
       </button>
-      <span style="color:rgba(255,255,255,.4);font-size:13px" id="profileBreadcrumb">Joueurs</span>
+      <span style="color:rgba(255,255,255,.5);font-size:12px" id="profileBreadcrumb"></span>
     </div>
     <div class="joueur-profile-header">
       <div class="joueur-profile-avatar" id="profileAvatar">
