@@ -7523,8 +7523,11 @@ function getISOWeek(date) {
 }
 
 function getPlayerTests(playerName, testId) {
+  var nameLower = playerName.toLowerCase();
   return physicalTests
-    .filter(function(t){ return t.player === playerName && t.type === testId; })
+    .filter(function(t){
+      return t.player.toLowerCase() === nameLower && t.type === testId;
+    })
     .sort(function(a,b){ return a.date.localeCompare(b.date); });
 }
 
@@ -7957,7 +7960,15 @@ function handleXlsxFile(file) {
       }
 
       rows.forEach(function(row) {
-        var player  = String(findCol(row, ['NOMS','Joueur','joueur','JOUEUR','NOM','Nom','nom','Player','PLAYER'])||'').trim();
+        var playerRaw = String(findCol(row, ['NOMS','Joueur','joueur','JOUEUR','NOM','Nom','nom','Player','PLAYER'])||'').trim();
+        // Normaliser le nom : chercher dans FIXED_ROSTER (insensible à la casse)
+        var player = playerRaw;
+        if (playerRaw) {
+          var found = FIXED_ROSTER.find(function(n){
+            return n.toLowerCase() === playerRaw.toLowerCase();
+          });
+          if (found) player = found;
+        }
         var dateRaw = findCol(row, ['DATES','Date','date','DATE','Dates','dates']);
         var testRaw = String(findCol(row, ['TEST','Test','test','TYPE','Type','type'])||'').trim().toLowerCase();
         var val     = parseFloat(String(findCol(row, ['VALEURS','Valeur','valeur','VALEUR','VALUE','Value','value'])||'').replace(',','.'));
@@ -7988,6 +7999,7 @@ function handleXlsxFile(file) {
       });
 
       savePhysicalTests();
+      physicalTests = loadPhysicalTests(); // Recharger pour s'assurer que les données sont fraîches
       renderPerfHistory();
       if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
 
