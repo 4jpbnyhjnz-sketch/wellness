@@ -1573,7 +1573,7 @@ table.roster-table select { padding: 4px; }
 
   /* ══ Texte blanc dans toute la section wellness ══ */
   #hub-wellness { color: #f0f0f0; }
-  #hub-wellness * { color: #f0f0f0; }
+  #hub-wellness *:not(.somme-pill):not(.statut-badge) { color: #f0f0f0; }
   #hub-wellness .statut-vert   { color: #06160d !important; }
   #hub-wellness .statut-jaune  { color: #1a1606 !important; }
   #hub-wellness .statut-orange { color: #1a1106 !important; }
@@ -1581,7 +1581,7 @@ table.roster-table select { padding: 4px; }
   #hub-wellness select, #hub-wellness option { color: #f0f0f0; background: #1a1a1a; }
   #hub-wellness .rpe-missing-chip { color: #f5a0a0 !important; }
   #hub-wellness .absent-chip      { color: #f5a0a0 !important; }
-  #hub-wellness .somme-pill       { color: #000 !important; }
+  /* somme-pill : couleur gérée par le JS inline, fond plus opaque */
 
 }
 
@@ -6593,7 +6593,7 @@ function render() {
 
       return '<div class="player-card s-'+statut+'">'
         +'<div class="player-name">'+r.n
-        +'<span class="somme-pill" style="background:'+c+'22;color:'+c+'">&Sigma; '+r.S+'</span>'
+        +'<span class="somme-pill" style="background:'+c+'44;color:'+c+';border:1px solid '+c+'66">&Sigma; '+r.S+'</span>'
         +'<span class="statut-badge '+SCSS[statut]+'">'+SICN[statut]+' '+SLBL[statut]+'</span>'
         +'</div>'
         +'<div class="player-indicators">'
@@ -6689,7 +6689,7 @@ function renderRpePlayersGrid(rpeDay) {
 
     return '<div class="player-card '+statutClass+'">'
       + '<div class="player-name">'+p
-      + '<span class="somme-pill" style="background:'+col+'22;color:'+col+'">'+avg.toFixed(1)+' /10</span>'
+      + '<span class="somme-pill" style="background:'+col+'44;color:'+col+';border:1px solid '+col+'66">'+avg.toFixed(1)+' /10</span>'
       + '<span class="statut-badge" style="background:'+col+';color:#fff">'+sessions.length+' séance'+(sessions.length>1?'s':'')+'</span>'
       + '</div>'
       + sessionsHTML
