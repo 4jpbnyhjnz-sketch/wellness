@@ -7543,6 +7543,9 @@ function getStatusClass(data) {
 function renderJoueurGrid() {
   var grid = document.getElementById('joueurGrid');
   if (!grid) return;
+  // S'assurer que la grille est visible
+  var gridView = document.getElementById('joueur-grid-view');
+  if (gridView && gridView.style.display === 'none') gridView.style.display = 'block';
   var players = getAllWellnessPlayers();
   var search = (document.getElementById('joueurSearch') || {}).value || '';
   if (search) players = players.filter(function(n){ return n.toLowerCase().includes(search.toLowerCase()); });
@@ -7908,116 +7911,143 @@ function handleXlsxDrop(e) {
 
 function handleXlsxFile(file) {
   if (!file) return;
+
+  var status = document.getElementById('xlsxStatus');
+  function showStatus(msg, color) {
+    if (!status) return;
+    status.style.display = 'block';
+    status.style.color = color || '#2ecc8a';
+    status.textContent = msg;
+  }
+
+  showStatus('⏳ Lecture du fichier...', '#f5a623');
+
+  if (typeof XLSX === 'undefined') {
+    showStatus('⚠ SheetJS non chargé. Rechargez la page et réessayez.', '#e8564a');
+    return;
+  }
+
   var reader = new FileReader();
+  reader.onerror = function() { showStatus('⚠ Erreur lecture fichier.', '#e8564a'); };
   reader.onload = function(e) {
     try {
-      if (typeof XLSX === 'undefined') {
-        alert('La librairie Excel (SheetJS) n\'est pas encore chargée. Attendez quelques secondes et réessayez.');
-        return;
-      }
       var wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
-      var ws = wb.Sheets[wb.SheetNames[0]];
-      // Essayer d'abord avec les headers auto, puis avec header:1 pour voir les colonnes brutes
-      var rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+      showStatus('✓ Fichier lu — ' + wb.SheetNames.length + ' feuille(s): ' + wb.SheetNames.join(', '), '#f5a623');
+
+      // Chercher la feuille avec le plus de données
+      var bestSheet = wb.SheetNames[0];
+      var bestCount = 0;
+      wb.SheetNames.forEach(function(name) {
+        var range = XLSX.utils.decode_range(wb.Sheets[name]['!ref'] || 'A1:A1');
+        var count = range.e.r;
+        if (count > bestCount) { bestCount = count; bestSheet = name; }
+      });
+
+      var ws = wb.Sheets[bestSheet];
+      var rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true });
+
       if (!rows.length) {
-        alert('Fichier vide ou format non reconnu.');
+        showStatus('⚠ Feuille "' + bestSheet + '" vide ou non reconnue.', '#e8564a');
         return;
       }
-      // Détecter les colonnes disponibles
-      var firstRow = rows[0];
-      var cols = Object.keys(firstRow);
-      console.log('Colonnes détectées:', cols);
 
-      // Mapping flexible : gère les variantes de noms (casse, abréviations)
+      // Afficher les colonnes détectées pour debug
+      var cols = Object.keys(rows[0] || {});
+      showStatus('⏳ Colonnes détectées: ' + cols.join(', ') + ' — ' + rows.length + ' lignes', '#f5a623');
+
       var testMap = {
-        '10m':'10m', '20m':'20m', '30m':'30m', '50m':'50m', '5m':'5m',
-        'yoyo':'yoyo', 'yo-yo':'yoyo', 'yo yo':'yoyo', 'yyir':'yoyo',
-        'bronco':'bronco', 'temps bronco':'bronco',
+        '10m':'10m','20m':'20m','30m':'30m','50m':'50m','5m':'5m',
+        'yoyo':'yoyo','yo-yo':'yoyo','yyir':'yoyo',
+        'bronco':'bronco','temps bronco':'bronco',
         'vmax':'vmax',
-        'dc':'dcsquat', 'dc squat':'dcsquat', 'dcsquat':'dcsquat',
-        'back squat':'backsquat', 'backsquat':'backsquat',
+        'dc':'dcsquat','dc squat':'dcsquat','dcsquat':'dcsquat',
+        'back squat':'backsquat','backsquat':'backsquat',
         'clean':'clean',
-        'trap bar':'trapbar', 'trapbar':'trapbar',
-        'pendlay row':'pendlay', 'pendlay':'pendlay',
-        'traction':'traction', 'tirage':'traction', 'tp':'traction',
-        'cmj':'cmj',
-        'sj':'sj',
-        'bj':'broadjump', 'broad jump':'broadjump', 'sdt':'broadjump',
+        'trap bar':'trapbar','trapbar':'trapbar',
+        'pendlay row':'pendlay','pendlay':'pendlay','tp':'traction',
+        'traction':'traction','tirage':'traction',
+        'cmj':'cmj','sj':'sj',
+        'bj':'broadjump','broad jump':'broadjump','sdt':'broadjump',
         'rsi':'rsi',
-        'mg':'mg',
       };
 
-      // Détecter l'ordre des colonnes (format DATES/TEST/VALEURS/NOMS ou Joueur/Date/Test/Valeur)
-      var saved = 0, errors = 0, skipped = 0;
-      var ignoredTests = new Set();
-
-      // Auto-détecter les colonnes (chercher dans toutes les clés)
-      function findCol(row, candidates) {
-        for (var i=0; i<candidates.length; i++) {
-          if (row[candidates[i]] !== undefined && row[candidates[i]] !== '') return row[candidates[i]];
+      function findVal(row, keys) {
+        for (var i=0; i<keys.length; i++) {
+          if (row[keys[i]] !== undefined && row[keys[i]] !== '') return row[keys[i]];
         }
-        return '';
+        return undefined;
       }
 
+      var saved=0, skipped=0, errors=0;
+      var ignoredTests = {};
+
       rows.forEach(function(row) {
-        var playerRaw = String(findCol(row, ['NOMS','Joueur','joueur','JOUEUR','NOM','Nom','nom','Player','PLAYER'])||'').trim();
-        // Normaliser le nom : chercher dans FIXED_ROSTER (insensible à la casse)
+        var playerRaw = String(findVal(row,['NOMS','Joueur','joueur','NOM','nom','Player'])||'').trim();
+        var dateRaw   = findVal(row,['DATES','Date','date','DATE']);
+        var testRaw   = String(findVal(row,['TEST','Test','test','TYPE','Type'])||'').trim().toLowerCase();
+        var valRaw    = findVal(row,['VALEURS','Valeur','valeur','VALEUR','Value']);
+        var ctx       = String(findVal(row,['Contexte','contexte'])||'').trim();
+
+        if (!playerRaw || !testRaw || valRaw === undefined || valRaw === '') { errors++; return; }
+
+        // Ignorer données anthropo
+        if (['poids','taille','weight','height','mg','masse grasse'].indexOf(testRaw) !== -1) { skipped++; return; }
+
+        // Normaliser le nom (insensible à la casse)
         var player = playerRaw;
-        if (playerRaw) {
-          var found = FIXED_ROSTER.find(function(n){
-            return n.toLowerCase() === playerRaw.toLowerCase();
-          });
-          if (found) player = found;
-        }
-        var dateRaw = findCol(row, ['DATES','Date','date','DATE','Dates','dates']);
-        var testRaw = String(findCol(row, ['TEST','Test','test','TYPE','Type','type'])||'').trim().toLowerCase();
-        var val     = parseFloat(String(findCol(row, ['VALEURS','Valeur','valeur','VALEUR','VALUE','Value','value'])||'').replace(',','.'));
-        var ctx     = String(findCol(row, ['Contexte','contexte','CONTEXTE','Context','context'])||'').trim();
+        var found = FIXED_ROSTER.find(function(n){ return n.toLowerCase() === playerRaw.toLowerCase(); });
+        if (found) player = found;
 
-        if (!player || !testRaw || isNaN(val)) { errors++; return; }
-
-        // Ignorer poids/taille (données anthropométriques, pas des tests perf)
-        if (['poids','taille','weight','height','mg'].includes(testRaw)) { skipped++; return; }
-
+        // Type de test
         var testId = testMap[testRaw];
-        if (!testId) { ignoredTests.add(testRaw); errors++; return; }
+        if (!testId) { ignoredTests[testRaw] = (ignoredTests[testRaw]||0)+1; errors++; return; }
 
-        // Formater la date
+        // Valeur numérique
+        var val = typeof valRaw === 'number' ? valRaw : parseFloat(String(valRaw).replace(',','.'));
+        if (isNaN(val)) { errors++; return; }
+
+        // Date
         var dateStr = '';
         if (dateRaw instanceof Date) {
-          dateStr = dateRaw.toISOString().split('T')[0];
+          // Date JS (cellDates:true)
+          dateStr = dateRaw.getFullYear() + '-' +
+            String(dateRaw.getMonth()+1).padStart(2,'0') + '-' +
+            String(dateRaw.getDate()).padStart(2,'0');
+        } else if (typeof dateRaw === 'number') {
+          // Serial Excel
+          var d = new Date(Math.round((dateRaw - 25569) * 86400000));
+          dateStr = d.getFullYear() + '-' +
+            String(d.getMonth()+1).padStart(2,'0') + '-' +
+            String(d.getDate()).padStart(2,'0');
         } else if (typeof dateRaw === 'string' && dateRaw) {
           dateStr = dateRaw;
-        } else if (typeof dateRaw === 'number') {
-          var d = new Date(Math.round((dateRaw - 25569) * 86400 * 1000));
-          dateStr = d.toISOString().split('T')[0];
         }
         if (!dateStr) { errors++; return; }
 
-        physicalTests.push({ id:Date.now()+Math.random(), player:player, type:testId, value:val, date:dateStr, context:ctx });
+        physicalTests.push({ id:Date.now()+Math.random(), player:player, type:testId, value:Math.round(val*100)/100, date:dateStr, context:ctx });
         saved++;
       });
 
       savePhysicalTests();
-      physicalTests = loadPhysicalTests(); // Recharger pour s'assurer que les données sont fraîches
+      physicalTests = loadPhysicalTests();
+
+      // Mettre à jour les sélecteurs
+      var selPlayer = document.getElementById('perfFilterPlayer');
+      if (selPlayer) selPlayer.innerHTML = '<option value="">Tous les joueurs</option>';
+
       renderPerfHistory();
       if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
 
-      // Mettre à jour les filtres
-      document.getElementById('perfFilterPlayer').innerHTML = '<option value="">Tous les joueurs</option>';
-
-      var status = document.getElementById('xlsxStatus');
-      status.style.display = 'block';
-      var msg = '✓ ' + saved + ' résultat(s) importé(s)';
-      if (skipped) msg += ' · ' + skipped + ' ligne(s) ignorée(s) (poids/taille)';
-      if (ignoredTests.size) msg += ' · Tests non reconnus : ' + Array.from(ignoredTests).join(', ');
-      status.style.color = saved > 0 ? '#2ecc8a' : '#e8564a';
-      status.textContent = msg;
-      setTimeout(function(){ status.style.display='none'; }, 8000);
+      var ignoredList = Object.keys(ignoredTests);
+      var msg = '✓ ' + saved + ' test(s) importé(s)';
+      if (skipped) msg += ' · ' + skipped + ' ignoré(s) (poids/taille)';
+      if (errors) msg += ' · ' + errors + ' erreur(s)';
+      if (ignoredList.length) msg += '\nTests non reconnus: ' + ignoredList.slice(0,5).join(', ');
+      showStatus(msg, saved > 0 ? '#2ecc8a' : '#e8564a');
 
     } catch(err) {
-      alert('Erreur lecture fichier : ' + err.message);
-      console.error(err);
+      showStatus('⚠ Erreur: ' + err.message, '#e8564a');
+      console.error('XLSX import error:', err);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -8075,12 +8105,20 @@ var _origSwitchHub = switchHub;
 switchHub = function(name) {
   _origSwitchHub(name);
   if (name === 'joueur') {
-    setTimeout(function() {
-      renderJoueurGrid();
-    }, 200); // laisser le temps aux données wellness de charger
+    // Toujours réinitialiser : montrer grille, cacher profil
+    var gridView = document.getElementById('joueur-grid-view');
+    var profile  = document.getElementById('joueurProfile');
+    var backBtn  = document.getElementById('joueurBackBtn');
+    if (gridView) gridView.style.display = 'block';
+    if (profile)  { profile.classList.remove('active'); profile.style.display = 'none'; }
+    if (backBtn)  backBtn.style.display = 'none';
+    currentProfilePlayer = '';
+    // Rendre la grille
+    setTimeout(function() { renderJoueurGrid(); }, 50);
   }
   if (name === 'perf-physique') {
     renderPerfHistory();
+    renderEvoPlayerSelect();
   }
 };
 
