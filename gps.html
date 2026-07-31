@@ -1397,7 +1397,12 @@ table.roster-table select { padding: 4px; }
 
   /* Wellness/Joueur */
   #hub-wellness { padding-top:52px; }
-  #hub-wellness .header { display:none !important; }
+  #hub-wellness .header { background:rgba(0,0,0,.3); border-bottom:1px solid rgba(255,255,255,.06); }
+  #hub-wellness .header-left { display:none !important; }
+  /* Garder header-right visible (Actualiser + stats) */
+  #hub-wellness .header-right { display:flex; align-items:center; gap:10px; padding:10px 20px; width:100%; }
+  /* Cacher le lien "Équipe Pro" */
+  #hub-wellness .header-right a.btn-refresh { display:none !important; }
   #loading-screen { position:relative !important; inset:auto !important; z-index:1 !important; min-height:calc(100vh - 52px); }
   #loading-screen.hidden { display:none !important; }
   #hub-joueur { background:var(--bg,#0a0a0a); }
