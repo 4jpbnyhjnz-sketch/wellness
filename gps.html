@@ -6412,6 +6412,18 @@ async function init() {
   document.getElementById('loading-screen').classList.add('hidden');
   document.getElementById('app').style.display='block';
   render();
+  // Injecter le bouton Actualiser dans la barre de date (une seule fois)
+  if (!document.getElementById('wellnessActualiserBtn')) {
+    var dateNav = document.querySelector('#hub-wellness .date-nav-bar');
+    if (dateNav) {
+      var btn = document.createElement('button');
+      btn.id = 'wellnessActualiserBtn';
+      btn.innerHTML = '&#8635; Actualiser';
+      btn.style.cssText = 'margin-left:auto;background:rgba(46,204,138,.15);border:1px solid rgba(46,204,138,.4);border-radius:20px;padding:6px 16px;color:#2ecc8a;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
+      btn.onclick = function(){ if(typeof refreshData==='function') refreshData(); };
+      dateNav.appendChild(btn);
+    }
+  }
   // Mettre à jour le profil joueur si ouvert
   if (typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer) {
     if (typeof renderProfileWellness5 === 'function') renderProfileWellness5(currentProfilePlayer);
