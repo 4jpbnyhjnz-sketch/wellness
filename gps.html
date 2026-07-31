@@ -7632,34 +7632,35 @@ function closeJoueurProfile() {
 
 function renderProfileMeta(name) {
   var prof = playerProfiles[name] || {};
-
-  // Récupérer la dernière taille et le dernier poids depuis les tests physiques
-  var lastTaille = getPlayerTests(name, 'taille');
-  var lastPoids  = getPlayerTests(name, 'poids');
-  var taille = (prof.taille) ? prof.taille
-    : (lastTaille.length ? lastTaille[lastTaille.length-1].value : null);
-  var poids  = (prof.poids) ? prof.poids
-    : (lastPoids.length  ? lastPoids[lastPoids.length-1].value   : null);
-
   var html = '';
-  if (prof.poste)    html += '<span>' + prof.poste + '</span> · ';
-  if (taille)        html += '<span>📏 ' + taille + ' cm</span> · ';
-  if (poids)         html += '<span>⚖️ ' + poids  + ' kg</span> · ';
-  if (prof.naissance)html += '<span>' + prof.naissance + '</span>';
-  // Retirer le " · " final si présent
+  if (prof.poste)     html += '<span>' + prof.poste + '</span> · ';
+  if (prof.naissance) html += '<span>' + prof.naissance + '</span>';
   html = html.replace(/ · $/, '');
-  document.getElementById('profileMeta').innerHTML = html || '<span style="color:rgba(255,255,255,.3)">Données non renseignées</span>';
+  document.getElementById('profileMeta').innerHTML = html || '<span style="color:rgba(255,255,255,.3)">Poste et données non renseignés</span>';
 }
 
 function renderProfileAnthropo(name) {
   var prof = playerProfiles[name] || {};
-  // Afficher seulement poste et date de naissance (taille/poids viennent des tests)
-  var fieldsToShow = ANTHRPO_FIELDS.filter(function(f){ return f.key !== 'taille' && f.key !== 'poids'; });
-  var chips = fieldsToShow.map(function(f) {
-    var val = prof[f.key] || '—';
+  // Pour taille et poids : prendre la valeur manuelle ou la dernière valeur des tests physiques
+  var lastTaille = getPlayerTests(name, 'taille');
+  var lastPoids  = getPlayerTests(name, 'poids');
+  var taille = prof.taille || (lastTaille.length ? lastTaille[lastTaille.length-1].value : null);
+  var poids  = prof.poids  || (lastPoids.length  ? lastPoids[lastPoids.length-1].value   : null);
+
+  var values = {
+    poste:     prof.poste     || '—',
+    taille:    taille         || '—',
+    poids:     poids          || '—',
+    naissance: prof.naissance || '—',
+  };
+
+  var chips = ANTHRPO_FIELDS.map(function(f) {
+    var val = values[f.key] || '—';
+    var unit = f.key==='taille' ? ' cm' : f.key==='poids' ? ' kg' : '';
+    var display = (val !== '—') ? val + unit : '—';
     return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px;text-align:center">'
       + '<div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">' + f.label + '</div>'
-      + '<div style="font-size:15px;font-weight:700;color:#fff">' + val + '</div>'
+      + '<div style="font-size:15px;font-weight:700;color:#fff">' + display + '</div>'
       + '</div>';
   }).join('');
   document.getElementById('profileAnthropo').innerHTML = chips;
