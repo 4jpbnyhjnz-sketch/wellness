@@ -7455,6 +7455,8 @@ const TEST_DEFS = [
   { id:'sj',        label:'SJ',          unit:'cm', icon:'⬆️', lower:false },
   { id:'broadjump', label:'Broad Jump',  unit:'cm', icon:'↔️', lower:false },
   { id:'rsi',       label:'RSI',         unit:'',   icon:'📊', lower:false },
+  { id:'taille',    label:'Taille',      unit:'cm', icon:'📏', lower:false },
+  { id:'poids',     label:'Poids',       unit:'kg', icon:'⚖️', lower:false },
 ];
 
 const ANTHRPO_FIELDS = [
@@ -7690,7 +7692,7 @@ function renderProfileSrpe(name) {
     + '</div>';
 }
 
-var PROFILE_TEST_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump'];
+var PROFILE_TEST_IDS = ['taille','poids','10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump'];
 
 function renderProfileTests(name) {
   var el = document.getElementById('profileTests');
@@ -8008,6 +8010,8 @@ function handleXlsxFile(file) {
         'cmj':'cmj','sj':'sj',
         'bj':'broadjump','broad jump':'broadjump','sdt':'broadjump',
         'rsi':'rsi',
+        'taille':'taille', 'height':'taille',
+        'poids':'poids', 'weight':'poids', 'masse':'poids',
       };
 
       function findVal(row, keys) {
@@ -8030,7 +8034,7 @@ function handleXlsxFile(file) {
         if (!playerRaw || !testRaw || valRaw === undefined || valRaw === '') { errors++; return; }
 
         // Ignorer données anthropo
-        if (['poids','taille','weight','height','mg','masse grasse'].indexOf(testRaw) !== -1) { skipped++; return; }
+        if (['weight','height','mg','masse grasse'].indexOf(testRaw) !== -1) { skipped++; return; }
 
         // Normaliser le nom (insensible à la casse)
         var player = playerRaw;
