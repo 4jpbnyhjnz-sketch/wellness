@@ -2577,6 +2577,7 @@ Petit Enzo ; 9</pre>
     <div class="perf-form-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="perf-form-title" style="margin-bottom:0">📋 Historique des tests</div>
+        <button onclick="deleteAllPerfTests()" style="background:rgba(204,17,34,.15);border:1px solid rgba(204,17,34,.4);border-radius:6px;padding:6px 14px;color:#ff4455;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑 Tout supprimer</button>
         <div style="display:flex;gap:8px;align-items:center">
           <select id="perfFilterTest" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
             <option value="">Tous les tests</option>
@@ -7892,6 +7893,17 @@ function renderPerfHistory() {
           + '</tr>';
       }).join('')
     + '</tbody></table>';
+}
+
+function deleteAllPerfTests() {
+  if (!physicalTests.length) { alert('Aucun test à supprimer.'); return; }
+  if (!confirm('Supprimer TOUS les tests (' + physicalTests.length + ' résultats) ? Cette action est irréversible.')) return;
+  physicalTests = [];
+  savePhysicalTests();
+  renderPerfHistory();
+  if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+  var status = document.getElementById('xlsxStatus');
+  if (status) { status.style.display='block'; status.style.color='#2ecc8a'; status.textContent='✓ Tous les tests supprimés.'; setTimeout(function(){ status.style.display='none'; }, 3000); }
 }
 
 function deletePerfTest(id) {
