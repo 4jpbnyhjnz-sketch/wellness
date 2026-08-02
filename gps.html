@@ -8433,11 +8433,29 @@ function restoreAllData(data) {
   SYNC_DATA_KEYS.forEach(function(k) {
     if (data[k]!==undefined) localStorage.setItem(k, JSON.stringify(data[k]));
   });
-  if (typeof physicalTests!=='undefined' && typeof loadPhysicalTests==='function')
+  // Recharger les variables GPS depuis localStorage
+  if (typeof loadSavedSessions === 'function') {
+    try { savedSessions = loadSavedSessions(); } catch(e) {}
+  }
+  if (typeof loadSavedMatches === 'function') {
+    try { savedMatches = loadSavedMatches(); } catch(e) {}
+  }
+  if (typeof loadSeasonRecords === 'function') {
+    try { seasonRecords = loadSeasonRecords(); } catch(e) {}
+  }
+  // Re-rendre les onglets GPS si visibles
+  if (typeof renderStatsTab === 'function') {
+    try { renderStatsTab(); } catch(e) {}
+  }
+  if (typeof renderRecordsTab === 'function') {
+    try { renderRecordsTab(); } catch(e) {}
+  }
+  // Recharger les variables joueur
+  if (typeof physicalTests !== 'undefined' && typeof loadPhysicalTests === 'function')
     physicalTests = loadPhysicalTests();
-  if (typeof playerProfiles!=='undefined' && typeof loadPlayerProfiles==='function')
+  if (typeof playerProfiles !== 'undefined' && typeof loadPlayerProfiles === 'function')
     playerProfiles = loadPlayerProfiles();
-  if (typeof renderPerfHistory==='function') renderPerfHistory();
+  if (typeof renderPerfHistory === 'function') renderPerfHistory();
 }
 
 // Lecture publique — automatique au démarrage
