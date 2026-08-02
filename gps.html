@@ -1599,6 +1599,48 @@ table.roster-table select { padding: 4px; }
   #hub-perf-physique { background: #0a0a0a; min-height:100vh; padding-top:52px; }
   #hub-joueur { background: #0a0a0a; }
 
+
+/* ══ PAGE DE CONNEXION ══ */
+#login-screen {
+  position:fixed; inset:0; z-index:9999;
+  background:#0a0a0a;
+  display:flex; align-items:center; justify-content:center;
+}
+.login-box {
+  width:100%; max-width:380px;
+  background:#111;
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;
+  padding:40px 36px;
+  text-align:center;
+}
+.login-logo {
+  width:80px; height:80px;
+  border:2.5px solid #D6001C;
+  border-radius:50%;
+  background:#fff center/contain no-repeat;
+  margin:0 auto 20px;
+}
+.login-title { font-size:22px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+.login-sub   { font-size:11px; color:#c9a84c; text-transform:uppercase; letter-spacing:.12em; margin-bottom:32px; }
+.login-field { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; text-align:left; }
+.login-field label { font-size:11px; font-weight:700; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; }
+.login-input {
+  background:#1a1a1a; border:1px solid rgba(255,255,255,.15);
+  border-radius:8px; color:#fff; font-size:14px;
+  font-family:inherit; padding:11px 14px; outline:none; width:100%;
+}
+.login-input:focus { border-color:#D6001C; }
+.login-btn {
+  width:100%; background:#D6001C; border:none; border-radius:8px;
+  padding:12px; color:#fff; font-size:15px; font-weight:800;
+  cursor:pointer; font-family:inherit; letter-spacing:.04em;
+  margin-top:8px; transition:background .15s;
+}
+.login-btn:hover { background:#b50018; }
+.login-error { color:#ff4455; font-size:12px; margin-top:10px; min-height:18px; }
+.login-version { color:rgba(255,255,255,.15); font-size:10px; margin-top:24px; }
+
 }
 
 /* ══ HUB PRINT — minimal, laisse le CSS index3 gérer ══ */
@@ -1622,6 +1664,28 @@ table.roster-table select { padding: 4px; }
 </head>
 <body>
 
+<!-- ══ PAGE DE CONNEXION ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo" id="loginLogo"></div>
+    <div class="login-title">Nissa Rugby</div>
+    <div class="login-sub">Performance Hub</div>
+    <div class="login-field">
+      <label>Identifiant</label>
+      <input type="text" id="loginUser" class="login-input" placeholder="Identifiant" autocomplete="username"
+             onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <input type="password" id="loginPass" class="login-input" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Se connecter</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-version">Nissa Rugby · Performance Hub</div>
+  </div>
+</div>
+
 <!-- HUB TOPBAR -->
 <div class="hub-topbar no-print">
   <button class="hub-hamburger" onclick="openSidebar()">☰</button>
@@ -1631,6 +1695,10 @@ table.roster-table select { padding: 4px; }
     <span class="hub-top-sub">Performance Hub</span>
   </div>
   <button class="hub-back-btn" id="backBtn" onclick="switchHub('accueil')">← Accueil</button>
+  <div id="logoutBtn" style="display:none;align-items:center;gap:8px;margin-left:auto">
+    <span id="userLabel" style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.05em"></span>
+    <button onclick="logout()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 12px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Déconnexion</button>
+  </div>
 
 </div>
 
@@ -2613,6 +2681,105 @@ Petit Enzo ; 9</pre>
 </div>
 
 <div id="sessionPrintRoot"></div>
+
+<!-- MODULE LOGIN -->
+<script>
+/* ═══════════════════════════════════
+   SYSTÈME DE CONNEXION
+   ═══════════════════════════════════ */
+
+// Identifiants — modifiez librement
+var USERS = [
+  { user: 'Buge.theo', pass: 'nissa2025', role: 'admin' },
+];
+
+var SESSION_KEY = 'nissaHubSession_v1';
+var currentUser = null;
+
+function getSession() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+function setSession(user) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  currentUser = user;
+}
+function logout() {
+  sessionStorage.removeItem(SESSION_KEY);
+  currentUser = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.querySelector('.hub-topbar').style.display = 'none';
+  document.querySelectorAll('.hub-section').forEach(function(s){ s.style.display='none'; });
+  document.getElementById('hub-accueil').style.display = 'none';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = '';
+}
+
+function doLogin() {
+  var user = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+  var pass = (document.getElementById('loginPass').value || '').trim();
+  var match = USERS.find(function(u){ return u.user === user && u.pass === pass; });
+  if (!match) {
+    document.getElementById('loginError').textContent = '⚠ Identifiant ou mot de passe incorrect.';
+    document.getElementById('loginPass').value = '';
+    return;
+  }
+  setSession(match);
+  document.getElementById('login-screen').style.display = 'none';
+  // Logo
+  var logo = document.getElementById('loginLogo');
+  if (logo && typeof NISSA_LOGO_B64 !== 'undefined') {
+    logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
+  }
+  // Afficher le site
+  var topbar = document.querySelector('.hub-topbar');
+  if (topbar) topbar.style.display = 'flex';
+  switchHub('accueil');
+  // Ajouter bouton logout dans topbar
+  var logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.style.display = 'flex';
+  var userLabel = document.getElementById('userLabel');
+  if (userLabel) userLabel.textContent = match.user;
+}
+
+// Vérifier la session au chargement
+document.addEventListener('DOMContentLoaded', function() {
+  var session = getSession();
+  if (session) {
+    currentUser = session;
+    document.getElementById('login-screen').style.display = 'none';
+    var topbar = document.querySelector('.hub-topbar');
+    if (topbar) topbar.style.display = 'flex';
+    // Logo login
+    setTimeout(function(){
+      var logo = document.getElementById('loginLogo');
+      if (logo && typeof NISSA_LOGO_B64 !== 'undefined') {
+        logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
+      }
+      var userLabel = document.getElementById('userLabel');
+      if (userLabel) userLabel.textContent = session.user;
+      var logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) logoutBtn.style.display = 'flex';
+    }, 300);
+    switchHub('accueil');
+  } else {
+    // Masquer le site, afficher login
+    var topbar = document.querySelector('.hub-topbar');
+    if (topbar) topbar.style.display = 'none';
+    document.querySelectorAll('.hub-section').forEach(function(s){ s.style.display='none'; });
+    document.getElementById('hub-accueil').style.display = 'none';
+    // Logo login
+    setTimeout(function(){
+      var logo = document.getElementById('loginLogo');
+      if (logo && typeof NISSA_LOGO_B64 !== 'undefined') {
+        logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
+      }
+    }, 500);
+  }
+});
+
+</script>
 
 <!-- HUB NAV -->
 <script>
@@ -8189,6 +8356,126 @@ switchHub = function(name) {
   }
 };
 
+</script>
+<!-- MODULE SYNCHRONISATION GITHUB REPO -->
+<script>
+var GITHUB_API_URL = 'https://api.github.com/repos/4jpbnyhjnz-sketch/wellness/contents/data.json';
+var GITHUB_RAW_URL = 'https://raw.githubusercontent.com/4jpbnyhjnz-sketch/wellness/main/data.json';
+var SYNC_TOKEN_KEY = 'nissaGithubToken_v1';
+
+var SYNC_DATA_KEYS = [
+  'nissaPhysicalTests_v1','nissaPlayerProfiles_v1',
+  'gps_saved_sessions_v3','gps_saved_matches_v1','gps_season_records_v1',
+];
+
+function getSyncToken() { return localStorage.getItem(SYNC_TOKEN_KEY) || ''; }
+function setSyncToken(t) { localStorage.setItem(SYNC_TOKEN_KEY, t); }
+
+function collectAllData() {
+  var d = { _version:2, _date:new Date().toISOString() };
+  SYNC_DATA_KEYS.forEach(function(k) {
+    var v = localStorage.getItem(k);
+    if (v) { try{ d[k]=JSON.parse(v); }catch(e){ d[k]=v; } }
+  });
+  return d;
+}
+
+function restoreAllData(data) {
+  SYNC_DATA_KEYS.forEach(function(k) {
+    if (data[k]!==undefined) localStorage.setItem(k, JSON.stringify(data[k]));
+  });
+  if (typeof physicalTests!=='undefined' && typeof loadPhysicalTests==='function')
+    physicalTests = loadPhysicalTests();
+  if (typeof playerProfiles!=='undefined' && typeof loadPlayerProfiles==='function')
+    playerProfiles = loadPlayerProfiles();
+  if (typeof renderPerfHistory==='function') renderPerfHistory();
+}
+
+// Lecture publique — automatique au démarrage
+async function syncLoad(silent) {
+  try {
+    var resp = await fetch(GITHUB_RAW_URL + '?t=' + Date.now());
+    if (!resp.ok) return;
+    var data = await resp.json();
+    if (!data._version) return;
+    restoreAllData(data);
+    if (!silent) syncSetStatus('✓ Données chargées (' + (data._date ? new Date(data._date).toLocaleDateString('fr-FR') : '') + ')', '#2ecc8a');
+  } catch(e) { if (!silent) syncSetStatus('⚠ ' + e.message, '#e8564a'); }
+}
+
+// Sauvegarde vers GitHub
+async function syncSave() {
+  var token = getSyncToken();
+  var inp = document.getElementById('syncTokenInput');
+  if (inp && inp.value.trim()) { token = inp.value.trim(); setSyncToken(token); }
+  if (!token) {
+    syncSetStatus('⚠ Configurez d\'abord la synchronisation.', '#e8564a');
+    document.getElementById('syncSetupArea').style.display = 'block';
+    return;
+  }
+  syncSetStatus('⏳ Sauvegarde...', '#f5a623');
+  try {
+    var metaR = await fetch(GITHUB_API_URL, {
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+    });
+    var meta = await metaR.json();
+    var sha = meta.sha || '';
+    var content = btoa(unescape(encodeURIComponent(JSON.stringify(collectAllData(),null,2))));
+    var body = {message:'Sync Hub '+new Date().toLocaleString('fr-FR'),content:content,sha:sha};
+    var r = await fetch(GITHUB_API_URL, {
+      method:'PUT',
+      headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+      body:JSON.stringify(body)
+    });
+    if (r.ok) {
+      syncSetStatus('✓ Sauvegardé le '+new Date().toLocaleString('fr-FR'), '#2ecc8a');
+      document.getElementById('syncSetupArea').style.display = 'none';
+    } else {
+      var err = await r.json();
+      syncSetStatus('⚠ Token invalide ou expiré. Entrez un nouveau token.', '#e8564a');
+      localStorage.removeItem(SYNC_TOKEN_KEY);
+      document.getElementById('syncSetupArea').style.display = 'block';
+    }
+  } catch(e) { syncSetStatus('⚠ '+e.message, '#e8564a'); }
+}
+
+function saveTokenAndSync() {
+  var inp = document.getElementById('syncTokenInput');
+  if (!inp || !inp.value.trim()) { syncSetStatus('⚠ Collez votre token dans le champ.', '#e8564a'); return; }
+  setSyncToken(inp.value.trim());
+  var badge = document.getElementById('syncConfiguredBadge');
+  if (badge) badge.style.display = 'inline-flex';
+  syncSave();
+}
+
+function syncSetStatus(msg, color) {
+  var el = document.getElementById('syncStatus');
+  if (el) { el.textContent=msg; el.style.color=color||'#888'; }
+}
+
+function openSyncSetup() {
+  var area = document.getElementById('syncSetupArea');
+  if (area) area.style.display = area.style.display==='none' ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-chargement des données au démarrage
+  setTimeout(function(){ syncLoad(true); }, 2000);
+  // Afficher si token déjà configuré
+  setTimeout(function(){
+    var t = getSyncToken();
+    var btn = document.getElementById('syncConfiguredBadge');
+    if (btn) btn.style.display = t ? 'inline-flex' : 'none';
+    var area = document.getElementById('syncSetupArea');
+    if (area && !t) area.style.display = 'block';
+  }, 500);
+});
+
+// Auto-save après chaque modification
+var _origSavePhysTests = savePhysicalTests;
+savePhysicalTests = function() { _origSavePhysTests(); if (getSyncToken()) setTimeout(syncSave,1500); };
+var _origSaveProfiles = savePlayerProfiles;
+savePlayerProfiles = function() { _origSaveProfiles(); if (getSyncToken()) setTimeout(syncSave,1500); };
 </script>
 </body>
 </html>
