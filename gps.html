@@ -1715,6 +1715,24 @@ table.roster-table select { padding: 4px; }
 .gps-record-card .gr-val { font-size:16px; font-weight:800; color:#c9a84c; font-family:'JetBrains Mono',monospace; }
 .gps-record-card .gr-date { font-size:9px; color:rgba(255,255,255,.2); margin-top:2px; }
 
+
+  /* Texte blanc dans les nouvelles sections profil joueur */
+  #hub-joueur .accr-card,
+  #hub-joueur .accr-card *,
+  #hub-joueur .test-card-v2,
+  #hub-joueur .test-card-v2 *,
+  #hub-joueur .gps-record-card,
+  #hub-joueur .gps-record-card *,
+  #hub-joueur .joueur-profile-info-v2,
+  #hub-joueur .joueur-profile-info-v2 * { color: #f0f0f0; }
+  #hub-joueur .tc-trend.up   { color: #2ecc8a !important; }
+  #hub-joueur .tc-trend.down { color: #e8564a !important; }
+  #hub-joueur .gr-val        { color: #c9a84c !important; }
+  #hub-joueur .accr-val.green  { color: #2ecc8a !important; }
+  #hub-joueur .accr-val.yellow { color: #e0b341 !important; }
+  #hub-joueur .accr-val.orange { color: #e8862e !important; }
+  #hub-joueur .accr-val.red    { color: #e8564a !important; }
+
 }
 
 /* ══ HUB PRINT — minimal, laisse le CSS index3 gérer ══ */
@@ -6714,8 +6732,9 @@ async function init() {
   }
   // Mettre à jour le profil joueur si ouvert
   if (typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer) {
-    if (typeof renderProfileWellness5 === 'function') renderProfileWellness5(currentProfilePlayer);
-    if (typeof renderProfileSrpe === 'function') renderProfileSrpe(currentProfilePlayer);
+    if (typeof renderProfileBadges      === 'function') renderProfileBadges(currentProfilePlayer);
+    if (typeof renderProfileWellness5   === 'function') renderProfileWellness5(currentProfilePlayer);
+    if (typeof renderProfileAccr        === 'function') renderProfileAccr(currentProfilePlayer);
   }
 }
 
@@ -7897,8 +7916,9 @@ function openJoueurProfile(name) {
   var profile  = document.getElementById('joueurProfile');
   if (gridView) gridView.style.display = 'none';
   if (profile)  { profile.classList.add('active'); profile.style.display = 'block'; }
+  // Bouton retour géré dans le HTML du profil, pas le fixe
   var backBtn = document.getElementById('joueurBackBtn');
-  if (backBtn) backBtn.style.display = 'block';
+  if (backBtn) backBtn.style.display = 'none';
   // Photo dans le profil
   var avatar = document.getElementById('profileAvatar');
   if (avatar) {
@@ -7964,7 +7984,8 @@ function renderProfileAnthropo(name) {
       + '<div style="font-size:15px;font-weight:700;color:#fff">' + display + '</div>'
       + '</div>';
   }).join('');
-  document.getElementById('profileAnthropo').innerHTML = chips;
+  var el = document.getElementById('profileAnthropo');
+  if (el) el.innerHTML = chips;
 }
 
 function renderProfileWellness5(name) {
