@@ -2073,6 +2073,49 @@ table.roster-table select { padding: 4px; }
   <!-- ===================== ONGLET REGLAGES ===================== -->
   <section id="tab-reglages" class="tab-panel">
 
+    <!-- SYNCHRONISATION CLOUD -->
+    <div class="settings-card" style="border:2px solid #5bc4f5;margin-bottom:16px">
+      <h2 class="section-title" style="margin-top:0;color:#5bc4f5">☁️ Synchronisation — Tous les ordinateurs</h2>
+      <p class="panel-help">
+        Les données se chargent automatiquement sur tous les ordinateurs. 
+        Configurez la sauvegarde une seule fois ci-dessous (5 minutes).
+      </p>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <span id="syncConfiguredBadge" style="display:none;background:rgba(46,204,138,.15);border:1px solid #2ecc8a;border-radius:20px;padding:5px 14px;color:#2ecc8a;font-size:12px;font-weight:700">
+          ✓ Synchronisation configurée
+        </span>
+        <button onclick="syncSave()" style="background:#5bc4f5;border:none;border-radius:6px;padding:9px 18px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
+          ☁️ Sauvegarder maintenant
+        </button>
+        <button onclick="syncLoad(false)" style="background:rgba(91,196,245,.15);border:1px solid rgba(91,196,245,.4);border-radius:6px;padding:9px 18px;color:#5bc4f5;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          ⬇ Recharger
+        </button>
+        <button onclick="openSyncSetup()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:9px 18px;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit">
+          ⚙️ Configurer
+        </button>
+      </div>
+
+      <div id="syncSetupArea" style="background:rgba(91,196,245,.06);border:1px solid rgba(91,196,245,.2);border-radius:10px;padding:16px;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:#5bc4f5;margin-bottom:12px">⚙️ Configuration — à faire une seule fois</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:12px;line-height:2">
+          <strong style="color:#fff">Étape 1</strong> → Ouvrez ce lien dans un nouvel onglet :
+          <a href="https://github.com/settings/tokens/new" target="_blank" style="color:#5bc4f5;font-weight:700">github.com/settings/tokens/new</a><br>
+          <strong style="color:#fff">Étape 2</strong> → Nom : <code style="background:rgba(255,255,255,.1);padding:2px 8px;border-radius:3px">Nissa Hub</code> &nbsp;·&nbsp; Cochez <code style="background:rgba(255,255,255,.1);padding:2px 8px;border-radius:3px">public_repo</code> &nbsp;·&nbsp; Cliquez Generate token<br>
+          <strong style="color:#fff">Étape 3</strong> → Copiez le code <code style="background:rgba(255,255,255,.1);padding:2px 8px;border-radius:3px">ghp_...</code> et collez-le ci-dessous<br>
+          <strong style="color:#fff">Étape 4</strong> → Cliquez Enregistrer
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="password" id="syncTokenInput" class="perf-input" placeholder="Collez votre token ici (ghp_...)" style="flex:1;min-width:200px">
+          <button onclick="saveTokenAndSync()" style="background:#5bc4f5;border:none;border-radius:6px;padding:10px 18px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">
+            ✓ Enregistrer le token
+          </button>
+        </div>
+      </div>
+      <p id="syncStatus" style="font-size:12px;color:#888;margin:4px 0 0"></p>
+    </div>
+
+
     <!-- SAUVEGARDE GLOBALE -->
     <div class="settings-card" style="border:2px solid var(--red);">
       <h2 class="section-title" style="margin-top:0;">💾 Sauvegarde complète</h2>
