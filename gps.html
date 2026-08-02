@@ -1641,6 +1641,80 @@ table.roster-table select { padding: 4px; }
 .login-error { color:#ff4455; font-size:12px; margin-top:10px; min-height:18px; }
 .login-version { color:rgba(255,255,255,.15); font-size:10px; margin-top:24px; }
 
+
+/* ══ REDESIGN FICHE JOUEUR ══ */
+.joueur-profile-header-v2 {
+  display:flex; gap:20px; padding:20px;
+  background:linear-gradient(135deg,rgba(214,0,28,.1),rgba(0,0,0,0));
+  border-bottom:1px solid rgba(255,255,255,.08);
+  align-items:flex-start;
+}
+.joueur-profile-avatar-v2 {
+  width:90px; height:90px; border-radius:12px;
+  background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.15);
+  overflow:hidden; flex-shrink:0; display:flex; align-items:flex-end; justify-content:center;
+}
+.joueur-profile-avatar-v2 img { width:100%; height:100%; object-fit:cover; border-radius:10px; }
+.joueur-profile-avatar-v2 svg { width:72px; height:72px; }
+.joueur-profile-info-v2 { flex:1; }
+.joueur-profile-name-v2 { font-size:24px; font-weight:900; color:#fff; margin-bottom:4px; }
+.joueur-profile-badges { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+.joueur-badge {
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
+  border-radius:6px; padding:3px 10px; font-size:11px; font-weight:700;
+  color:rgba(255,255,255,.7); text-transform:uppercase; letter-spacing:.04em;
+}
+.joueur-badge.red { background:rgba(214,0,28,.15); border-color:rgba(214,0,28,.3); color:#ff6b6b; }
+
+/* Tests redesign — grille avec sparklines */
+.tests-grid-v2 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 20px 16px; }
+.test-card-v2 {
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+  border-radius:10px; padding:12px; cursor:pointer; transition:all .15s;
+  position:relative; overflow:hidden;
+}
+.test-card-v2:hover { background:rgba(255,255,255,.08); }
+.test-card-v2 .tc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.test-card-v2 .tc-name { font-size:10px; font-weight:700; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; }
+.test-card-v2 .tc-icon { font-size:14px; }
+.test-card-v2 .tc-val { font-size:22px; font-weight:800; color:#fff; font-family:'JetBrains Mono',monospace; line-height:1; }
+.test-card-v2 .tc-unit { font-size:10px; color:rgba(255,255,255,.35); margin-left:3px; }
+.test-card-v2 .tc-date { font-size:9px; color:rgba(255,255,255,.25); margin-top:3px; }
+.test-card-v2 .tc-trend { font-size:10px; font-weight:700; }
+.test-card-v2 .tc-trend.up   { color:#2ecc8a; }
+.test-card-v2 .tc-trend.down { color:#e8564a; }
+.test-card-v2 .tc-sparkline { margin-top:6px; width:100%; height:24px; }
+.test-card-v2 .tc-empty { font-size:11px; color:rgba(255,255,255,.2); text-align:center; padding:8px 0; }
+
+/* AC:CR widget */
+.accr-widget {
+  display:flex; gap:8px; padding:0 20px 16px; flex-wrap:wrap;
+}
+.accr-card {
+  flex:1; min-width:140px;
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+  border-radius:10px; padding:12px;
+}
+.accr-label { font-size:9px; font-weight:700; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+.accr-val { font-size:26px; font-weight:800; font-family:'JetBrains Mono',monospace; }
+.accr-val.green  { color:#2ecc8a; }
+.accr-val.yellow { color:#e0b341; }
+.accr-val.orange { color:#e8862e; }
+.accr-val.red    { color:#e8564a; }
+.accr-sub { font-size:10px; color:rgba(255,255,255,.3); margin-top:3px; }
+.accr-bar-wrap { height:4px; background:rgba(255,255,255,.08); border-radius:2px; margin-top:8px; overflow:hidden; }
+.accr-bar { height:100%; border-radius:2px; transition:width .3s; }
+
+/* Records GPS dans profil */
+.gps-records-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 20px 16px; }
+.gps-record-card {
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+  border-radius:8px; padding:10px 12px;
+}
+.gps-record-card .gr-label { font-size:9px; font-weight:700; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
+.gps-record-card .gr-val { font-size:16px; font-weight:800; color:#c9a84c; font-family:'JetBrains Mono',monospace; }
+.gps-record-card .gr-date { font-size:9px; color:rgba(255,255,255,.2); margin-top:2px; }
+
 }
 
 /* ══ HUB PRINT — minimal, laisse le CSS index3 gérer ══ */
@@ -2580,43 +2654,47 @@ Petit Enzo ; 9</pre>
 
   <!-- Profil joueur (caché par défaut) -->
   <div class="joueur-profile" id="joueurProfile">
-    <div style="padding:14px 20px;background:#1a0003;border-bottom:2px solid #D6001C;display:flex;align-items:center;gap:12px">
-      <button onclick="closeJoueurProfile()" style="display:inline-flex;align-items:center;gap:8px;background:#D6001C;border:none;border-radius:8px;padding:10px 20px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.03em">
-        ← Retour aux joueurs
+    <!-- Bouton retour -->
+    <div style="padding:12px 20px;background:#1a0003;border-bottom:2px solid #D6001C;display:flex;align-items:center;gap:12px">
+      <button onclick="closeJoueurProfile()" style="display:inline-flex;align-items:center;gap:8px;background:#D6001C;border:none;border-radius:8px;padding:10px 20px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">
+        ← Retour
       </button>
-      <span style="color:rgba(255,255,255,.5);font-size:12px" id="profileBreadcrumb"></span>
+      <span style="color:rgba(255,255,255,.4);font-size:12px" id="profileBreadcrumb"></span>
     </div>
-    <div class="joueur-profile-header">
-      <div class="joueur-profile-avatar" id="profileAvatar">
+
+    <!-- Header joueur -->
+    <div class="joueur-profile-header-v2">
+      <div class="joueur-profile-avatar-v2" id="profileAvatar">
         <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
           <circle cx="40" cy="28" r="16" fill="rgba(255,255,255,.25)"/>
           <path d="M8 80 Q8 50 40 50 Q72 50 72 80Z" fill="rgba(255,255,255,.25)"/>
         </svg>
       </div>
-      <div class="joueur-profile-info">
-        <h2 id="profileName">—</h2>
-        <div class="joueur-profile-meta" id="profileMeta"></div>
+      <div class="joueur-profile-info-v2">
+        <div class="joueur-profile-name-v2" id="profileName">—</div>
+        <div class="joueur-profile-badges" id="profileBadges"></div>
+        <div id="profileMeta" style="font-size:12px;color:rgba(255,255,255,.4)"></div>
       </div>
+      <button onclick="openAnthropoEdit()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px 14px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;align-self:flex-start;white-space:nowrap">✏️ Modifier</button>
     </div>
 
-    <!-- Données anthropométriques -->
-    <div class="joueur-section-title">📏 Données anthropométriques</div>
-    <div id="profileAnthropo" style="padding:0 20px 12px;display:flex;gap:10px;flex-wrap:wrap"></div>
-    <div style="padding:0 20px 8px;display:flex;gap:8px;align-items:center">
-      <button onclick="openAnthropoEdit()" class="hub-refresh-pill" style="width:auto;padding:5px 14px;font-size:11px">✏️ Modifier</button>
-    </div>
+    <!-- Charge AC:CR + sRPE -->
+    <div class="joueur-section-title">💪 Charge — Aiguë / Chronique</div>
+    <div class="accr-widget" id="profileAccr"></div>
 
     <!-- Wellness 5 derniers jours -->
     <div class="joueur-section-title">💚 Wellness — 5 derniers jours</div>
     <div class="wellness-5days" id="profileWellness5"></div>
 
-    <!-- sRPE année -->
-    <div class="joueur-section-title">💪 Charge annuelle (sRPE)</div>
-    <div class="srpe-recap" id="profileSrpe"></div>
+    <!-- Tests physiques redesign -->
+    <div class="joueur-section-title" style="display:flex;align-items:center;justify-content:space-between;padding-right:20px">
+      <span>🏋️ Tests physiques</span>
+    </div>
+    <div class="tests-grid-v2" id="profileTests"></div>
 
-    <!-- Tests physiques -->
-    <div class="joueur-section-title">🏋️ Tests physiques</div>
-    <div class="joueur-tests-grid" id="profileTests"></div>
+    <!-- Records GPS -->
+    <div class="joueur-section-title">📊 Records GPS</div>
+    <div class="gps-records-grid" id="profileGpsRecords"></div>
   </div>
 
   <!-- Modal détail wellness -->
@@ -7741,13 +7819,14 @@ function getPlayerSrpe(playerName) {
   var pNameLower = playerName.toLowerCase();
   RPEDAYS.forEach(function(d) {
     var rpeDay = RPE[d];
-    if (!rpeDay) return;
-    (rpeDay.sessions || []).filter(function(s){ return s.n && s.n.toLowerCase() === pNameLower; }).forEach(function(s) {
-      // ISO week
+    if (!rpeDay || !rpeDay.sessions) return;
+    rpeDay.sessions.filter(function(s){ return s.n && s.n.toLowerCase() === pNameLower; }).forEach(function(s) {
+      var dur = (typeof sessionDuration === 'function') ? sessionDuration(s.type, d) : 60;
+      var srpe = Math.round((s.score || 0) * dur);
       var dt = d.split('/'); // dd/mm/yyyy
       var date = new Date(+dt[2], +dt[1]-1, +dt[0]);
       var wk = getISOWeek(date);
-      weekMap[wk] = (weekMap[wk] || 0) + (s.srpe || 0);
+      weekMap[wk] = (weekMap[wk] || 0) + srpe;
     });
   });
   var weeks = Object.entries(weekMap).sort(function(a,b){ return a[0].localeCompare(b[0]); });
@@ -7834,10 +7913,12 @@ function openJoueurProfile(name) {
   var bc = document.getElementById('profileBreadcrumb');
   if (bc) bc.textContent = '› ' + name;
   renderProfileMeta(name);
+  renderProfileBadges(name);
   renderProfileAnthropo(name);
+  renderProfileAccr(name);
   renderProfileWellness5(name);
-  renderProfileSrpe(name);
-  renderProfileTests(name);
+  renderProfileTestsV2(name);
+  renderProfileGpsRecords(name);
 }
 
 function closeJoueurProfile() {
@@ -8543,6 +8624,226 @@ var _origSavePhysTests = savePhysicalTests;
 savePhysicalTests = function() { _origSavePhysTests(); if (getSyncToken()) setTimeout(syncSave,1500); };
 var _origSaveProfiles = savePlayerProfiles;
 savePlayerProfiles = function() { _origSaveProfiles(); if (getSyncToken()) setTimeout(syncSave,1500); };
+</script>
+<!-- REDESIGN PROFIL JOUEUR -->
+<script>
+/* ═══════════════════════════════════════════
+   REDESIGN FICHE JOUEUR — nouvelles fonctions
+   ═══════════════════════════════════════════ */
+
+// Sparkline SVG inline pour un test
+function makeSparkline(values, lower) {
+  if (!values || values.length < 2) return '';
+  var W = 80, H = 22;
+  var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+  if (min === max) { min -= 1; max += 1; }
+  var sx = function(i) { return (i / (values.length - 1)) * W; };
+  var sy = function(v) { return H - ((v - min) / (max - min)) * (H - 2) - 1; };
+  var path = values.map(function(v, i) { return (i === 0 ? 'M' : 'L') + sx(i).toFixed(1) + ',' + sy(v).toFixed(1); }).join(' ');
+  var lastColor = lower
+    ? (values[values.length-1] <= values[0] ? '#2ecc8a' : '#e8564a')
+    : (values[values.length-1] >= values[0] ? '#2ecc8a' : '#e8564a');
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="tc-sparkline">'
+    + '<path d="' + path + '" fill="none" stroke="' + lastColor + '" stroke-width="1.5" opacity="0.7"/>'
+    + '<circle cx="' + sx(values.length-1).toFixed(1) + '" cy="' + sy(values[values.length-1]).toFixed(1) + '" r="2" fill="' + lastColor + '"/>'
+    + '</svg>';
+}
+
+// Nouvelle renderProfileTests avec sparklines
+function renderProfileTestsV2(name) {
+  var el = document.getElementById('profileTests');
+  if (!el) return;
+  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump','taille','poids'];
+  var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_IDS.indexOf(t.id) !== -1; });
+
+  el.innerHTML = testsToShow.map(function(test) {
+    var history = getPlayerTests(name, test.id);
+    if (!history.length) {
+      return '<div class="test-card-v2" onclick="showTestEvo(\'' + name.replace(/'/g,"\\'") + '\',\'' + test.id + '\')">'
+        + '<div class="tc-header"><span class="tc-name">' + test.label + '</span><span class="tc-icon">' + test.icon + '</span></div>'
+        + '<div class="tc-empty">—</div>'
+        + '</div>';
+    }
+    var last = history[history.length - 1];
+    var prev = history[history.length - 2];
+    var values = history.map(function(h){ return h.value; });
+    var sparkline = makeSparkline(values, test.lower);
+
+    var trendHtml = '';
+    if (prev) {
+      var diff = last.value - prev.value;
+      var pct = prev.value !== 0 ? Math.abs(diff/prev.value*100).toFixed(1) : '';
+      var better = test.lower ? diff < 0 : diff > 0;
+      trendHtml = '<span class="tc-trend ' + (better ? 'up' : 'down') + '">'
+        + (better ? '▲' : '▼') + ' ' + Math.abs(diff).toFixed(2)
+        + (pct ? ' (' + pct + '%)' : '')
+        + '</span>';
+    }
+
+    return '<div class="test-card-v2" onclick="showTestEvo(\'' + name.replace(/'/g,"\\'") + '\',\'' + test.id + '\')">'
+      + '<div class="tc-header"><span class="tc-name">' + test.label + '</span><span class="tc-icon">' + test.icon + '</span></div>'
+      + '<div><span class="tc-val">' + last.value + '</span><span class="tc-unit">' + test.unit + '</span> ' + trendHtml + '</div>'
+      + '<div class="tc-date">' + last.date + (history.length > 1 ? ' · ' + history.length + ' mesures' : '') + '</div>'
+      + sparkline
+      + '</div>';
+  }).join('');
+}
+
+// AC:CR — charge aiguë (7j) / charge chronique (28j)
+function renderProfileAccr(name) {
+  var el = document.getElementById('profileAccr');
+  if (!el) return;
+
+  if (typeof RPE === 'undefined' || !RPEDAYS || !RPEDAYS.length) {
+    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px">Données RPE non chargées.</p>';
+    return;
+  }
+
+  var pLow = name.toLowerCase();
+  var now = new Date();
+  var srpeByDay = {};
+
+  RPEDAYS.forEach(function(d) {
+    var rpeDay = RPE[d];
+    if (!rpeDay || !rpeDay.sessions) return;
+    var dt = d.split('/');
+    var date = new Date(+dt[2], +dt[1]-1, +dt[0]);
+    var dayTotal = 0;
+    rpeDay.sessions.filter(function(s){ return s.n && s.n.toLowerCase() === pLow; }).forEach(function(s) {
+      var dur = (typeof sessionDuration === 'function') ? sessionDuration(s.type, d) : 60;
+      dayTotal += Math.round((s.score||0) * dur);
+    });
+    if (dayTotal > 0) srpeByDay[d] = dayTotal;
+  });
+
+  // Calculer aiguë (7j) et chronique (28j)
+  function sumDays(days) {
+    var total = 0, count = 0;
+    var cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - days);
+    Object.entries(srpeByDay).forEach(function(entry) {
+      var dt = entry[0].split('/');
+      var date = new Date(+dt[2], +dt[1]-1, +dt[0]);
+      if (date >= cutoff) { total += entry[1]; count++; }
+    });
+    return { total: total, count: count, avg: count > 0 ? Math.round(total/days) : 0 };
+  }
+
+  var acute   = sumDays(7);
+  var chronic = sumDays(28);
+  var ratio   = chronic.avg > 0 ? (acute.avg / chronic.avg) : 0;
+
+  function ratioClass(r) {
+    if (r < 0.8) return 'yellow';
+    if (r <= 1.3) return 'green';
+    if (r <= 1.5) return 'orange';
+    return 'red';
+  }
+  function ratioLabel(r) {
+    if (r < 0.8) return 'Sous-charge';
+    if (r <= 1.3) return 'Zone optimale';
+    if (r <= 1.5) return 'Attention';
+    return 'Surcharge';
+  }
+
+  var barPct = Math.min(100, ratio / 2 * 100);
+  var rc = ratioClass(ratio);
+  var barColor = rc === 'green' ? '#2ecc8a' : rc === 'yellow' ? '#e0b341' : rc === 'orange' ? '#e8862e' : '#e8564a';
+
+  el.innerHTML =
+    '<div class="accr-card">'
+      + '<div class="accr-label">Charge aiguë (7j)</div>'
+      + '<div class="accr-val">' + acute.total.toLocaleString('fr-FR') + '</div>'
+      + '<div class="accr-sub">Moy. quotidienne : ' + acute.avg + ' UA</div>'
+    + '</div>'
+    + '<div class="accr-card">'
+      + '<div class="accr-label">Charge chronique (28j)</div>'
+      + '<div class="accr-val">' + chronic.total.toLocaleString('fr-FR') + '</div>'
+      + '<div class="accr-sub">Moy. quotidienne : ' + chronic.avg + ' UA</div>'
+    + '</div>'
+    + '<div class="accr-card" style="border-color:' + barColor + '44">'
+      + '<div class="accr-label">Ratio AC:CR</div>'
+      + '<div class="accr-val ' + rc + '">' + (ratio > 0 ? ratio.toFixed(2) : '—') + '</div>'
+      + '<div class="accr-sub">' + ratioLabel(ratio) + '</div>'
+      + '<div class="accr-bar-wrap"><div class="accr-bar" style="width:' + barPct + '%;background:' + barColor + '"></div></div>'
+    + '</div>';
+}
+
+// Records GPS dans le profil
+function renderProfileGpsRecords(name) {
+  var el = document.getElementById('profileGpsRecords');
+  if (!el) return;
+
+  // Chercher les records dans les séances sauvegardées
+  var records = {
+    distance: { val: null, date: null },
+    vmax:     { val: null, date: null },
+    hiDist:   { val: null, date: null },
+    accel:    { val: null, date: null },
+    contact:  { val: null, date: null },
+    rhie:     { val: null, date: null },
+  };
+
+  if (typeof savedSessions !== 'undefined') {
+    savedSessions.forEach(function(session) {
+      if (!session.players) return;
+      var p = session.players.find(function(pl){ return pl.name && pl.name.toLowerCase() === name.toLowerCase(); });
+      if (!p) return;
+      var d = session.date || '';
+      if (p.distance != null && (records.distance.val == null || p.distance > records.distance.val)) records.distance = { val: p.distance, date: d };
+      if (p.vmax     != null && (records.vmax.val     == null || p.vmax     > records.vmax.val))     records.vmax     = { val: p.vmax,     date: d };
+      if (p.hi18km   != null && (records.hiDist.val   == null || p.hi18km   > records.hiDist.val))   records.hiDist   = { val: p.hi18km,   date: d };
+      if (p.accel    != null && (records.accel.val    == null || p.accel    > records.accel.val))    records.accel    = { val: p.accel,    date: d };
+      if (p.contact  != null && (records.contact.val  == null || p.contact  > records.contact.val))  records.contact  = { val: p.contact,  date: d };
+      if (p.rhie     != null && (records.rhie.val     == null || p.rhie     > records.rhie.val))     records.rhie     = { val: p.rhie,     date: d };
+    });
+  }
+
+  var defs = [
+    { key:'distance', label:'Distance',    unit:'m'    },
+    { key:'vmax',     label:'Vmax',        unit:'km/h' },
+    { key:'hiDist',   label:'Dist. +18',   unit:'m'    },
+    { key:'accel',    label:'Accel max',   unit:''     },
+    { key:'contact',  label:'Contacts',    unit:''     },
+    { key:'rhie',     label:'RHIE',        unit:''     },
+  ];
+
+  var hasAny = defs.some(function(d){ return records[d.key].val != null; });
+  if (!hasAny) {
+    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px;padding:0 0 8px">Aucune séance GPS sauvegardée pour ce joueur.</p>';
+    return;
+  }
+
+  el.innerHTML = defs.map(function(d) {
+    var r = records[d.key];
+    if (r.val == null) return '<div class="gps-record-card"><div class="gr-label">' + d.label + '</div><div class="gr-val" style="color:rgba(255,255,255,.2)">—</div></div>';
+    var val = typeof r.val === 'number' ? (Number.isInteger(r.val) ? r.val : r.val.toFixed(2)) : r.val;
+    return '<div class="gps-record-card">'
+      + '<div class="gr-label">' + d.label + '</div>'
+      + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
+      + (r.date ? '<div class="gr-date">' + r.date + '</div>' : '')
+      + '</div>';
+  }).join('');
+}
+
+// Badges poste + statut
+function renderProfileBadges(name) {
+  var el = document.getElementById('profileBadges');
+  if (!el) return;
+  var prof = playerProfiles[name] || {};
+  var badges = [];
+  if (prof.poste) badges.push('<span class="joueur-badge">' + prof.poste + '</span>');
+
+  // Statut wellness
+  var days = getPlayerWellnessLastN(name, 1);
+  if (days.length) {
+    var fa = Math.min(100, Math.max(0, ((35 - days[0].data.S) / 30) * 100));
+    var statusLabel = fa >= 60 ? '🟢 Bon' : fa >= 45 ? '🟡 Moyen' : fa >= 30 ? '🟠 Attention' : '🔴 Alerte';
+    badges.push('<span class="joueur-badge">' + statusLabel + '</span>');
+  }
+
+  el.innerHTML = badges.join('');
+}
+
 </script>
 </body>
 </html>
