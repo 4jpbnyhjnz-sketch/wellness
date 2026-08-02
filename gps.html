@@ -2717,7 +2717,7 @@ function logout() {
 }
 
 function doLogin() {
-  var user = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+  var user = (document.getElementById('loginUser').value || '').trim();
   var pass = (document.getElementById('loginPass').value || '').trim();
   var match = USERS.find(function(u){ return u.user === user && u.pass === pass; });
   if (!match) {
