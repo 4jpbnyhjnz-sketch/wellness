@@ -2171,12 +2171,19 @@ table.roster-table select { padding: 4px; }
       <p class="panel-help">Supprime tous les horodateurs personnalisés (dates modifiées manuellement). Les séances reviennent à leur date d'origine.</p>
       <button onclick="
         var o = JSON.parse(localStorage.getItem('nissa_espoirs_rpe_overrides_v1') || '{}');
-        o.tsFixes = {};
+        if (!o.tsFixes) { alert('Aucun horodateur trouvé.'); return; }
+        var removed = 0;
+        Object.keys(o.tsFixes).forEach(function(k) {
+          if (k.includes('31/08/2026') || o.tsFixes[k].includes('31/08/2026')) {
+            delete o.tsFixes[k]; removed++;
+          }
+        });
+        if (removed === 0) { alert('Aucun horodateur du 31/08/2026 trouvé.'); return; }
         localStorage.setItem('nissa_espoirs_rpe_overrides_v1', JSON.stringify(o));
-        alert('✓ Horodateurs réinitialisés. La page va recharger.');
+        alert('✓ ' + removed + ' horodateur(s) du 31/08/2026 supprimé(s). La page va recharger.');
         location.reload();
       " style="background:#e0b341;border:none;border-radius:6px;padding:10px 20px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
-        🔄 Réinitialiser les horodateurs
+        🔄 Supprimer uniquement les horodateurs du 31/08/2026
       </button>
     </div>
 
