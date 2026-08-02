@@ -8407,8 +8407,14 @@ var GITHUB_RAW_URL = 'https://raw.githubusercontent.com/4jpbnyhjnz-sketch/wellne
 var SYNC_TOKEN_KEY = 'nissaGithubToken_v1';
 
 var SYNC_DATA_KEYS = [
-  'nissaPhysicalTests_v1','nissaPlayerProfiles_v1',
-  'gps_saved_sessions_v3','gps_saved_matches_v1','gps_season_records_v1',
+  'nissaPhysicalTests_v1',
+  'nissaPlayerProfiles_v1',
+  'gpsSavedSessions_v1',
+  'gpsSavedMatches_v1',
+  'gpsSeasonRecords_v1',
+  'gpsReportRoster_v1',
+  'gpsReportObjectives_v1',
+  'gpsReportColumnVisibility_v1',
 ];
 
 function getSyncToken() { return localStorage.getItem(SYNC_TOKEN_KEY) || ''; }
