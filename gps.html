@@ -2788,6 +2788,29 @@ Petit Enzo ; 9</pre>
       <button onclick="savePerfTests()" class="hub-refresh-pill" style="width:auto;padding:8px 20px;font-size:13px;background:rgba(214,0,28,.25);border-color:#D6001C">💾 Enregistrer</button>
     </div>
 
+
+    <!-- Import Excel RPE -->
+    <div class="perf-form-card">
+      <div class="perf-form-title">📋 Import Excel — Données RPE</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px;line-height:1.7">
+        Format attendu : colonnes <strong style="color:#fff">Dates | Noms | Types | score</strong><br>
+        Types valides : Collectif, Musculation, Skills, Off feet, etc.<br>
+        Les données sont fusionnées avec le Google Sheet au rechargement.
+      </div>
+      <div class="xlsx-drop" id="xlsxRpeDrop"
+           onclick="document.getElementById('xlsxRpeInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleRpeXlsxDrop(event)">
+        <input type="file" id="xlsxRpeInput" accept=".xlsx,.xls,.csv" hidden onchange="handleRpeXlsxFile(this.files[0])">
+        <div class="xlsx-drop-icon">📋</div>
+        <div class="xlsx-drop-text">Déposez votre fichier RPE ici</div>
+        <div class="xlsx-drop-sub">Dates | Noms | Types | score</div>
+      </div>
+      <div id="xlsxRpeStatus" style="margin-top:10px;font-size:12px;display:none"></div>
+      <div id="xlsxRpePreview" style="margin-top:10px"></div>
+    </div>
+
     <!-- Import Excel -->
     <div class="perf-form-card">
       <div class="perf-form-title">📊 Import Excel</div>
@@ -8935,6 +8958,135 @@ function renderProfileBadges(name) {
   }
 
   el.innerHTML = badges.join('');
+}
+
+</script>
+<script>
+
+/* ── Import Excel RPE ── */
+function handleRpeXlsxDrop(e) {
+  e.preventDefault();
+  document.getElementById('xlsxRpeDrop').classList.remove('drag');
+  var file = e.dataTransfer.files[0];
+  if (file) handleRpeXlsxFile(file);
+}
+
+function handleRpeXlsxFile(file) {
+  if (!file) return;
+  var status = document.getElementById('xlsxRpeStatus');
+  function showStatus(msg, color) {
+    status.style.display = 'block';
+    status.style.color = color || '#2ecc8a';
+    status.textContent = msg;
+  }
+
+  showStatus('⏳ Lecture...', '#f5a623');
+
+  if (typeof XLSX === 'undefined') {
+    showStatus('⚠ SheetJS non chargé.', '#e8564a'); return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, { type:'array', cellDates:true, raw:false });
+      // Trouver la feuille avec le plus de données
+      var bestSheet = wb.SheetNames[0];
+      var bestCount = 0;
+      wb.SheetNames.forEach(function(name) {
+        var range = XLSX.utils.decode_range(wb.Sheets[name]['!ref'] || 'A1:A1');
+        if (range.e.r > bestCount) { bestCount = range.e.r; bestSheet = name; }
+      });
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[bestSheet], { defval:'' });
+      if (!rows.length) { showStatus('⚠ Fichier vide.', '#e8564a'); return; }
+
+      function findVal(row, keys) {
+        for (var i=0; i<keys.length; i++) {
+          if (row[keys[i]] !== undefined && row[keys[i]] !== '') return row[keys[i]];
+        }
+        return '';
+      }
+
+      // Convertir en fake rows pour processData
+      // Format attendu par processData: [date, nom, 'Rpe', '', '', '', '', '', '', type, score]
+      var newRows = [];
+      var saved = 0, errors = 0;
+
+      rows.forEach(function(row) {
+        var dateRaw = findVal(row, ['Dates','dates','DATES','Date','date','DATE']);
+        var nom     = String(findVal(row, ['Noms','noms','NOMS','Nom','nom','Name','name']) || '').trim();
+        var type    = String(findVal(row, ['Types','types','TYPES','Type','type']) || '').trim();
+        var score   = parseFloat(String(findVal(row, ['score','Score','SCORE','RPE','rpe']) || '').replace(',','.'));
+
+        if (!nom || !type || isNaN(score)) { errors++; return; }
+
+        // Normaliser le nom
+        var found = FIXED_ROSTER.find(function(n){ return n.toLowerCase() === nom.toLowerCase(); });
+        if (found) nom = found;
+
+        // Formater la date
+        var dateStr = '';
+        if (dateRaw instanceof Date) {
+          dateStr = String(dateRaw.getDate()).padStart(2,'0') + '/' +
+                    String(dateRaw.getMonth()+1).padStart(2,'0') + '/' +
+                    dateRaw.getFullYear();
+        } else if (typeof dateRaw === 'number') {
+          var d = new Date(Math.round((dateRaw - 25569) * 86400000));
+          dateStr = String(d.getDate()).padStart(2,'0') + '/' +
+                    String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+        } else {
+          dateStr = String(dateRaw).trim();
+        }
+        if (!dateStr) { errors++; return; }
+
+        // Créer une fake row au format processData
+        // [0]=timestamp, [1]=nom, [2]='Rpe', [3-8]=vides, [9]=type, [10]=score
+        var fakeRow = [dateStr + ' 10:00:00', nom, 'Rpe', '', '', '', '', '', '', type, String(score)];
+        newRows.push(fakeRow);
+        saved++;
+      });
+
+      if (!saved) { showStatus('⚠ Aucune ligne valide. Vérifiez les colonnes: Dates | Noms | Types | score', '#e8564a'); return; }
+
+      // Fusionner avec RAW_ROWS et reprocesser
+      if (typeof RAW_ROWS !== 'undefined') {
+        // Retirer les anciennes entrées RPE du même jour pour éviter les doublons
+        var datesImported = new Set(newRows.map(function(r){ return r[0].split(' ')[0]; }));
+        var filtered = RAW_ROWS.filter(function(r){
+          if ((r[2]||'').trim() !== 'Rpe') return true;
+          return !datesImported.has((r[0]||'').trim().split(' ')[0]);
+        });
+        RAW_ROWS = filtered.concat(newRows);
+        if (typeof reprocessData === 'function') reprocessData();
+        if (typeof render === 'function') try{ render(); } catch(e){}
+        if (typeof renderRpe === 'function' && typeof CURRENT_VIEW !== 'undefined' && CURRENT_VIEW === 'rpe') try{ renderRpe(); } catch(e){}
+      }
+
+      // Aperçu
+      var preview = document.getElementById('xlsxRpePreview');
+      var byDate = {};
+      newRows.forEach(function(r){
+        var d = r[0].split(' ')[0];
+        if (!byDate[d]) byDate[d] = {};
+        if (!byDate[d][r[9]]) byDate[d][r[9]] = 0;
+        byDate[d][r[9]]++;
+      });
+      var previewHtml = '<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:6px">';
+      Object.entries(byDate).forEach(function(e){
+        previewHtml += '<div>' + e[0] + ' : ';
+        Object.entries(e[1]).forEach(function(t){ previewHtml += t[0] + ' (' + t[1] + ') '; });
+        previewHtml += '</div>';
+      });
+      previewHtml += '</div>';
+      preview.innerHTML = previewHtml;
+
+      showStatus('✓ ' + saved + ' ligne(s) RPE importée(s)' + (errors ? ' · ' + errors + ' ignorée(s)' : ''), '#2ecc8a');
+
+    } catch(err) {
+      showStatus('⚠ Erreur: ' + err.message, '#e8564a');
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 </script>
