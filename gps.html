@@ -7526,13 +7526,53 @@ function renderRpeSemaine() {
 
   if (semaineSrpeIndivChartInst) { semaineSrpeIndivChartInst.destroy(); semaineSrpeIndivChartInst = null; }
   var c3 = document.getElementById('semaineSrpeIndivChart');
+  // Aligner les joueurs S et S-1 sur les mêmes labels
+  var srpeS1Data = indivCur.map(function(p) {
+    var prev = indivPrev.find(function(q){ return q.name === p.name; });
+    return prev ? prev.srpe : null;
+  });
+
   semaineSrpeIndivChartInst = new Chart(c3, {
     type:'bar',
-    data:{labels:indivCur.map(function(p){return p.name;}), datasets:[{label:'sRPE', data:indivCur.map(function(p){return p.srpe;}), backgroundColor:'#cc1122', borderRadius:3, barPercentage:0.5, categoryPercentage:0.6}]},
+    data:{labels:indivCur.map(function(p){return p.name;}), datasets:[
+      {
+        label:'sRPE Semaine S',
+        data:indivCur.map(function(p){return p.srpe;}),
+        backgroundColor:'#cc1122', borderRadius:3, barPercentage:0.5, categoryPercentage:0.7,
+        yAxisID:'y'
+      },
+      {
+        label:'sRPE Semaine S-1',
+        data:srpeS1Data,
+        type:'line',
+        borderColor:'#5bc4f5',
+        backgroundColor:'rgba(91,196,245,.15)',
+        pointBackgroundColor:'#5bc4f5',
+        pointRadius:4, pointHoverRadius:6,
+        borderWidth:2, tension:0.3,
+        yAxisID:'y2'
+      }
+    ]},
     options:{responsive:true, maintainAspectRatio:false, animation:{duration:0}, layout:{padding:{top:16}},
-      plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}},
+      plugins:{
+        legend:{display:true, position:'top', labels:{color:'#888', font:{size:11}, boxWidth:12}},
+        tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}
+      },
       scales:{
-        y:{ticks:{color:'#888', font:{size:11}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'transparent'}},
+        y:{
+          position:'left',
+          ticks:{color:'#cc1122', font:{size:11}},
+          grid:{color:'rgba(255,255,255,0.04)'},
+          border:{color:'transparent'},
+          title:{display:true, text:'sRPE (S)', color:'#cc1122', font:{size:10}}
+        },
+        y2:{
+          position:'right',
+          ticks:{color:'#5bc4f5', font:{size:11}},
+          grid:{drawOnChartArea:false},
+          border:{color:'transparent'},
+          title:{display:true, text:'sRPE (S-1)', color:'#5bc4f5', font:{size:10}}
+        },
         x:{ticks:{color:'#888', font:{size:9}, maxRotation:90, minRotation:90, autoSkip:false}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
       }
     }
@@ -9088,6 +9128,118 @@ function handleRpeXlsxFile(file) {
   };
   reader.readAsArrayBuffer(file);
 }
+
+</script>
+<script>
+
+/* ════════════════════════════════════════════
+   OVERLAY S-1 — sRPE Hebdo + Semaine individuel
+   ════════════════════════════════════════════ */
+
+// Override renderSrpeChart : ajoute S-1 en ligne sur axe secondaire
+var _origRenderSrpeChart = null;
+var _origRenderRpeSemaine = null;
+
+function initS1Overlays() {
+  // ── 1. SRPE HEBDOMADAIRE — ajout S-1 line ──
+  if (typeof renderSrpeChart === 'function') {
+    _origRenderSrpeChart = renderSrpeChart;
+    renderSrpeChart = function() {
+      _origRenderSrpeChart();
+      if (!SRPE_WEEKS || !SRPE_WEEKS.length) return;
+      if (typeof srpeChartInst === 'undefined' || !srpeChartInst) return;
+
+      // S-1 = valeur de la semaine précédente
+      var s1data = SRPE_WEEKS.map(function(w, i) {
+        return i > 0 ? Math.round(SRPE_WEEK[SRPE_WEEKS[i-1]].total) : null;
+      });
+
+      srpeChartInst.data.datasets.push({
+        label: 'S-1',
+        type: 'line',
+        data: s1data,
+        borderColor: '#c9a84c',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: '#c9a84c',
+        tension: 0.3,
+        order: 0,
+        yAxisID: 'y',
+        spanGaps: false,
+      });
+
+      // Ajouter une légende simple
+      srpeChartInst.options.plugins.legend.display = true;
+      srpeChartInst.options.plugins.legend.labels = {
+        color: '#888',
+        font: { size: 11 },
+        boxWidth: 16,
+        padding: 12,
+      };
+
+      srpeChartInst.update('none');
+    };
+  }
+
+  // ── 2. SEMAINE — ajout S-1 sur le graphique individuel ──
+  if (typeof renderRpeSemaine === 'function') {
+    _origRenderRpeSemaine = renderRpeSemaine;
+    renderRpeSemaine = function() {
+      _origRenderRpeSemaine();
+
+      // Attendre que le chart soit rendu
+      setTimeout(function() {
+        if (typeof semaineSrpeIndivChartInst === 'undefined' || !semaineSrpeIndivChartInst) return;
+        if (typeof CUR_RPE_WEEK === 'undefined') return;
+
+        var prevKey = typeof prevWeekKey === 'function' ? prevWeekKey(CUR_RPE_WEEK) : null;
+        if (!prevKey) return;
+
+        var indivPrev = typeof computeIndividualSrpe === 'function' ? computeIndividualSrpe(prevKey) : [];
+        if (!indivPrev.length) return;
+
+        // Mapper les valeurs S-1 sur les joueurs de la semaine courante
+        var curLabels = semaineSrpeIndivChartInst.data.labels || [];
+        var prevMap = {};
+        indivPrev.forEach(function(p) { prevMap[p.name] = p.srpe; });
+        var s1vals = curLabels.map(function(name) { return prevMap[name] || null; });
+
+        // Supprimer ancien dataset S-1 si présent
+        semaineSrpeIndivChartInst.data.datasets =
+          semaineSrpeIndivChartInst.data.datasets.filter(function(d){ return d.label !== 'S-1'; });
+
+        // Ajouter S-1 en ligne
+        semaineSrpeIndivChartInst.data.datasets.push({
+          label: 'S-1',
+          type: 'line',
+          data: s1vals,
+          borderColor: '#c9a84c',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: '#c9a84c',
+          tension: 0.3,
+          order: 0,
+          yAxisID: 'y',
+          spanGaps: false,
+        });
+
+        semaineSrpeIndivChartInst.options.plugins.legend.display = true;
+        semaineSrpeIndivChartInst.options.plugins.legend.labels = {
+          color: '#888', font: { size: 11 }, boxWidth: 16, padding: 12,
+        };
+
+        semaineSrpeIndivChartInst.update('none');
+      }, 100);
+    };
+  }
+}
+
+// Lancer après que tous les scripts wellness soient définis
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(initS1Overlays, 500);
+});
 
 </script>
 </body>
