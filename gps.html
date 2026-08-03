@@ -7568,10 +7568,10 @@ function renderRpeSemaine() {
         },
         y2:{
           position:'right',
-          ticks:{color:'#5bc4f5', font:{size:11}},
+          ticks:{color:'#c9a84c', font:{size:11}},
           grid:{drawOnChartArea:false},
           border:{color:'transparent'},
-          title:{display:true, text:'sRPE (S-1)', color:'#5bc4f5', font:{size:10}}
+          title:{display:true, text:'sRPE (S-1)', color:'#c9a84c', font:{size:10}}
         },
         x:{ticks:{color:'#888', font:{size:9}, maxRotation:90, minRotation:90, autoSkip:false}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
       }
@@ -9210,19 +9210,19 @@ function initS1Overlays() {
           semaineSrpeIndivChartInst.data.datasets.filter(function(d){ return d.label !== 'S-1'; });
 
         // Ajouter S-1 en ligne
+        // S-1 en trait horizontal par joueur (repère visuel sur axe secondaire)
         semaineSrpeIndivChartInst.data.datasets.push({
           label: 'S-1',
-          type: 'line',
+          type: 'bar',
           data: s1vals,
+          backgroundColor: 'rgba(201,168,76,0)',
           borderColor: '#c9a84c',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          pointRadius: 4,
-          pointBackgroundColor: '#c9a84c',
-          tension: 0.3,
+          borderWidth: {top: 2, right: 0, bottom: 0, left: 0},
+          borderSkipped: false,
+          barPercentage: 0.7,
+          categoryPercentage: 0.7,
           order: 0,
-          yAxisID: 'y',
-          spanGaps: false,
+          yAxisID: 'y2',
         });
 
         semaineSrpeIndivChartInst.options.plugins.legend.display = true;
