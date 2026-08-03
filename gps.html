@@ -7406,7 +7406,7 @@ var barDataLabelPlugin = {
     ctx.restore();
   }
 };
-function captureChartForPrint(chartInst, labelColor, datasetColors) {
+function captureChartForPrint(chartInst, labelColor, datasetColors, hideLabels) {
   if (!chartInst) return '';
   try {
     var tmpCanvas = document.createElement('canvas');
@@ -7421,7 +7421,7 @@ function captureChartForPrint(chartInst, labelColor, datasetColors) {
     var cfg = {
       type: chartInst.config.type,
       data: clonedData,
-      plugins: [barDataLabelPlugin],
+      plugins: hideLabels ? [] : [barDataLabelPlugin],
       options: Object.assign({}, chartInst.config.options, {
         responsive:false, animation:false,
         plugins: Object.assign({}, chartInst.config.options.plugins, {barDataLabelPlugin:{color:labelColor}})
@@ -7626,7 +7626,7 @@ function renderRpeRapport() {
   var genStr = fmtFR(now) + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 
   var chartImgRpe = captureChartForPrint(semaineRpeChartInst, '#111');
-  var chartImgIndiv = captureChartForPrint(semaineSrpeIndivChartInst, '#111', ['#111111', '#cc1122']);
+  var chartImgIndiv = captureChartForPrint(semaineSrpeIndivChartInst, '#111', ['#111111', '#cc1122'], true);
 
   var headerHtml = '<div class="rapport-header">'
     + '<div class="rapport-header-logo"><img src="https://nissarugby.fr/main_logo.svg" alt="logo"></div>'
@@ -9179,58 +9179,6 @@ function initS1Overlays() {
     };
   }
 
-  // ── 2. SEMAINE — ajout S-1 sur le graphique individuel ──
-  if (typeof renderRpeSemaine === 'function') {
-    _origRenderRpeSemaine = renderRpeSemaine;
-    renderRpeSemaine = function() {
-      _origRenderRpeSemaine();
-
-      // Attendre que le chart soit rendu
-      setTimeout(function() {
-        if (typeof semaineSrpeIndivChartInst === 'undefined' || !semaineSrpeIndivChartInst) return;
-        if (typeof CUR_RPE_WEEK === 'undefined') return;
-
-        var prevKey = typeof prevWeekKey === 'function' ? prevWeekKey(CUR_RPE_WEEK) : null;
-        if (!prevKey) return;
-
-        var indivPrev = typeof computeIndividualSrpe === 'function' ? computeIndividualSrpe(prevKey) : [];
-        if (!indivPrev.length) return;
-
-        // Mapper les valeurs S-1 sur les joueurs de la semaine courante
-        var curLabels = semaineSrpeIndivChartInst.data.labels || [];
-        var prevMap = {};
-        indivPrev.forEach(function(p) { prevMap[p.name] = p.srpe; });
-        var s1vals = curLabels.map(function(name) { return prevMap[name] || null; });
-
-        // Supprimer ancien dataset S-1 si présent
-        semaineSrpeIndivChartInst.data.datasets =
-          semaineSrpeIndivChartInst.data.datasets.filter(function(d){ return d.label !== 'S-1'; });
-
-        // Ajouter S-1 en ligne
-        // S-1 en trait horizontal par joueur (repère visuel sur axe secondaire)
-        semaineSrpeIndivChartInst.data.datasets.push({
-          label: 'S-1',
-          type: 'bar',
-          data: s1vals,
-          backgroundColor: 'rgba(201,168,76,0)',
-          borderColor: '#c9a84c',
-          borderWidth: {top: 2, right: 0, bottom: 0, left: 0},
-          borderSkipped: false,
-          barPercentage: 0.7,
-          categoryPercentage: 0.7,
-          order: 0,
-          yAxisID: 'y2',
-        });
-
-        semaineSrpeIndivChartInst.options.plugins.legend.display = true;
-        semaineSrpeIndivChartInst.options.plugins.legend.labels = {
-          color: '#888', font: { size: 11 }, boxWidth: 16, padding: 12,
-        };
-
-        semaineSrpeIndivChartInst.update('none');
-      }, 100);
-    };
-  }
 }
 
 // Lancer après que tous les scripts wellness soient définis
