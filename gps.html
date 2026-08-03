@@ -7406,15 +7406,21 @@ var barDataLabelPlugin = {
     ctx.restore();
   }
 };
-function captureChartForPrint(chartInst, labelColor) {
+function captureChartForPrint(chartInst, labelColor, datasetColors) {
   if (!chartInst) return '';
   try {
     var tmpCanvas = document.createElement('canvas');
     tmpCanvas.width = chartInst.canvas.width || 700;
     tmpCanvas.height = chartInst.canvas.height || 320;
+    var clonedData = JSON.parse(JSON.stringify(chartInst.config.data));
+    if (datasetColors) {
+      clonedData.datasets.forEach(function(ds, i) {
+        if (datasetColors[i]) ds.backgroundColor = datasetColors[i];
+      });
+    }
     var cfg = {
       type: chartInst.config.type,
-      data: JSON.parse(JSON.stringify(chartInst.config.data)),
+      data: clonedData,
       plugins: [barDataLabelPlugin],
       options: Object.assign({}, chartInst.config.options, {
         responsive:false, animation:false,
@@ -7536,24 +7542,22 @@ function renderRpeSemaine() {
     type:'bar',
     data:{labels:indivCur.map(function(p){return p.name;}), datasets:[
       {
-        label:'sRPE Semaine S',
-        data:indivCur.map(function(p){return p.srpe;}),
-        backgroundColor:'#cc1122', borderRadius:3, barPercentage:0.5, categoryPercentage:0.7,
+        label:'sRPE Semaine S-1',
+        data:srpeS1Data,
+        backgroundColor:'#ffffff',
+        borderRadius:3, barPercentage:0.85, categoryPercentage:0.7,
         yAxisID:'y'
       },
       {
-        label:'sRPE Semaine S-1',
-        data:srpeS1Data,
-        type:'line',
-        borderColor:'#5bc4f5',
-        backgroundColor:'rgba(91,196,245,.15)',
-        pointBackgroundColor:'#5bc4f5',
-        pointRadius:4, pointHoverRadius:6,
-        borderWidth:2, tension:0.3,
-        yAxisID:'y2'
+        label:'sRPE Semaine S',
+        data:indivCur.map(function(p){return p.srpe;}),
+        backgroundColor:'#cc1122',
+        borderRadius:3, barPercentage:0.45, categoryPercentage:0.7,
+        yAxisID:'y'
       }
     ]},
     options:{responsive:true, maintainAspectRatio:false, animation:{duration:0}, layout:{padding:{top:16}},
+      interaction:{mode:'index', intersect:false},
       plugins:{
         legend:{display:true, position:'top', labels:{color:'#888', font:{size:11}, boxWidth:12}},
         tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}
@@ -7561,17 +7565,10 @@ function renderRpeSemaine() {
       scales:{
         y:{
           position:'left',
-          ticks:{color:'#cc1122', font:{size:11}},
+          ticks:{color:'#888', font:{size:11}},
           grid:{color:'rgba(255,255,255,0.04)'},
           border:{color:'transparent'},
-          title:{display:true, text:'sRPE (S)', color:'#cc1122', font:{size:10}}
-        },
-        y2:{
-          position:'right',
-          ticks:{color:'#c9a84c', font:{size:11}},
-          grid:{drawOnChartArea:false},
-          border:{color:'transparent'},
-          title:{display:true, text:'sRPE (S-1)', color:'#c9a84c', font:{size:10}}
+          title:{display:true, text:'sRPE', color:'#888', font:{size:10}}
         },
         x:{ticks:{color:'#888', font:{size:9}, maxRotation:90, minRotation:90, autoSkip:false}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
       }
@@ -7629,7 +7626,7 @@ function renderRpeRapport() {
   var genStr = fmtFR(now) + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 
   var chartImgRpe = captureChartForPrint(semaineRpeChartInst, '#111');
-  var chartImgIndiv = (semaineSrpeIndivChartInst) ? semaineSrpeIndivChartInst.toBase64Image() : '';
+  var chartImgIndiv = captureChartForPrint(semaineSrpeIndivChartInst, '#111', ['#111111', '#cc1122']);
 
   var headerHtml = '<div class="rapport-header">'
     + '<div class="rapport-header-logo"><img src="https://nissarugby.fr/main_logo.svg" alt="logo"></div>'
