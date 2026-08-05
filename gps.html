@@ -5510,13 +5510,27 @@ function buildSessionPrintRoot(session) {
 
 function printSavedSession(session) {
   buildSessionPrintRoot(session);
-  document.body.classList.add("printing-saved-session");
-  window.print();
+  var reportHtml = document.getElementById("sessionPrintRoot").innerHTML;
+  var css = document.querySelector("style") ? document.querySelector("style").innerHTML : "";
+  var w = window.open("", "_blank", "width=900,height=700");
+  if (!w) {
+    alert("La fenêtre d'impression a été bloquée par le navigateur. Autorise les pop-ups pour ce site puis réessaie.");
+    return;
+  }
+  w.document.open();
+  w.document.write(
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport séance</title><style>' +
+      css +
+      '\nbody{background:#fff;margin:0}\nbody *{visibility:visible!important}\n#sessionPrintRoot{position:static!important;width:auto!important;display:block!important}\n</style></head><body><div id="sessionPrintRoot">' +
+      reportHtml +
+      "</div></body></html>"
+  );
+  w.document.close();
+  setTimeout(function () {
+    w.focus();
+    w.print();
+  }, 350);
 }
-
-window.addEventListener("afterprint", () => {
-  document.body.classList.remove("printing-saved-session");
-});
 
 function loadSavedSessions() {
   try {
