@@ -4036,10 +4036,13 @@ function getObjective(objectivesData, group, key) {
 }
 
 // true = objectif atteint, false = pas atteint, null = pas d'objectif fixé
+// Cas particulier : % Marche — l'objectif est atteint quand on est EN DESSOUS
+// de la cible (moins de marche = plus d'intensité), contrairement aux autres
+// métriques où l'objectif est atteint au-dessus de la cible.
 function isObjectiveMet(objectivesData, group, key, value) {
   const target = getObjective(objectivesData, group, key);
   if (target === null) return null;
-  return value >= target;
+  return key === "pctMarche" ? value <= target : value >= target;
 }
 
 // Couleur de fond d'une cellule du tableau. Quand un objectif est fixé ET atteint,
@@ -4231,9 +4234,9 @@ function renderMedianTable(grouped) {
   return table;
 }
 
-function findLeader(stats, key) {
+function findLeader(stats, key, lowerIsBetter) {
   if (!stats.length) return null;
-  return stats.reduce((best, cur) => (cur[key] > best[key] ? cur : best), stats[0]);
+  return stats.reduce((best, cur) => ((lowerIsBetter ? cur[key] < best[key] : cur[key] > best[key]) ? cur : best), stats[0]);
 }
 
 /* -------------------------------------------------------------------------
@@ -4336,9 +4339,11 @@ function renderGroupTable(groupName, stats, opts) {
   }
 
   // Calcul des leaders par colonne pour le repère ★
+  // % Marche : le meilleur score est le plus bas (moins de marche = plus
+  // d'intensité), contrairement aux autres métriques où le plus haut gagne.
   const leaders = {};
   visibleColumns.forEach((col) => {
-    leaders[col.key] = findLeader(stats, col.key);
+    leaders[col.key] = findLeader(stats, col.key, col.key === "pctMarche");
   });
 
   const table = document.createElement("table");
@@ -4402,7 +4407,11 @@ function renderGroupTable(groupName, stats, opts) {
 
       const td = document.createElement("td");
       const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
-      const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
+      const pct = colMax > 0
+        ? (col.key === "pctMarche"
+            ? Math.min(100, Math.max(0, (colMax / s[col.key]) * 100))
+            : Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)))
+        : 0;
       td.style.background = objectiveCellBackground(met, pct);
       if (met === true) td.classList.add("obj-met");
       if (isLeader) td.dataset.leader = "1";
