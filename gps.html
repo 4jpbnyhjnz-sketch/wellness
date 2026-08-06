@@ -1965,6 +1965,10 @@ table.roster-table select { padding: 4px; }
       </div>
 
       <div class="actions-row no-print">
+        <select id="sessionEquipe" class="btn btn-secondary" style="padding:8px 14px;border-radius:6px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;background:#1a1a1a;color:#fff;border:1px solid rgba(255,255,255,.2)">
+          <option value="Espoir">Espoir</option>
+          <option value="Crabos">Crabos</option>
+        </select>
         <button id="saveSessionBtn" class="btn btn-primary">Enregistrer la séance</button>
         <button id="exportPngBtn" class="btn btn-secondary">Télécharger en image (PNG)</button>
         <button id="printBtn" class="btn btn-secondary">Imprimer / PDF</button>
@@ -2076,6 +2080,17 @@ table.roster-table select { padding: 4px; }
       automatiquement quand vous enregistrez une séance qui bat un record. Vous pouvez aussi importer/exporter
       cette liste pour la sauvegarder ou la compléter à partir d'un autre export.
     </p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;color:rgba(255,255,255,.5);font-weight:600">Filtrer :</span>
+        <button onclick="filterStatsEquipe('all')"   id="filterAll"    class="btn btn-secondary" style="font-size:12px;padding:5px 14px">Toutes</button>
+        <button onclick="filterStatsEquipe('Espoir')" id="filterEspoir" class="btn btn-secondary" style="font-size:12px;padding:5px 14px">Espoir</button>
+        <button onclick="filterStatsEquipe('Crabos')" id="filterCrabos" class="btn btn-secondary" style="font-size:12px;padding:5px 14px">Crabos</button>
+        <input type="file" id="recoverCsvInput" accept=".csv" hidden onchange="recoverAndSaveSession(this.files[0])">
+        <button onclick="document.getElementById('recoverCsvInput').click()" class="btn btn-primary" style="font-size:12px;padding:5px 14px;margin-left:auto">
+          📂 Récupérer une séance (CSV)
+        </button>
+      </div>
+
     <div class="settings-actions">
       <button id="exportRecordsBtn" class="btn btn-secondary">Exporter les records (JSON)</button>
       <button id="importRecordsBtn" class="btn btn-secondary">Importer des records (JSON)</button>
@@ -2561,10 +2576,6 @@ Petit Enzo ; 9</pre>
           <div class="rpe-summary-card">
             <div class="rpe-summary-label">sRPE (semaine S-1)</div>
             <div class="rpe-summary-value" id="semaine-srpe-prev">–</div>
-          </div>
-          <div class="rpe-summary-card">
-            <div class="rpe-summary-label">Séances cette semaine</div>
-            <div class="rpe-summary-value" id="semaine-nb-seances">–</div>
           </div>
         </div>
 
@@ -4036,13 +4047,10 @@ function getObjective(objectivesData, group, key) {
 }
 
 // true = objectif atteint, false = pas atteint, null = pas d'objectif fixé
-// Cas particulier : % Marche — l'objectif est atteint quand on est EN DESSOUS
-// de la cible (moins de marche = plus d'intensité), contrairement aux autres
-// métriques où l'objectif est atteint au-dessus de la cible.
 function isObjectiveMet(objectivesData, group, key, value) {
   const target = getObjective(objectivesData, group, key);
   if (target === null) return null;
-  return key === "pctMarche" ? value <= target : value >= target;
+  return value >= target;
 }
 
 // Couleur de fond d'une cellule du tableau. Quand un objectif est fixé ET atteint,
@@ -4234,9 +4242,9 @@ function renderMedianTable(grouped) {
   return table;
 }
 
-function findLeader(stats, key, lowerIsBetter) {
+function findLeader(stats, key) {
   if (!stats.length) return null;
-  return stats.reduce((best, cur) => ((lowerIsBetter ? cur[key] < best[key] : cur[key] > best[key]) ? cur : best), stats[0]);
+  return stats.reduce((best, cur) => (cur[key] > best[key] ? cur : best), stats[0]);
 }
 
 /* -------------------------------------------------------------------------
@@ -4339,11 +4347,9 @@ function renderGroupTable(groupName, stats, opts) {
   }
 
   // Calcul des leaders par colonne pour le repère ★
-  // % Marche : le meilleur score est le plus bas (moins de marche = plus
-  // d'intensité), contrairement aux autres métriques où le plus haut gagne.
   const leaders = {};
   visibleColumns.forEach((col) => {
-    leaders[col.key] = findLeader(stats, col.key, col.key === "pctMarche");
+    leaders[col.key] = findLeader(stats, col.key);
   });
 
   const table = document.createElement("table");
@@ -4407,11 +4413,7 @@ function renderGroupTable(groupName, stats, opts) {
 
       const td = document.createElement("td");
       const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
-      const pct = colMax > 0
-        ? (col.key === "pctMarche"
-            ? Math.min(100, Math.max(0, (colMax / s[col.key]) * 100))
-            : Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)))
-        : 0;
+      const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
       td.style.background = objectiveCellBackground(met, pct);
       if (met === true) td.classList.add("obj-met");
       if (isLeader) td.dataset.leader = "1";
@@ -5519,27 +5521,13 @@ function buildSessionPrintRoot(session) {
 
 function printSavedSession(session) {
   buildSessionPrintRoot(session);
-  var reportHtml = document.getElementById("sessionPrintRoot").innerHTML;
-  var css = document.querySelector("style") ? document.querySelector("style").innerHTML : "";
-  var w = window.open("", "_blank", "width=900,height=700");
-  if (!w) {
-    alert("La fenêtre d'impression a été bloquée par le navigateur. Autorise les pop-ups pour ce site puis réessaie.");
-    return;
-  }
-  w.document.open();
-  w.document.write(
-    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport séance</title><style>' +
-      css +
-      '\nbody{background:#fff;margin:0}\nbody *{visibility:visible!important}\n#sessionPrintRoot{position:static!important;width:auto!important;display:block!important}\n</style></head><body><div id="sessionPrintRoot">' +
-      reportHtml +
-      "</div></body></html>"
-  );
-  w.document.close();
-  setTimeout(function () {
-    w.focus();
-    w.print();
-  }, 350);
+  document.body.classList.add("printing-saved-session");
+  window.print();
 }
+
+window.addEventListener("afterprint", () => {
+  document.body.classList.remove("printing-saved-session");
+});
 
 function loadSavedSessions() {
   try {
@@ -5733,13 +5721,27 @@ function renderStatsTab() {
 
       const nbPlayers = session.groups["3/4"].length + session.groups.Avant.length;
       const summary = document.createElement("summary");
-      summary.textContent = `${session.date} — ${session.club} (${nbPlayers} joueurs${
+      const equipeLabel = session.equipe ? ` [${session.equipe}]` : '';
+      summary.textContent = `${session.date} — ${session.club}${equipeLabel} (${nbPlayers} joueurs${
         session.durationMinutes ? ", " + session.durationMinutes + " min" : ""
       })`;
       details.appendChild(summary);
 
       const actions = document.createElement("div");
       actions.className = "saved-session-actions";
+
+      // Bouton changer équipe
+      const equipeBtn = document.createElement("button");
+      equipeBtn.className = "btn btn-secondary";
+      equipeBtn.textContent = session.equipe === 'Crabos' ? "🔄 → Espoir" : "🔄 → Crabos";
+      equipeBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        session.equipe = session.equipe === 'Crabos' ? 'Espoir' : 'Crabos';
+        saveSavedSessions(savedSessions);
+        renderStatsTab();
+        if (typeof syncSave === 'function') setTimeout(syncSave, 500);
+      });
+      actions.appendChild(equipeBtn);
 
       const pdfBtn = document.createElement("button");
       pdfBtn.className = "btn btn-primary";
@@ -7433,22 +7435,16 @@ var barDataLabelPlugin = {
     ctx.restore();
   }
 };
-function captureChartForPrint(chartInst, labelColor, datasetColors, hideLabels) {
+function captureChartForPrint(chartInst, labelColor) {
   if (!chartInst) return '';
   try {
     var tmpCanvas = document.createElement('canvas');
     tmpCanvas.width = chartInst.canvas.width || 700;
     tmpCanvas.height = chartInst.canvas.height || 320;
-    var clonedData = JSON.parse(JSON.stringify(chartInst.config.data));
-    if (datasetColors) {
-      clonedData.datasets.forEach(function(ds, i) {
-        if (datasetColors[i]) ds.backgroundColor = datasetColors[i];
-      });
-    }
     var cfg = {
       type: chartInst.config.type,
-      data: clonedData,
-      plugins: hideLabels ? [] : [barDataLabelPlugin],
+      data: JSON.parse(JSON.stringify(chartInst.config.data)),
+      plugins: [barDataLabelPlugin],
       options: Object.assign({}, chartInst.config.options, {
         responsive:false, animation:false,
         plugins: Object.assign({}, chartInst.config.options.plugins, {barDataLabelPlugin:{color:labelColor}})
@@ -7481,33 +7477,6 @@ function computeIndividualSrpe(weekMonday) {
   }).sort(function(a,b){ return b.srpe - a.srpe; });
 }
 
-// Pour chaque joueur du roster (hors absents de la semaine), liste des séances
-// (jour + type) de la semaine pour lesquelles il n'a pas renseigné son RPE.
-function computeWeekMissingByPlayer(weekMonday) {
-  var absences = getWeekAbsences(weekMonday);
-  var days = weekDayKeys(weekMonday);
-  var frDayShort = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  var roster = SEASON_ROSTER.slice().sort().filter(function(p){ return absences.indexOf(p) === -1; });
-  var missingByPlayer = {};
-  roster.forEach(function(p){ missingByPlayer[p] = []; });
-  var totalSessions = 0;
-  days.forEach(function(d) {
-    var rpeDay = RPE[d];
-    if (!rpeDay || !rpeDay.sessions.length) return;
-    var dt = parseFR(d);
-    var dayShort = frDayShort[dt.getDay()];
-    rpeDay.typeAvgs.forEach(function(t) {
-      totalSessions++;
-      var responded = {};
-      rpeDay.sessions.forEach(function(s){ if (s.type === t.type) responded[s.n] = true; });
-      roster.forEach(function(p) {
-        if (!responded[p]) missingByPlayer[p].push(dayShort + ' ' + t.type);
-      });
-    });
-  });
-  return {missingByPlayer: missingByPlayer, totalSessions: totalSessions, roster: roster};
-}
-
 var semaineRpeChartInst = null, semaineMissingChartInst = null, semaineSrpeIndivChartInst = null;
 function renderRpeSemaine() {
   initRpeSemaineWeek();
@@ -7534,9 +7503,6 @@ function renderRpeSemaine() {
 
   var curStats = computeWeekStats(CUR_RPE_WEEK);
   var prevStats = computeWeekStats(prevKey);
-
-  var weekMissingDetailLive = computeWeekMissingByPlayer(CUR_RPE_WEEK);
-  document.getElementById('semaine-nb-seances').textContent = weekMissingDetailLive.totalSessions;
 
   // Tableau récap jour par jour
   var frDayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
@@ -7599,22 +7565,24 @@ function renderRpeSemaine() {
     type:'bar',
     data:{labels:indivCur.map(function(p){return p.name;}), datasets:[
       {
-        label:'sRPE Semaine S-1',
-        data:srpeS1Data,
-        backgroundColor:'#ffffff',
-        borderRadius:3, barPercentage:0.85, categoryPercentage:0.7,
+        label:'sRPE Semaine S',
+        data:indivCur.map(function(p){return p.srpe;}),
+        backgroundColor:'#cc1122', borderRadius:3, barPercentage:0.5, categoryPercentage:0.7,
         yAxisID:'y'
       },
       {
-        label:'sRPE Semaine S',
-        data:indivCur.map(function(p){return p.srpe;}),
-        backgroundColor:'#cc1122',
-        borderRadius:3, barPercentage:0.45, categoryPercentage:0.7,
-        yAxisID:'y'
+        label:'sRPE Semaine S-1',
+        data:srpeS1Data,
+        type:'line',
+        borderColor:'#5bc4f5',
+        backgroundColor:'rgba(91,196,245,.15)',
+        pointBackgroundColor:'#5bc4f5',
+        pointRadius:4, pointHoverRadius:6,
+        borderWidth:2, tension:0.3,
+        yAxisID:'y2'
       }
     ]},
     options:{responsive:true, maintainAspectRatio:false, animation:{duration:0}, layout:{padding:{top:16}},
-      interaction:{mode:'index', intersect:false},
       plugins:{
         legend:{display:true, position:'top', labels:{color:'#888', font:{size:11}, boxWidth:12}},
         tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}
@@ -7622,10 +7590,17 @@ function renderRpeSemaine() {
       scales:{
         y:{
           position:'left',
-          ticks:{color:'#888', font:{size:11}},
+          ticks:{color:'#cc1122', font:{size:11}},
           grid:{color:'rgba(255,255,255,0.04)'},
           border:{color:'transparent'},
-          title:{display:true, text:'sRPE', color:'#888', font:{size:10}}
+          title:{display:true, text:'sRPE (S)', color:'#cc1122', font:{size:10}}
+        },
+        y2:{
+          position:'right',
+          ticks:{color:'#c9a84c', font:{size:11}},
+          grid:{drawOnChartArea:false},
+          border:{color:'transparent'},
+          title:{display:true, text:'sRPE (S-1)', color:'#c9a84c', font:{size:10}}
         },
         x:{ticks:{color:'#888', font:{size:9}, maxRotation:90, minRotation:90, autoSkip:false}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
       }
@@ -7683,36 +7658,7 @@ function renderRpeRapport() {
   var genStr = fmtFR(now) + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 
   var chartImgRpe = captureChartForPrint(semaineRpeChartInst, '#111');
-  var chartImgIndiv = captureChartForPrint(semaineSrpeIndivChartInst, '#111', ['#111111', '#cc1122'], true);
-
-  var indivCur = computeIndividualSrpe(CUR_RPE_WEEK);
-  var indivPrev = computeIndividualSrpe(prevKey);
-  var curMap = {}; indivCur.forEach(function(p){ curMap[p.name] = p.srpe; });
-  var prevMap = {}; indivPrev.forEach(function(p){ prevMap[p.name] = p.srpe; });
-  var weekMissingDetail = computeWeekMissingByPlayer(CUR_RPE_WEEK);
-  var nbSeances = weekMissingDetail.totalSessions;
-
-  var detailRows = weekMissingDetail.roster.map(function(name) {
-    var cur = curMap[name] != null ? curMap[name] : 0;
-    var prev = prevMap[name] != null ? prevMap[name] : null;
-    return {name:name, cur:cur, prev:prev};
-  }).sort(function(a,b){ return b.cur - a.cur; });
-
-  var detailRowsHtml = detailRows.map(function(r) {
-    var diffHtml = '<span style="color:#999">—</span>';
-    if (r.prev) {
-      var diff = ((r.cur - r.prev) / r.prev) * 100;
-      var diffRounded = Math.round(diff);
-      diffHtml = '<span style="font-weight:700">' + (diffRounded > 0 ? '+' : '') + diffRounded + '%</span>';
-    } else if (r.cur > 0) {
-      diffHtml = '<span style="color:#666">Nouveau</span>';
-    }
-    var missList = weekMissingDetail.missingByPlayer[r.name] || [];
-    var missHtml = missList.length
-      ? '<span style="color:#c0392b">' + missList.join(', ') + '</span>'
-      : '<span style="color:#1a7a3a">Aucune</span>';
-    return '<tr><td class="rp-name">' + r.name + '</td><td>' + r.cur.toLocaleString('fr-FR') + '</td><td>' + (r.prev != null ? r.prev.toLocaleString('fr-FR') : '—') + '</td><td>' + diffHtml + '</td><td style="white-space:normal">' + missHtml + '</td></tr>';
-  }).join('');
+  var chartImgIndiv = (semaineSrpeIndivChartInst) ? semaineSrpeIndivChartInst.toBase64Image() : '';
 
   var headerHtml = '<div class="rapport-header">'
     + '<div class="rapport-header-logo"><img src="https://nissarugby.fr/main_logo.svg" alt="logo"></div>'
@@ -7728,23 +7674,14 @@ function renderRpeRapport() {
     + '<div class="rapport-eyebrow">RPE COLLECTIF</div>'
     + headerHtml
     + '<div class="rapport-band">RPE COLLECTIF</div>'
-    + '<div class="rapport-stats" style="grid-template-columns:repeat(3,1fr)">'
+    + '<div class="rapport-stats" style="grid-template-columns:repeat(2,1fr)">'
     + '<div class="rapport-stat"><div class="rs-lbl">sRPE semaine</div><div class="rs-val">' + Math.round(curTotal).toLocaleString('fr-FR') + '</div></div>'
     + '<div class="rapport-stat"><div class="rs-lbl">sRPE S-1</div><div class="rs-val">' + Math.round(prevTotal).toLocaleString('fr-FR') + '</div></div>'
-    + '<div class="rapport-stat"><div class="rs-lbl">Séances (semaine)</div><div class="rs-val">' + nbSeances + '</div></div>'
     + '</div>'
     + (chartImgRpe ? '<div style="margin:14px 16px"><img src="' + chartImgRpe + '" style="width:100%;max-height:400px;object-fit:contain;background:#fff"></div>' : '<div style="margin:14px 16px;color:#999;font-size:12px">Aucune séance RPE cette semaine.</div>')
     + '<div class="rapport-band">SRPE INDIVIDUEL</div>'
     + (chartImgIndiv ? '<div style="margin:14px 16px"><img src="' + chartImgIndiv + '" style="width:100%;max-height:400px;object-fit:contain;background:#fff"></div>' : '')
-    + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 1 sur 2</span></div>'
-    + '</div>'
-    + '<div class="rapport-page">'
-    + '<div class="rapport-topbar"><span>Rapport RPE — Suivi hebdomadaire</span><span>' + genStr + '</span></div>'
-    + '<div class="rapport-eyebrow">DÉTAIL PAR JOUEUR</div>'
-    + headerHtml
-    + '<div class="rapport-band">SRPE S vs S-1 &amp; SÉANCES NON RENSEIGNÉES</div>'
-    + '<div class="rapport-table-wrap"><table class="rapport-table"><thead><tr><th>Joueur</th><th>sRPE S</th><th>sRPE S-1</th><th>Diff %</th><th>Séances non renseignées</th></tr></thead><tbody>' + detailRowsHtml + '</tbody></table></div>'
-    + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 2 sur 2</span></div>'
+    + '<div class="rapport-footer"><span>Nissa Rugby — Rapport RPE hebdomadaire</span><span>Page 1 sur 1</span></div>'
     + '</div>';
 
   document.getElementById('rapport-content').innerHTML = html;
@@ -9021,7 +8958,7 @@ function renderProfileGpsRecords(name) {
   var el = document.getElementById('profileGpsRecords');
   if (!el) return;
 
-  // Chercher les records dans les séances sauvegardées
+  var nameLower = name.toLowerCase();
   var records = {
     distance: { val: null, date: null },
     vmax:     { val: null, date: null },
@@ -9033,26 +8970,30 @@ function renderProfileGpsRecords(name) {
 
   if (typeof savedSessions !== 'undefined') {
     savedSessions.forEach(function(session) {
-      if (!session.players) return;
-      var p = session.players.find(function(pl){ return pl.name && pl.name.toLowerCase() === name.toLowerCase(); });
-      if (!p) return;
+      var allPlayers = [].concat(session.groups && session.groups['3/4'] ? session.groups['3/4'] : [])
+                        .concat(session.groups && session.groups.Avant ? session.groups.Avant : []);
       var d = session.date || '';
-      if (p.distance != null && (records.distance.val == null || p.distance > records.distance.val)) records.distance = { val: p.distance, date: d };
-      if (p.vmax     != null && (records.vmax.val     == null || p.vmax     > records.vmax.val))     records.vmax     = { val: p.vmax,     date: d };
-      if (p.hi18km   != null && (records.hiDist.val   == null || p.hi18km   > records.hiDist.val))   records.hiDist   = { val: p.hi18km,   date: d };
-      if (p.accel    != null && (records.accel.val    == null || p.accel    > records.accel.val))    records.accel    = { val: p.accel,    date: d };
-      if (p.contact  != null && (records.contact.val  == null || p.contact  > records.contact.val))  records.contact  = { val: p.contact,  date: d };
-      if (p.rhie     != null && (records.rhie.val     == null || p.rhie     > records.rhie.val))     records.rhie     = { val: p.rhie,     date: d };
+      allPlayers.forEach(function(p) {
+        // Le nom du joueur est dans p.player
+        var pname = (p.player || p.name || '').toLowerCase();
+        if (pname !== nameLower) return;
+        if (p.distance != null && (records.distance.val == null || p.distance > records.distance.val)) records.distance = { val: p.distance, date: d };
+        if (p.vmax     != null && (records.vmax.val     == null || p.vmax     > records.vmax.val))     records.vmax     = { val: p.vmax,     date: d };
+        if (p.dist18   != null && (records.hiDist.val   == null || p.dist18   > records.hiDist.val))   records.hiDist   = { val: p.dist18,   date: d };
+        if (p.accel    != null && (records.accel.val    == null || p.accel    > records.accel.val))    records.accel    = { val: p.accel,    date: d };
+        if (p.contact  != null && (records.contact.val  == null || p.contact  > records.contact.val))  records.contact  = { val: p.contact,  date: d };
+        if (p.rhie     != null && (records.rhie.val     == null || p.rhie     > records.rhie.val))     records.rhie     = { val: p.rhie,     date: d };
+      });
     });
   }
 
   var defs = [
-    { key:'distance', label:'Distance',    unit:'m'    },
-    { key:'vmax',     label:'Vmax',        unit:'km/h' },
-    { key:'hiDist',   label:'Dist. +18',   unit:'m'    },
-    { key:'accel',    label:'Accel max',   unit:''     },
-    { key:'contact',  label:'Contacts',    unit:''     },
-    { key:'rhie',     label:'RHIE',        unit:''     },
+    { key:'distance', label:'Distance max',  unit:'m'    },
+    { key:'vmax',     label:'Vmax',          unit:'km/h' },
+    { key:'hiDist',   label:'Dist. +18km/h', unit:'m'    },
+    { key:'accel',    label:'Accel max',     unit:''     },
+    { key:'contact',  label:'Contacts max',  unit:''     },
+    { key:'rhie',     label:'RHIE max',      unit:''     },
   ];
 
   var hasAny = defs.some(function(d){ return records[d.key].val != null; });
@@ -9064,7 +9005,7 @@ function renderProfileGpsRecords(name) {
   el.innerHTML = defs.map(function(d) {
     var r = records[d.key];
     if (r.val == null) return '<div class="gps-record-card"><div class="gr-label">' + d.label + '</div><div class="gr-val" style="color:rgba(255,255,255,.2)">—</div></div>';
-    var val = typeof r.val === 'number' ? (Number.isInteger(r.val) ? r.val : r.val.toFixed(2)) : r.val;
+    var val = typeof r.val === 'number' ? (r.val % 1 === 0 ? r.val : r.val.toFixed(2)) : r.val;
     return '<div class="gps-record-card">'
       + '<div class="gr-label">' + d.label + '</div>'
       + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
@@ -9274,12 +9215,226 @@ function initS1Overlays() {
     };
   }
 
+  // ── 2. SEMAINE — ajout S-1 sur le graphique individuel ──
+  if (typeof renderRpeSemaine === 'function') {
+    _origRenderRpeSemaine = renderRpeSemaine;
+    renderRpeSemaine = function() {
+      _origRenderRpeSemaine();
+
+      // Attendre que le chart soit rendu
+      setTimeout(function() {
+        if (typeof semaineSrpeIndivChartInst === 'undefined' || !semaineSrpeIndivChartInst) return;
+        if (typeof CUR_RPE_WEEK === 'undefined') return;
+
+        var prevKey = typeof prevWeekKey === 'function' ? prevWeekKey(CUR_RPE_WEEK) : null;
+        if (!prevKey) return;
+
+        var indivPrev = typeof computeIndividualSrpe === 'function' ? computeIndividualSrpe(prevKey) : [];
+        if (!indivPrev.length) return;
+
+        // Mapper les valeurs S-1 sur les joueurs de la semaine courante
+        var curLabels = semaineSrpeIndivChartInst.data.labels || [];
+        var prevMap = {};
+        indivPrev.forEach(function(p) { prevMap[p.name] = p.srpe; });
+        var s1vals = curLabels.map(function(name) { return prevMap[name] || null; });
+
+        // Supprimer ancien dataset S-1 si présent
+        semaineSrpeIndivChartInst.data.datasets =
+          semaineSrpeIndivChartInst.data.datasets.filter(function(d){ return d.label !== 'S-1'; });
+
+        // Ajouter S-1 en ligne
+        // S-1 en trait horizontal par joueur (repère visuel sur axe secondaire)
+        semaineSrpeIndivChartInst.data.datasets.push({
+          label: 'S-1',
+          type: 'bar',
+          data: s1vals,
+          backgroundColor: 'rgba(201,168,76,0)',
+          borderColor: '#c9a84c',
+          borderWidth: {top: 2, right: 0, bottom: 0, left: 0},
+          borderSkipped: false,
+          barPercentage: 0.7,
+          categoryPercentage: 0.7,
+          order: 0,
+          yAxisID: 'y2',
+        });
+
+        semaineSrpeIndivChartInst.options.plugins.legend.display = true;
+        semaineSrpeIndivChartInst.options.plugins.legend.labels = {
+          color: '#888', font: { size: 11 }, boxWidth: 16, padding: 12,
+        };
+
+        semaineSrpeIndivChartInst.update('none');
+      }, 100);
+    };
+  }
 }
 
 // Lancer après que tous les scripts wellness soient définis
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(initS1Overlays, 500);
 });
+
+</script>
+<script>
+
+/* ── Filtre Espoir/Crabos dans Statistiques ── */
+var currentEquipeFilter = 'all';
+
+function filterStatsEquipe(equipe) {
+  currentEquipeFilter = equipe;
+  ['all','Espoir','Crabos'].forEach(function(e) {
+    var btn = document.getElementById('filter' + (e === 'all' ? 'All' : e));
+    if (btn) btn.style.background = (e === equipe) ? '#D6001C' : '';
+  });
+  renderStatsTabFiltered();
+}
+
+function renderStatsTabFiltered() {
+  var filtered = currentEquipeFilter === 'all'
+    ? savedSessions
+    : savedSessions.filter(function(s){ return (s.equipe || 'Espoir') === currentEquipeFilter; });
+
+  var container = document.getElementById('statsContainer');
+  if (!container) return;
+
+  // Garder les boutons filtre en haut
+  var filterBar = container.previousElementSibling;
+
+  container.innerHTML = '';
+  if (!filtered.length) {
+    container.innerHTML = '<p class="empty-state">Aucune séance ' + currentEquipeFilter + ' enregistrée.</p>';
+    return;
+  }
+
+  var byMonth = {};
+  filtered.forEach(function(session) {
+    var parsed = (typeof parseSessionDateForMonth === 'function')
+      ? parseSessionDateForMonth(session.date)
+      : { monthKey: '0000-00', monthLabel: 'Date inconnue' };
+    parsed = parsed || { monthKey: '0000-00', monthLabel: 'Date inconnue' };
+    if (!byMonth[parsed.monthKey]) byMonth[parsed.monthKey] = { label: parsed.monthLabel, sessions: [] };
+    byMonth[parsed.monthKey].sessions.push(session);
+  });
+
+  Object.keys(byMonth).sort(function(a,b){ return b.localeCompare(a); }).forEach(function(mk, idx) {
+    var monthData = byMonth[mk];
+    var monthDetails = document.createElement('details');
+    monthDetails.className = 'month-group';
+    if (idx === 0) monthDetails.open = true;
+    var monthSummary = document.createElement('summary');
+    monthSummary.textContent = monthData.label + ' (' + monthData.sessions.length + ' séance' + (monthData.sessions.length > 1 ? 's' : '') + ')';
+    monthDetails.appendChild(monthSummary);
+
+    var sorted = monthData.sessions.slice().sort(function(a,b){ return b.id - a.id; });
+    sorted.forEach(function(session) {
+      var details = document.createElement('details');
+      details.className = 'saved-session';
+      var nbPlayers = (session.groups['3/4'] || []).length + (session.groups.Avant || []).length;
+      var equipeLabel = session.equipe ? ' [' + session.equipe + ']' : '';
+      var summary = document.createElement('summary');
+      summary.textContent = session.date + ' — ' + session.club + equipeLabel + ' (' + nbPlayers + ' joueurs' + (session.durationMinutes ? ', ' + session.durationMinutes + ' min' : '') + ')';
+      details.appendChild(summary);
+
+      var actions = document.createElement('div');
+      actions.className = 'saved-session-actions';
+
+      var equipeBtn = document.createElement('button');
+      equipeBtn.className = 'btn btn-secondary';
+      equipeBtn.textContent = session.equipe === 'Crabos' ? '🔄 → Espoir' : '🔄 → Crabos';
+      equipeBtn.onclick = function(e) {
+        e.preventDefault();
+        session.equipe = session.equipe === 'Crabos' ? 'Espoir' : 'Crabos';
+        saveSavedSessions(savedSessions);
+        renderStatsTabFiltered();
+        if (typeof syncSave === 'function') setTimeout(syncSave, 500);
+      };
+      actions.appendChild(equipeBtn);
+
+      var pdfBtn = document.createElement('button');
+      pdfBtn.className = 'btn btn-primary';
+      pdfBtn.textContent = 'Télécharger en PDF';
+      pdfBtn.onclick = function(e) { e.preventDefault(); printSavedSession(session); };
+      actions.appendChild(pdfBtn);
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-secondary';
+      delBtn.textContent = 'Supprimer';
+      delBtn.onclick = function(e) {
+        e.preventDefault();
+        if (confirm('Supprimer définitivement cette séance ?')) {
+          deleteSavedSession(session.id);
+          renderStatsTabFiltered();
+        }
+      };
+      actions.appendChild(delBtn);
+      details.appendChild(actions);
+
+      var body = document.createElement('div');
+      details.appendChild(body);
+      if (typeof renderSavedSessionBody === 'function') renderSavedSessionBody(session, body, summary);
+      monthDetails.appendChild(details);
+    });
+    container.appendChild(monthDetails);
+  });
+}
+
+/* ── Récupérer une séance oubliée depuis CSV ── */
+function recoverAndSaveSession(file) {
+  if (!file) return;
+  var equipe = document.getElementById('sessionEquipe') ? document.getElementById('sessionEquipe').value : 'Espoir';
+  // Demander l'équipe si pas de sélecteur disponible
+  var choix = ['Espoir','Crabos'];
+  var idx = confirm("Équipe Espoir ? (Annuler = Crabos)") ? 0 : 1;
+  equipe = choix[idx];
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var parsed = parseCsv(e.target.result);
+      if (!parsed || !parsed.rows || !parsed.rows.length) {
+        alert('Fichier CSV vide ou non reconnu.');
+        return;
+      }
+      lastParsed = { meta: parsed.meta, rows: parsed.rows };
+      manualOverrides = {};
+      excludedPlayers = {};
+      aliasMap = {};
+
+      // Créer le snapshot et forcer l'équipe
+      var snapshot = buildSessionSnapshot();
+      if (!snapshot) { alert('Impossible de créer le snapshot.'); return; }
+      snapshot.equipe = equipe;
+
+      // Vérifier si une séance identique existe déjà
+      var existingIdx = savedSessions.findIndex(function(s){ return s.date === snapshot.date && s.club === snapshot.club; });
+      if (existingIdx !== -1) {
+        if (!confirm('Une séance du ' + snapshot.date + ' existe déjà. La remplacer ?')) return;
+        savedSessions[existingIdx] = snapshot;
+      } else {
+        savedSessions.push(snapshot);
+      }
+      saveSavedSessions(savedSessions);
+      renderStatsTabFiltered();
+      if (typeof syncSave === 'function') setTimeout(syncSave, 500);
+      alert('✓ Séance du ' + snapshot.date + ' [' + equipe + '] récupérée et sauvegardée !');
+
+    } catch(err) {
+      alert('Erreur : ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+
+// Hook renderStatsTab → renderStatsTabFiltered
+var _origRenderStatsTab = renderStatsTab;
+renderStatsTab = function() {
+  _origRenderStatsTab();
+  // Appliquer le filtre actuel
+  if (currentEquipeFilter !== 'all') {
+    setTimeout(renderStatsTabFiltered, 50);
+  }
+};
 
 </script>
 </body>
