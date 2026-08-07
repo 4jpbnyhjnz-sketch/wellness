@@ -5592,7 +5592,13 @@ function loadSavedSessions() {
 }
 
 function saveSavedSessions(sessions) {
-  localStorage.setItem(SAVED_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+  try {
+    localStorage.setItem(SAVED_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+    return true;
+  } catch (e) {
+    console.error("saveSavedSessions failed", e);
+    return false;
+  }
 }
 
 let savedSessions = loadSavedSessions();
@@ -5742,8 +5748,15 @@ let statsCategoryFilter = "all";
 function setSavedSessionCategory(id, category) {
   const s = savedSessions.find((x) => x.id === id);
   if (!s) return;
+  const previousCategory = s.category;
   s.category = category || null;
-  saveSavedSessions(savedSessions);
+  const ok = saveSavedSessions(savedSessions);
+  if (!ok) {
+    s.category = previousCategory;
+    alert("Impossible d'enregistrer : le stockage du navigateur est plein. Supprimez d'anciennes séances (ou PDF joints) pour libérer de la place, puis réessayez.");
+    renderStatsTab();
+    return;
+  }
   renderStatsTab();
 }
 
@@ -5768,8 +5781,8 @@ function addManualPdfSession() {
     alert("Le fichier joint doit être un PDF.");
     return;
   }
-  if (file.size > 6 * 1024 * 1024) {
-    alert("Ce PDF est trop volumineux (max ~6 Mo) pour être stocké dans le navigateur.");
+  if (file.size > 3 * 1024 * 1024) {
+    alert("Ce PDF est trop volumineux (max ~3 Mo) pour être stocké dans le navigateur. Compressez-le ou enregistrez la séance sans PDF joint.");
     return;
   }
 
@@ -5793,15 +5806,30 @@ function addManualPdfSession() {
     };
 
     const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
+    let previousEntry = null;
     if (existingIndex !== -1) {
-      const prevSession = savedSessions[existingIndex];
-      snapshot.groups = prevSession.groups;
-      if (!snapshot.category) snapshot.category = prevSession.category || null;
+      previousEntry = savedSessions[existingIndex];
+      snapshot.groups = previousEntry.groups;
+      if (!snapshot.category) snapshot.category = previousEntry.category || null;
       savedSessions[existingIndex] = snapshot;
     } else {
       savedSessions.push(snapshot);
     }
-    saveSavedSessions(savedSessions);
+
+    const ok = saveSavedSessions(savedSessions);
+    if (!ok) {
+      // Rollback complet : rien n'a été persisté, on annule le changement en mémoire.
+      if (existingIndex !== -1) {
+        savedSessions[existingIndex] = previousEntry;
+      } else {
+        savedSessions.pop();
+      }
+      statusEl.style.display = "block";
+      statusEl.style.color = "#e8564a";
+      statusEl.textContent = "⚠ Échec de l'enregistrement : stockage du navigateur plein. Essayez un PDF plus léger ou supprimez d'anciennes séances.";
+      return;
+    }
+
     renderStatsTab();
 
     document.getElementById("manualPdfDate").value = "";
