@@ -2206,6 +2206,13 @@ table.roster-table select { padding: 4px; }
   <!-- ===================== ONGLET REGLAGES ===================== -->
   <section id="tab-reglages" class="tab-panel">
 
+    <div class="settings-card" id="storageDiagCard" style="margin-bottom:16px">
+      <h2 class="section-title" style="margin-top:0">🔧 Diagnostic stockage</h2>
+      <p class="panel-help">Si l'appli plante ou se recharge de façon inattendue, c'est souvent un stockage du navigateur saturé. Cliquez pour voir ce qui prend de la place.</p>
+      <button onclick="runStorageDiagnostic()" class="btn btn-secondary">Vérifier le stockage</button>
+      <div id="storageDiagResult" style="margin-top:12px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap"></div>
+    </div>
+
     <!-- BOUTON TEMPORAIRE - SUPPRIMER APRÈS USAGE -->
     <div class="settings-card" style="border:2px solid #e0b341;margin-bottom:16px">
       <h2 class="section-title" style="margin-top:0;color:#e0b341">🛠 Correction horodateurs</h2>
@@ -5580,6 +5587,46 @@ function printSavedSession(session) {
     w.focus();
     w.print();
   }, 350);
+}
+
+function runStorageDiagnostic() {
+  const el = document.getElementById("storageDiagResult");
+  if (!el) return;
+  const lines = [];
+  try {
+    let total = 0;
+    const perKey = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const v = localStorage.getItem(k) || "";
+      const size = new Blob([v]).size;
+      total += size;
+      perKey.push({ k, size });
+    }
+    perKey.sort((a, b) => b.size - a.size);
+    lines.push("localStorage total : " + (total / 1024).toFixed(1) + " Ko");
+    perKey.slice(0, 10).forEach((p) => {
+      lines.push("  · " + p.k + " : " + (p.size / 1024).toFixed(1) + " Ko");
+    });
+  } catch (e) {
+    lines.push("Erreur lecture localStorage : " + e.message);
+  }
+
+  const finish = () => { el.textContent = lines.join("\n"); };
+
+  if (navigator.storage && navigator.storage.estimate) {
+    navigator.storage.estimate().then((est) => {
+      lines.push("");
+      lines.push(
+        "Quota navigateur (localStorage + IndexedDB) : " +
+        ((est.usage || 0) / 1024 / 1024).toFixed(1) + " Mo utilisés sur " +
+        ((est.quota || 0) / 1024 / 1024).toFixed(0) + " Mo disponibles"
+      );
+      finish();
+    }).catch(finish);
+  } else {
+    finish();
+  }
 }
 
 function loadSavedSessions() {
