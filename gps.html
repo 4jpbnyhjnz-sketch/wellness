@@ -5585,7 +5585,21 @@ function printSavedSession(session) {
 function loadSavedSessions() {
   try {
     const raw = localStorage.getItem(SAVED_SESSIONS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const sessions = raw ? JSON.parse(raw) : [];
+    // Nettoyage : d'anciennes séances ont pu être enregistrées avec le PDF
+    // encodé en base64 directement dans localStorage (avant le passage à
+    // IndexedDB), ce qui pouvait faire planter l'onglet à chaque sauvegarde.
+    let needsResave = false;
+    sessions.forEach((s) => {
+      if (s.manualPdf && s.manualPdf.dataUrl) {
+        s.manualPdf = { name: s.manualPdf.name || "seance.pdf" };
+        needsResave = true;
+      }
+    });
+    if (needsResave) {
+      try { localStorage.setItem(SAVED_SESSIONS_STORAGE_KEY, JSON.stringify(sessions)); } catch (e) {}
+    }
+    return sessions;
   } catch (e) {
     return [];
   }
@@ -5660,6 +5674,7 @@ function saveCurrentSession() {
 function deleteSavedSession(id) {
   savedSessions = savedSessions.filter((s) => s.id !== id);
   saveSavedSessions(savedSessions);
+  deletePdfBlob(id);
   renderStatsTab();
   renderAnalyseTab();
   renderJoueurTab();
@@ -5760,6 +5775,56 @@ function setSavedSessionCategory(id, category) {
   renderStatsTab();
 }
 
+/* -------------------------------------------------------------------------
+   PDF joints (séances ajoutées manuellement) — stockés dans IndexedDB,
+   PAS dans localStorage : un PDF encodé en base64 dans localStorage +
+   JSON.stringify sur toute la liste des séances à chaque sauvegarde
+   pouvait faire planter/recharger l'onglet (dépassement mémoire). Les
+   fichiers binaires vont dans IndexedDB, qui est fait pour ça.
+   ------------------------------------------------------------------------- */
+const PDF_DB_NAME = "nissaGpsPdfs";
+const PDF_STORE_NAME = "pdfs";
+
+function openPdfDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PDF_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(PDF_STORE_NAME)) {
+        req.result.createObjectStore(PDF_STORE_NAME);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function savePdfBlob(id, blob) {
+  return openPdfDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(PDF_STORE_NAME, "readwrite");
+    tx.objectStore(PDF_STORE_NAME).put(blob, id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+function getPdfBlob(id) {
+  return openPdfDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(PDF_STORE_NAME, "readonly");
+    const req = tx.objectStore(PDF_STORE_NAME).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  }));
+}
+
+function deletePdfBlob(id) {
+  return openPdfDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(PDF_STORE_NAME, "readwrite");
+    tx.objectStore(PDF_STORE_NAME).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  })).catch((e) => console.error("deletePdfBlob failed", e));
+}
+
 function addManualPdfSession() {
   const dateInput = document.getElementById("manualPdfDate").value;
   const theme = document.getElementById("manualPdfTheme").value.trim();
@@ -5781,68 +5846,73 @@ function addManualPdfSession() {
     alert("Le fichier joint doit être un PDF.");
     return;
   }
-  if (file.size > 3 * 1024 * 1024) {
-    alert("Ce PDF est trop volumineux (max ~3 Mo) pour être stocké dans le navigateur. Compressez-le ou enregistrez la séance sans PDF joint.");
+  if (file.size > 20 * 1024 * 1024) {
+    alert("Ce PDF est trop volumineux (max ~20 Mo).");
+    return;
+  }
+  if (typeof indexedDB === "undefined") {
+    alert("Ce navigateur ne permet pas de stocker de PDF ici. Essayez avec Chrome, Firefox ou Safari récents.");
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const dateParts = dateInput.split("-"); // yyyy-mm-dd
-    const frDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateInput;
-    const clubEl = document.getElementById("clubName");
+  const dateParts = dateInput.split("-"); // yyyy-mm-dd
+  const frDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateInput;
+  const clubEl = document.getElementById("clubName");
 
-    const snapshot = {
-      id: Date.now(),
-      date: frDate,
-      club: clubEl ? clubEl.textContent.trim() : "",
-      theme: theme,
-      durationMinutes: durationVal ? Math.round(parseFloat(durationVal)) : null,
-      objectives: JSON.parse(JSON.stringify(objectives)),
-      columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
-      category: category || null,
-      manualPdf: { name: file.name, dataUrl: e.target.result },
-      groups: { "3/4": [], Avant: [] },
-    };
+  const snapshot = {
+    id: Date.now(),
+    date: frDate,
+    club: clubEl ? clubEl.textContent.trim() : "",
+    theme: theme,
+    durationMinutes: durationVal ? Math.round(parseFloat(durationVal)) : null,
+    objectives: JSON.parse(JSON.stringify(objectives)),
+    columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
+    category: category || null,
+    manualPdf: { name: file.name, size: file.size },
+    groups: { "3/4": [], Avant: [] },
+  };
 
-    const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
-    let previousEntry = null;
-    if (existingIndex !== -1) {
-      previousEntry = savedSessions[existingIndex];
-      snapshot.groups = previousEntry.groups;
-      if (!snapshot.category) snapshot.category = previousEntry.category || null;
-      savedSessions[existingIndex] = snapshot;
-    } else {
-      savedSessions.push(snapshot);
-    }
+  const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
+  let previousEntry = null;
+  if (existingIndex !== -1) {
+    previousEntry = savedSessions[existingIndex];
+    snapshot.groups = previousEntry.groups;
+    snapshot.id = previousEntry.id; // même id : réutilise/écrase le PDF déjà stocké pour cette séance
+    if (!snapshot.category) snapshot.category = previousEntry.category || null;
+    savedSessions[existingIndex] = snapshot;
+  } else {
+    savedSessions.push(snapshot);
+  }
 
-    const ok = saveSavedSessions(savedSessions);
-    if (!ok) {
-      // Rollback complet : rien n'a été persisté, on annule le changement en mémoire.
-      if (existingIndex !== -1) {
-        savedSessions[existingIndex] = previousEntry;
-      } else {
-        savedSessions.pop();
+  savePdfBlob(snapshot.id, file)
+    .then(() => {
+      const ok = saveSavedSessions(savedSessions);
+      if (!ok) {
+        if (existingIndex !== -1) savedSessions[existingIndex] = previousEntry;
+        else savedSessions.pop();
+        deletePdfBlob(snapshot.id);
+        statusEl.style.display = "block";
+        statusEl.style.color = "#e8564a";
+        statusEl.textContent = "⚠ Échec de l'enregistrement : stockage du navigateur plein. Supprimez d'anciennes séances puis réessayez.";
+        return;
       }
+      renderStatsTab();
+      document.getElementById("manualPdfDate").value = "";
+      document.getElementById("manualPdfTheme").value = "";
+      document.getElementById("manualPdfDuration").value = "";
+      document.getElementById("manualPdfCategory").value = "";
+      fileInput.value = "";
+      statusEl.style.display = "block";
+      statusEl.style.color = "#2ecc8a";
+      statusEl.textContent = "✓ Séance enregistrée avec le PDF joint.";
+    })
+    .catch((err) => {
+      if (existingIndex !== -1) savedSessions[existingIndex] = previousEntry;
+      else savedSessions.pop();
       statusEl.style.display = "block";
       statusEl.style.color = "#e8564a";
-      statusEl.textContent = "⚠ Échec de l'enregistrement : stockage du navigateur plein. Essayez un PDF plus léger ou supprimez d'anciennes séances.";
-      return;
-    }
-
-    renderStatsTab();
-
-    document.getElementById("manualPdfDate").value = "";
-    document.getElementById("manualPdfTheme").value = "";
-    document.getElementById("manualPdfDuration").value = "";
-    document.getElementById("manualPdfCategory").value = "";
-    fileInput.value = "";
-    statusEl.style.display = "block";
-    statusEl.style.color = "#2ecc8a";
-    statusEl.textContent = "✓ Séance enregistrée avec le PDF joint.";
-  };
-  reader.onerror = () => alert("Erreur de lecture du PDF.");
-  reader.readAsDataURL(file);
+      statusEl.textContent = "⚠ Échec de l'enregistrement du PDF : " + (err && err.message ? err.message : "erreur inconnue.");
+    });
 }
 
 function renderStatsTab() {
@@ -5956,14 +6026,26 @@ function renderStatsTab() {
       });
       actions.appendChild(pdfBtn);
 
-      if (session.manualPdf && session.manualPdf.dataUrl) {
-        const pdfLink = document.createElement("a");
-        pdfLink.href = session.manualPdf.dataUrl;
-        pdfLink.download = session.manualPdf.name || "seance.pdf";
-        pdfLink.className = "btn btn-secondary";
-        pdfLink.textContent = "📄 PDF joint";
-        pdfLink.style.textDecoration = "none";
-        actions.appendChild(pdfLink);
+      if (session.manualPdf) {
+        const pdfDlBtn = document.createElement("button");
+        pdfDlBtn.type = "button";
+        pdfDlBtn.className = "btn btn-secondary";
+        pdfDlBtn.textContent = "📄 PDF joint";
+        pdfDlBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          getPdfBlob(session.id).then((blob) => {
+            if (!blob) { alert("PDF introuvable dans le stockage du navigateur."); return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = session.manualPdf.name || "seance.pdf";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+          }).catch(() => alert("Erreur de lecture du PDF."));
+        });
+        actions.appendChild(pdfDlBtn);
       }
 
       const delBtn = document.createElement("button");
