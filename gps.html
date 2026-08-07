@@ -2097,7 +2097,48 @@ table.roster-table select { padding: 4px; }
     <p class="panel-help">
       Chaque séance enregistrée depuis l'onglet « Importer une séance » apparaît ici, rangée par mois.
       Cliquez sur un mois puis sur une séance pour voir le détail, et téléchargez-la en PDF si besoin.
+      Utilisez les catégories (Espoir / Crabos) pour ranger et filtrer les séances, et supprimez-en une avec
+      le bouton dédié.
     </p>
+
+    <div class="perf-form-card" id="manualPdfCard" style="margin:16px 0">
+      <div class="perf-form-title">📄 Ajouter une séance oubliée (PDF)</div>
+      <p class="panel-help" style="margin-top:0">
+        Si vous avez oublié d'enregistrer une séance depuis le CSV, vous pouvez au moins garder une trace :
+        joignez le PDF de la séance et remplissez les infos ci-dessous. Elle apparaîtra dans la liste ; si vous
+        importez plus tard le CSV correspondant (même date, même club), les données GPS complètes viendront
+        remplacer cette entrée sans perdre la catégorie ni le PDF joint.
+      </p>
+      <div class="perf-form-row">
+        <div class="perf-field">
+          <label>Date</label>
+          <input type="date" id="manualPdfDate" class="perf-input">
+        </div>
+        <div class="perf-field">
+          <label>Thème</label>
+          <input type="text" id="manualPdfTheme" class="perf-input" placeholder="ex: Entraînement">
+        </div>
+        <div class="perf-field">
+          <label>Durée (min)</label>
+          <input type="number" id="manualPdfDuration" class="perf-input" placeholder="ex: 75">
+        </div>
+        <div class="perf-field">
+          <label>Catégorie</label>
+          <select id="manualPdfCategory" class="perf-input">
+            <option value="">Non classée</option>
+            <option value="Espoir">Espoir</option>
+            <option value="Crabos">Crabos</option>
+          </select>
+        </div>
+      </div>
+      <div class="perf-field" style="margin-top:10px;max-width:360px">
+        <label>PDF de la séance</label>
+        <input type="file" id="manualPdfFile" accept="application/pdf">
+      </div>
+      <div id="manualPdfStatus" style="margin-top:8px;font-size:12px;display:none"></div>
+      <button onclick="addManualPdfSession()" class="btn btn-primary" style="margin-top:12px">💾 Enregistrer cette séance</button>
+    </div>
+
     <div id="statsContainer"></div>
   </section>
 
@@ -5568,6 +5609,7 @@ function buildSessionSnapshot() {
     durationMinutes: lastParsed.meta.durationSeconds ? Math.round(lastParsed.meta.durationSeconds / 60) : null,
     objectives: JSON.parse(JSON.stringify(objectives)),
     columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
+    category: null,
     groups: {
       "3/4": grouped["3/4"],
       Avant: grouped["Avant"],
@@ -5584,6 +5626,9 @@ function saveCurrentSession() {
   // Si une séance avec la même date existe déjà, on la remplace plutôt que de la dupliquer.
   const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
   if (existingIndex !== -1) {
+    const prevSession = savedSessions[existingIndex];
+    if (prevSession.category && !snapshot.category) snapshot.category = prevSession.category;
+    if (prevSession.manualPdf && !snapshot.manualPdf) snapshot.manualPdf = prevSession.manualPdf;
     savedSessions[existingIndex] = snapshot;
   } else {
     savedSessions.push(snapshot);
@@ -5688,8 +5733,88 @@ function renderSavedSessionBody(session, bodyContainer, summaryEl) {
     const nbPlayers = session.groups["3/4"].length + session.groups.Avant.length;
     summaryEl.textContent = `${session.date} — ${session.club} (${nbPlayers} joueurs${
       session.durationMinutes ? ", " + session.durationMinutes + " min" : ""
-    })`;
+    })${session.category ? " · " + session.category : ""}`;
   }
+}
+
+let statsCategoryFilter = "all";
+
+function setSavedSessionCategory(id, category) {
+  const s = savedSessions.find((x) => x.id === id);
+  if (!s) return;
+  s.category = category || null;
+  saveSavedSessions(savedSessions);
+  renderStatsTab();
+}
+
+function addManualPdfSession() {
+  const dateInput = document.getElementById("manualPdfDate").value;
+  const theme = document.getElementById("manualPdfTheme").value.trim();
+  const durationVal = document.getElementById("manualPdfDuration").value;
+  const category = document.getElementById("manualPdfCategory").value;
+  const fileInput = document.getElementById("manualPdfFile");
+  const statusEl = document.getElementById("manualPdfStatus");
+  const file = fileInput.files[0];
+
+  if (!dateInput) {
+    alert("Merci d'indiquer la date de la séance.");
+    return;
+  }
+  if (!file) {
+    alert("Merci de joindre le PDF de la séance.");
+    return;
+  }
+  if (file.type && file.type !== "application/pdf") {
+    alert("Le fichier joint doit être un PDF.");
+    return;
+  }
+  if (file.size > 6 * 1024 * 1024) {
+    alert("Ce PDF est trop volumineux (max ~6 Mo) pour être stocké dans le navigateur.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dateParts = dateInput.split("-"); // yyyy-mm-dd
+    const frDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateInput;
+    const clubEl = document.getElementById("clubName");
+
+    const snapshot = {
+      id: Date.now(),
+      date: frDate,
+      club: clubEl ? clubEl.textContent.trim() : "",
+      theme: theme,
+      durationMinutes: durationVal ? Math.round(parseFloat(durationVal)) : null,
+      objectives: JSON.parse(JSON.stringify(objectives)),
+      columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
+      category: category || null,
+      manualPdf: { name: file.name, dataUrl: e.target.result },
+      groups: { "3/4": [], Avant: [] },
+    };
+
+    const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
+    if (existingIndex !== -1) {
+      const prevSession = savedSessions[existingIndex];
+      snapshot.groups = prevSession.groups;
+      if (!snapshot.category) snapshot.category = prevSession.category || null;
+      savedSessions[existingIndex] = snapshot;
+    } else {
+      savedSessions.push(snapshot);
+    }
+    saveSavedSessions(savedSessions);
+    renderStatsTab();
+
+    document.getElementById("manualPdfDate").value = "";
+    document.getElementById("manualPdfTheme").value = "";
+    document.getElementById("manualPdfDuration").value = "";
+    document.getElementById("manualPdfCategory").value = "";
+    fileInput.value = "";
+    statusEl.style.display = "block";
+    statusEl.style.color = "#2ecc8a";
+    statusEl.textContent = "✓ Séance enregistrée avec le PDF joint.";
+  };
+  reader.onerror = () => alert("Erreur de lecture du PDF.");
+  reader.readAsDataURL(file);
 }
 
 function renderStatsTab() {
@@ -5705,9 +5830,45 @@ function renderStatsTab() {
     return;
   }
 
+  // Filtre par catégorie (Espoir / Crabos / Non classées / Toutes)
+  const categories = ["all", "Espoir", "Crabos", "none"];
+  const catLabels = { all: "Toutes", Espoir: "Espoir", Crabos: "Crabos", none: "Non classées" };
+  const filterRow = document.createElement("div");
+  filterRow.style.cssText = "display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap";
+  categories.forEach((cat) => {
+    const count = cat === "all"
+      ? savedSessions.length
+      : savedSessions.filter((s) => (cat === "none" ? !s.category : s.category === cat)).length;
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "btn " + (statsCategoryFilter === cat ? "btn-primary" : "btn-secondary");
+    pill.style.cssText = "padding:6px 14px;font-size:12px";
+    pill.textContent = `${catLabels[cat]} (${count})`;
+    pill.addEventListener("click", () => {
+      statsCategoryFilter = cat;
+      renderStatsTab();
+    });
+    filterRow.appendChild(pill);
+  });
+  container.appendChild(filterRow);
+
+  const filteredSessions = savedSessions.filter((s) => {
+    if (statsCategoryFilter === "all") return true;
+    if (statsCategoryFilter === "none") return !s.category;
+    return s.category === statsCategoryFilter;
+  });
+
+  if (!filteredSessions.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Aucune séance dans cette catégorie.";
+    container.appendChild(empty);
+    return;
+  }
+
   // Regroupement par mois pour garder la liste compacte
   const byMonth = {};
-  savedSessions.forEach((session) => {
+  filteredSessions.forEach((session) => {
     const parsed = parseSessionDateForMonth(session.date) || { monthKey: "0000-00", monthLabel: "Date inconnue" };
     if (!byMonth[parsed.monthKey]) byMonth[parsed.monthKey] = { label: parsed.monthLabel, sessions: [] };
     byMonth[parsed.monthKey].sessions.push(session);
@@ -5735,11 +5896,28 @@ function renderStatsTab() {
       const summary = document.createElement("summary");
       summary.textContent = `${session.date} — ${session.club} (${nbPlayers} joueurs${
         session.durationMinutes ? ", " + session.durationMinutes + " min" : ""
-      })`;
+      })${session.category ? " · " + session.category : ""}`;
       details.appendChild(summary);
 
       const actions = document.createElement("div");
       actions.className = "saved-session-actions";
+      actions.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap";
+
+      const catSelect = document.createElement("select");
+      catSelect.className = "perf-input";
+      catSelect.style.cssText = "width:auto;padding:6px 10px;font-size:12px";
+      [["", "Non classée"], ["Espoir", "Espoir"], ["Crabos", "Crabos"]].forEach(([val, label]) => {
+        const opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = label;
+        if ((session.category || "") === val) opt.selected = true;
+        catSelect.appendChild(opt);
+      });
+      catSelect.addEventListener("click", (e) => e.stopPropagation());
+      catSelect.addEventListener("change", (e) => {
+        setSavedSessionCategory(session.id, e.target.value || null);
+      });
+      actions.appendChild(catSelect);
 
       const pdfBtn = document.createElement("button");
       pdfBtn.className = "btn btn-primary";
@@ -5749,6 +5927,16 @@ function renderStatsTab() {
         printSavedSession(session);
       });
       actions.appendChild(pdfBtn);
+
+      if (session.manualPdf && session.manualPdf.dataUrl) {
+        const pdfLink = document.createElement("a");
+        pdfLink.href = session.manualPdf.dataUrl;
+        pdfLink.download = session.manualPdf.name || "seance.pdf";
+        pdfLink.className = "btn btn-secondary";
+        pdfLink.textContent = "📄 PDF joint";
+        pdfLink.style.textDecoration = "none";
+        actions.appendChild(pdfLink);
+      }
 
       const delBtn = document.createElement("button");
       delBtn.className = "btn btn-secondary";
@@ -9033,15 +9221,19 @@ function renderProfileGpsRecords(name) {
 
   if (typeof savedSessions !== 'undefined') {
     savedSessions.forEach(function(session) {
-      if (!session.players) return;
-      var p = session.players.find(function(pl){ return pl.name && pl.name.toLowerCase() === name.toLowerCase(); });
+      if (!session.groups) return;
+      var allPlayers = (session.groups["3/4"] || []).concat(session.groups.Avant || []);
+      var p = allPlayers.find(function(pl){
+        var pname = pl.displayName || pl.player || '';
+        return pname && pname.toLowerCase() === name.toLowerCase();
+      });
       if (!p) return;
       var d = session.date || '';
       if (p.distance != null && (records.distance.val == null || p.distance > records.distance.val)) records.distance = { val: p.distance, date: d };
       if (p.vmax     != null && (records.vmax.val     == null || p.vmax     > records.vmax.val))     records.vmax     = { val: p.vmax,     date: d };
-      if (p.hi18km   != null && (records.hiDist.val   == null || p.hi18km   > records.hiDist.val))   records.hiDist   = { val: p.hi18km,   date: d };
-      if (p.accel    != null && (records.accel.val    == null || p.accel    > records.accel.val))    records.accel    = { val: p.accel,    date: d };
-      if (p.contact  != null && (records.contact.val  == null || p.contact  > records.contact.val))  records.contact  = { val: p.contact,  date: d };
+      if (p.dist18   != null && (records.hiDist.val   == null || p.dist18   > records.hiDist.val))   records.hiDist   = { val: p.dist18,   date: d };
+      if (p.accelMax != null && (records.accel.val    == null || p.accelMax > records.accel.val))    records.accel    = { val: p.accelMax, date: d };
+      if (p.contacts != null && (records.contact.val  == null || p.contacts > records.contact.val))  records.contact  = { val: p.contacts, date: d };
       if (p.rhie     != null && (records.rhie.val     == null || p.rhie     > records.rhie.val))     records.rhie     = { val: p.rhie,     date: d };
     });
   }
