@@ -1752,6 +1752,96 @@ table.roster-table select { padding: 4px; }
   /* Adapter les sélecteurs printing-saved-session pour la structure hub */
   body.printing-saved-session #hub-gps main > *:not(#sessionPrintRoot) { display:none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   REDESIGN PRO — menu du haut visible + zones blanches
+   (Accueil + Wellness/RPE). Fiche Joueur / Perf Physique : pass suivant.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* --- Menu du haut : version bureau visible, hamburger repasse en mobile --- */
+.hub-topbar-nav{display:flex;align-items:center;gap:2px;margin-left:8px;flex:1;overflow-x:auto;scrollbar-width:none}
+.hub-topbar-nav::-webkit-scrollbar{display:none}
+.hub-topnav-link{background:none;border:none;color:rgba(255,255,255,.55);font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:8px 13px;border-radius:6px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .15s}
+.hub-topnav-link span{font-size:14px}
+.hub-topnav-link:hover{color:#fff;background:rgba(255,255,255,.07)}
+.hub-topnav-link.active{color:#fff;background:rgba(214,0,28,.25)}
+@media screen and (min-width:960px){
+  .hub-hamburger{display:none}
+  .hub-topbar{padding:0 22px}
+  .hub-back-btn{display:none!important}
+}
+@media screen and (max-width:959px){
+  .hub-topbar-nav{display:none}
+}
+
+/* --- Accueil : cartes blanches --- */
+#hub-accueil .ac-btn{background:#ffffff;border:1px solid #e6e3dc;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+#hub-accueil .ac-btn:hover{background:#fff;border-color:#D6001C;box-shadow:0 4px 18px rgba(0,0,0,.28);transform:translateX(4px)}
+#hub-accueil .ac-label{color:#1a1a1a}
+#hub-accueil .ac-desc{color:#6b6b6b}
+#hub-accueil .ac-arrow{color:#c9c5bc}
+#hub-accueil .ac-logo{background-color:#fff}
+
+/* --- Wellness / RPE : cartes blanches sur fond texturé rouge/noir --- */
+#hub-wellness .metric-card,#hub-wellness .player-card,#hub-wellness .avg-table,
+#hub-wellness .dash-wrap,#hub-wellness .leg-section,#hub-wellness .leg-card,
+#hub-wellness .leg-formula-card,#hub-wellness .leg-alert-group,#hub-wellness .rpe-summary-card,
+#hub-wellness .rpe-type-card,#hub-wellness .rpe-session-table-wrap,#hub-wellness .rpe-indiv-stat,
+#hub-wellness .rpe-history-wrap,#hub-wellness .chart-container,#hub-wellness .header-badge,
+#hub-wellness .view-switch,#hub-wellness .date-nav-bar,#hub-wellness .rpe-missing-type-btn,
+#hub-wellness .date-select,#hub-wellness .btn-nav{
+  background:#ffffff;border-color:#e3e0da;
+}
+#hub-wellness .metric-card,#hub-wellness .metric-card *,
+#hub-wellness .player-card,#hub-wellness .player-card *,
+#hub-wellness .avg-table,#hub-wellness .avg-table *,
+#hub-wellness .dash-wrap,#hub-wellness .dash-wrap *,
+#hub-wellness .leg-section,#hub-wellness .leg-section *,
+#hub-wellness .leg-card,#hub-wellness .leg-card *,
+#hub-wellness .leg-formula-card,#hub-wellness .leg-formula-card *,
+#hub-wellness .leg-alert-group,#hub-wellness .leg-alert-group *,
+#hub-wellness .rpe-summary-card,#hub-wellness .rpe-summary-card *,
+#hub-wellness .rpe-type-card,#hub-wellness .rpe-type-card *,
+#hub-wellness .rpe-session-table-wrap,#hub-wellness .rpe-session-table-wrap *,
+#hub-wellness .rpe-indiv-stat,#hub-wellness .rpe-indiv-stat *,
+#hub-wellness .rpe-history-wrap,#hub-wellness .rpe-history-wrap *,
+#hub-wellness .chart-container,#hub-wellness .chart-container *,
+#hub-wellness .date-nav-bar,#hub-wellness .date-nav-bar *,
+#hub-wellness .view-switch,#hub-wellness .view-switch *,
+#hub-wellness .header-badge{
+  color:#1a1a1a!important;
+}
+/* Libellés secondaires : gris plutôt que noir plein */
+#hub-wellness .metric-label,#hub-wellness .metric-sub,#hub-wellness .rpe-summary-label,
+#hub-wellness .rpe-type-name,#hub-wellness .rpe-type-sub,#hub-wellness .rpe-indiv-stat-lbl,
+#hub-wellness .rpe-history-date,#hub-wellness .leg-card-body li,#hub-wellness .leg-note,
+#hub-wellness .leg-formula-desc,#hub-wellness .comment-cell,#hub-wellness .date-nav-info,
+#hub-wellness .avg-table th,#hub-wellness .dash-table th,#hub-wellness .rpe-session-table th,
+#hub-wellness .footer,#hub-wellness .date-nav-bar label,#hub-wellness .rpe-missing-empty,
+#hub-wellness .leg-scale-lbl{
+  color:#767676!important;
+}
+/* Restaurer les couleurs des badges à fond coloré (ne pas les rendre noirs) */
+#hub-wellness .statut-vert{color:#06160d!important}
+#hub-wellness .statut-jaune{color:#1a1606!important}
+#hub-wellness .statut-orange{color:#1a1106!important}
+#hub-wellness .statut-rouge{color:#fff!important}
+#hub-wellness .pal.critique{color:#fff!important}
+#hub-wellness .persist-badge.danger{color:#fff!important}
+#hub-wellness .rpe-missing-chip{color:#c0202e!important}
+#hub-wellness .absent-chip{color:#c0202e!important}
+#hub-wellness .rpe-type-val,#hub-wellness .metric-value,#hub-wellness .rpe-indiv-stat-val,
+#hub-wellness .rpe-summary-value,#hub-wellness .ind-val,#hub-wellness .dash-table td,
+#hub-wellness .rpe-session-table td,#hub-wellness .avg-table td,#hub-wellness .nom-cell{
+  color:#1a1a1a!important;
+}
+/* Fonds décoratifs (stries, hover, pistes de score) : version claire */
+#hub-wellness .avg-table th,#hub-wellness .dash-table th,#hub-wellness .rpe-session-table th{background:#f6f5f2!important}
+#hub-wellness .dash-table tr:hover td{background:#f9f8f5!important}
+#hub-wellness .score-track{background:#ececea!important}
+#hub-wellness .ind-pill{background:#f6f5f2!important;border-color:#e3e0da!important}
+#hub-wellness .view-switch-btn.active{color:#fff!important}
+
 </style>
 </head>
 <body>
@@ -1786,6 +1876,14 @@ table.roster-table select { padding: 4px; }
     <span class="hub-top-name">Nissa Rugby</span>
     <span class="hub-top-sub">Performance Hub</span>
   </div>
+  <nav class="hub-topbar-nav">
+    <button class="hub-topnav-link active" id="topnav-accueil" onclick="switchHub('accueil')"><span>🏠</span>Accueil</button>
+    <button class="hub-topnav-link" id="topnav-gps" onclick="switchHub('gps')"><span>📊</span>Rapport GPS</button>
+    <button class="hub-topnav-link" id="topnav-wellness" onclick="switchHub('wellness')"><span>💚</span>Wellness</button>
+    <button class="hub-topnav-link" id="topnav-rpe" onclick="switchHub('rpe')"><span>💪</span>RPE</button>
+    <button class="hub-topnav-link" id="topnav-joueur" onclick="switchHub('joueur')"><span>👤</span>Joueur</button>
+    <button class="hub-topnav-link" id="topnav-perf-physique" onclick="switchHub('perf-physique')"><span>🏋️</span>Perf Physique</button>
+  </nav>
   <button class="hub-back-btn" id="backBtn" onclick="switchHub('accueil')">← Accueil</button>
   <div id="logoutBtn" style="display:none;align-items:center;gap:8px;margin-left:auto">
     <span id="userLabel" style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.05em"></span>
@@ -3015,9 +3113,11 @@ function switchHub(name) {
   });
   var back = document.getElementById('backBtn');
   if (back) back.classList.toggle('visible', name!=='accueil');
-  ['accueil','gps','wellness','rpe','joueur'].forEach(function(s){
+  ['accueil','gps','wellness','rpe','joueur','perf-physique'].forEach(function(s){
     var ni = document.getElementById('nav-'+s);
     if (ni) ni.classList.toggle('active', s===name);
+    var tn = document.getElementById('topnav-'+s);
+    if (tn) tn.classList.toggle('active', s===name);
   });
   // Logo watermark : visible seulement sur GPS
   var gpsLogo = document.getElementById('bgLogoWatermark');
@@ -6096,9 +6196,24 @@ function renderStatsTab() {
       actions.appendChild(delBtn);
       details.appendChild(actions);
 
+      // Le contenu détaillé (tableaux joueurs + médianes) est coûteux à
+      // générer. On ne le construit que quand la séance est réellement
+      // ouverte, sinon renderStatsTab() reconstruit TOUTES les séances à
+      // chaque changement (ex: catégorie Espoir/Crabos), ce qui peut geler
+      // l'onglet plusieurs secondes si beaucoup de séances sont enregistrées
+      // — et faire croire à un plantage/rechargement de la page.
       const bodyContainer = document.createElement("div");
       details.appendChild(bodyContainer);
-      renderSavedSessionBody(session, bodyContainer, summary);
+      let bodyRendered = false;
+      const renderBodyOnce = () => {
+        if (bodyRendered) return;
+        bodyRendered = true;
+        renderSavedSessionBody(session, bodyContainer, summary);
+      };
+      if (details.open) renderBodyOnce();
+      details.addEventListener("toggle", () => {
+        if (details.open) renderBodyOnce();
+      });
 
       monthDetails.appendChild(details);
     });
@@ -7351,7 +7466,7 @@ function drawChart(d) {
   function ds(key,label,color,div){return {label:label,borderColor:color,backgroundColor:color+'18',data:win.map(function(x){return WD[x][key]?+(WD[x][key]/(div||1)).toFixed(2):null;}),tension:0.35,pointRadius:3,fill:false,spanGaps:true,borderWidth:2,pointHoverRadius:5};}
   if (chartInst) { chartInst.destroy(); chartInst = null; }
   var canvas = document.getElementById('trendChart');
-  chartInst=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[ds('aS','Score','#cc1122',2),ds('as','Sommeil','#2ecc8a'),ds('aF','Fatigue','#f5a623'),ds('aT','Stress','#ff6644'),ds('aB','Corb.bas','#5bc4f5')]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a0000',borderColor:'rgba(204,17,34,0.3)',borderWidth:1,titleColor:'#f0f0f0',bodyColor:'#888',padding:10}},scales:{y:{min:0,max:18,ticks:{stepSize:3,color:'#888',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},x:{ticks:{color:'#888',font:{size:10},maxTicksLimit:12},grid:{display:false},border:{color:'rgba(255,255,255,0.06)'}}}}});
+  chartInst=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[ds('aS','Score','#cc1122',2),ds('as','Sommeil','#2ecc8a'),ds('aF','Fatigue','#f5a623'),ds('aT','Stress','#ff6644'),ds('aB','Corb.bas','#5bc4f5')]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a0000',borderColor:'rgba(204,17,34,0.3)',borderWidth:1,titleColor:'#f0f0f0',bodyColor:'#888',padding:10}},scales:{y:{min:0,max:18,ticks:{stepSize:3,color:'#888',font:{size:11}},grid:{color:'rgba(0,0,0,0.07)'},border:{color:'transparent'}},x:{ticks:{color:'#888',font:{size:10},maxTicksLimit:12},grid:{display:false},border:{color:'rgba(0,0,0,0.1)'}}}}});
 }
 
 function rpeColor(v){return v<=3?'#2ecc8a':v<=4.9?'#e0b341':v<=6.9?'#e8862e':'#cc1122';}
@@ -7600,8 +7715,8 @@ function renderSrpeChart() {
     options:{responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}},
       scales:{
-        y:{beginAtZero:true, ticks:{color:'#888', font:{size:11}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'transparent'}},
-        x:{ticks:{color:'#888', font:{size:10}, maxTicksLimit:15}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
+        y:{beginAtZero:true, ticks:{color:'#888', font:{size:11}}, grid:{color:'rgba(0,0,0,0.07)'}, border:{color:'transparent'}},
+        x:{ticks:{color:'#888', font:{size:10}, maxTicksLimit:15}, grid:{display:false}, border:{color:'rgba(0,0,0,0.1)'}}
       }
     }
   });
@@ -7911,8 +8026,8 @@ function renderRpeSemaine() {
     options:{responsive:true, maintainAspectRatio:false, animation:{duration:0}, layout:{padding:{top:16}},
       plugins:{legend:{display:true, position:'top', labels:{color:'#888', font:{size:11}, boxWidth:12}}, tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}},
       scales:{
-        y:{min:0, max:10, ticks:{stepSize:1, color:'#888', font:{size:11}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'transparent'}},
-        x:{ticks:{color:'#888', font:{size:11}}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
+        y:{min:0, max:10, ticks:{stepSize:1, color:'#888', font:{size:11}}, grid:{color:'rgba(0,0,0,0.07)'}, border:{color:'transparent'}},
+        x:{ticks:{color:'#888', font:{size:11}}, grid:{display:false}, border:{color:'rgba(0,0,0,0.1)'}}
       }
     }
   });
@@ -7957,11 +8072,11 @@ function renderRpeSemaine() {
         y:{
           position:'left',
           ticks:{color:'#888', font:{size:11}},
-          grid:{color:'rgba(255,255,255,0.04)'},
+          grid:{color:'rgba(0,0,0,0.07)'},
           border:{color:'transparent'},
           title:{display:true, text:'sRPE', color:'#888', font:{size:10}}
         },
-        x:{ticks:{color:'#888', font:{size:9}, maxRotation:90, minRotation:90, autoSkip:false}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
+        x:{ticks:{color:'#888', font:{size:9}, maxRotation:90, minRotation:90, autoSkip:false}, grid:{display:false}, border:{color:'rgba(0,0,0,0.1)'}}
       }
     }
   });
@@ -7992,8 +8107,8 @@ function renderRpeSemaine() {
     options:{responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:true, labels:{color:'#888', font:{size:11}}}, tooltip:{backgroundColor:'#1a0000', borderColor:'rgba(204,17,34,0.3)', borderWidth:1, titleColor:'#f0f0f0', bodyColor:'#888', padding:10}},
       scales:{
-        y:{ticks:{stepSize:1, color:'#888', font:{size:11}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'transparent'}},
-        x:{ticks:{color:'#888', font:{size:10}, maxRotation:60, minRotation:45}, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'}}
+        y:{ticks:{stepSize:1, color:'#888', font:{size:11}}, grid:{color:'rgba(0,0,0,0.07)'}, border:{color:'transparent'}},
+        x:{ticks:{color:'#888', font:{size:10}, maxRotation:60, minRotation:45}, grid:{display:false}, border:{color:'rgba(0,0,0,0.1)'}}
       }
     }
   });
