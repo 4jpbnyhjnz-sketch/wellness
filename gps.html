@@ -1854,14 +1854,15 @@ table.roster-table select { padding: 4px; }
 .p1-roster-edit{margin-top:12px;font-size:12px;color:#555}
 .p1-indiv-select-row{display:flex;align-items:center;gap:10px;margin:12px 0}
 .p1-indiv-select-row select{padding:6px 10px;font-family:inherit;font-size:13px;border:1px solid #ccc;border-radius:var(--radius)}
-.p1-metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:12px}
-.p1-metric-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
-.p1-metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#666;margin-bottom:6px}
-.p1-metric-value{font-size:24px;font-weight:800}
-.p1-metric-diff{font-size:12px;font-weight:700;margin-top:2px;color:#888}
-.p1-metric-diff.up{color:#2e7d32}
-.p1-metric-diff.down{color:var(--red)}
-.p1-metric-chart-wrap{height:70px;margin-top:10px;position:relative}
+.p1-metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:12px}
+.p1-metric-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s ease,transform .15s ease}
+.p1-metric-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.1);transform:translateY(-1px)}
+.p1-metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:8px;font-weight:600}
+.p1-metric-value{font-size:26px;font-weight:800;letter-spacing:-.01em;color:var(--black)}
+.p1-metric-diff{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;margin-top:8px;padding:3px 8px;border-radius:20px;background:#f2f1ef;color:#888}
+.p1-metric-diff.up{color:#1e7d3a;background:rgba(46,125,50,.1)}
+.p1-metric-diff.down{color:var(--red);background:rgba(214,0,28,.08)}
+.p1-metric-chart-wrap{height:95px;margin-top:12px;position:relative}
 .p1-empty{font-size:13px;color:#777;padding:12px 0}
 
 </style>
@@ -6814,6 +6815,10 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
     const series = seasonSeriesFn(m.key);
     const canvas = card.querySelector("canvas");
     if (series.filter((p) => p.value != null).length >= 2 && typeof Chart !== "undefined") {
+      const ctx2d = canvas.getContext("2d");
+      const gradient = ctx2d.createLinearGradient(0, 0, 0, 95);
+      gradient.addColorStop(0, "rgba(214,0,28,.22)");
+      gradient.addColorStop(1, "rgba(214,0,28,0)");
       const chart = new Chart(canvas, {
         type: "line",
         data: {
@@ -6821,9 +6826,12 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
           datasets: [{
             data: series.map((p) => p.value),
             borderColor: "#D6001C",
-            backgroundColor: "rgba(214,0,28,.08)",
+            backgroundColor: gradient,
+            borderWidth: 2,
             tension: 0.3,
-            pointRadius: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#D6001C",
             fill: true,
             spanGaps: true,
           }],
@@ -6831,8 +6839,35 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { enabled: true } },
-          scales: { x: { display: false }, y: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true, callbacks: { title: (items) => "Semaine du " + items[0].label } },
+          },
+          scales: {
+            x: {
+              display: true,
+              ticks: {
+                color: "#999",
+                font: { size: 9 },
+                maxRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 4,
+                callback: function (val) {
+                  const label = this.getLabelForValue(val);
+                  const parts = String(label).split("/");
+                  return parts.length === 3 ? parts[0] + "/" + parts[1] : label;
+                },
+              },
+              grid: { display: false },
+              border: { color: "#e0e0e0" },
+            },
+            y: {
+              display: true,
+              ticks: { color: "#999", font: { size: 9 }, maxTicksLimit: 3 },
+              grid: { color: "rgba(0,0,0,.06)" },
+              border: { display: false },
+            },
+          },
         },
       });
       chartsArr.push(chart);
