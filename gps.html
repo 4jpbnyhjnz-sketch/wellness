@@ -1842,6 +1842,28 @@ table.roster-table select { padding: 4px; }
 #hub-wellness .ind-pill{background:#f6f5f2!important;border-color:#e3e0da!important}
 #hub-wellness .view-switch-btn.active{color:#fff!important}
 
+/* --- Onglet GPS : Suivi Joueurs P1 --- */
+.p1-week-nav{display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap}
+.btn-nav-p1{width:32px;height:32px;border-radius:var(--radius);border:1px solid var(--border);background:var(--white);cursor:pointer;font-size:16px}
+.btn-nav-p1:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.p1-week-label{font-weight:700;font-size:14px}
+.p1-roster-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px}
+.p1-roster-title{font-size:13px;font-weight:700;margin-bottom:10px}
+.p1-roster-checks{display:flex;gap:14px;flex-wrap:wrap}
+.p1-roster-check{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.p1-roster-edit{margin-top:12px;font-size:12px;color:#555}
+.p1-indiv-select-row{display:flex;align-items:center;gap:10px;margin:12px 0}
+.p1-indiv-select-row select{padding:6px 10px;font-family:inherit;font-size:13px;border:1px solid #ccc;border-radius:var(--radius)}
+.p1-metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:12px}
+.p1-metric-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.p1-metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#666;margin-bottom:6px}
+.p1-metric-value{font-size:24px;font-weight:800}
+.p1-metric-diff{font-size:12px;font-weight:700;margin-top:2px;color:#888}
+.p1-metric-diff.up{color:#2e7d32}
+.p1-metric-diff.down{color:var(--red)}
+.p1-metric-chart-wrap{height:70px;margin-top:10px;position:relative}
+.p1-empty{font-size:13px;color:#777;padding:12px 0}
+
 </style>
 </head>
 <body>
@@ -1973,6 +1995,7 @@ table.roster-table select { padding: 4px; }
         <button class="tab-btn active" data-tab="seance">Importer une séance</button>
         <button class="tab-btn" data-tab="match">Importer un match</button>
         <button class="tab-btn" data-tab="stats">Statistiques</button>
+        <button class="tab-btn" data-tab="p1">Suivi Joueurs P1</button>
         <button class="tab-btn" data-tab="reglages">Réglages</button>
       </nav>
     </div>
@@ -2240,6 +2263,47 @@ table.roster-table select { padding: 4px; }
     </div>
 
     <div id="statsContainer"></div>
+  </section>
+
+  <!-- ===================== ONGLET SUIVI JOUEURS P1 ===================== -->
+  <section id="tab-p1" class="tab-panel">
+    <h2 class="section-title">Suivi Joueurs — Groupe P1</h2>
+    <p class="panel-help">
+      Suivi hebdomadaire (lundi → dimanche) du groupe P1, calculé à partir des séances GPS enregistrées dans
+      l'onglet Statistiques. Le volume (distance, +18/+24km/h, contacts, RHIE, accel 2-3) est cumulé sur la
+      semaine ; VMAX et accel max sont le pic de la semaine ; % Marche et % HI sont une moyenne.
+    </p>
+
+    <div class="p1-week-nav no-print">
+      <button class="btn-nav-p1" onclick="moveP1Week(-1)">‹</button>
+      <span id="p1WeekLabel" class="p1-week-label">—</span>
+      <button class="btn-nav-p1" onclick="moveP1Week(1)">›</button>
+      <button class="btn btn-secondary" onclick="renderP1Tab()" style="margin-left:auto">🔄 Actualiser</button>
+    </div>
+
+    <div class="p1-roster-box no-print">
+      <div class="p1-roster-title">Joueurs inclus dans la moyenne collective cette semaine</div>
+      <div id="p1RosterChecks" class="p1-roster-checks"></div>
+      <details class="p1-roster-edit">
+        <summary>Modifier la liste des joueurs du groupe P1</summary>
+        <p class="panel-help" style="margin-top:8px">
+          Un nom (ou bout de nom) par ligne. Ils sont recherchés dans les séances enregistrées
+          (ex : « Faucher » retrouve « Aston Faucher »).
+        </p>
+        <textarea id="p1RosterInput" rows="4" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px;border:1px solid #ccc;border-radius:4px"></textarea>
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="saveP1RosterFromInput()">Enregistrer la liste</button>
+      </details>
+    </div>
+
+    <h3 class="section-title" style="margin-top:24px">Vue collective — moyenne du groupe</h3>
+    <div id="p1CollectiveGrid" class="p1-metric-grid"></div>
+
+    <h3 class="section-title" style="margin-top:28px">Vue individuelle</h3>
+    <div class="p1-indiv-select-row no-print">
+      <label for="p1PlayerSelect">Joueur</label>
+      <select id="p1PlayerSelect" onchange="renderP1Individual()"></select>
+    </div>
+    <div id="p1IndividualGrid" class="p1-metric-grid"></div>
   </section>
 
   <!-- ===================== ONGLET ANALYSE ===================== -->
@@ -6514,6 +6578,316 @@ function initUpload() {
   });
 }
 
+/* -------------------------------------------------------------------------
+   SUIVI JOUEURS P1 — agrégats hebdomadaires (lundi→dimanche) sur un groupe
+   de joueurs, à partir des séances GPS enregistrées (savedSessions). Les
+   fonctions de dates (parseFR, fmtFR, mondayOf, weekDayKeys, prevWeekKey,
+   nextWeekKey) sont définies plus loin dans le fichier (module RPE) mais
+   restent accessibles ici : tout le JS partage la même portée globale, et
+   ces fonctions ne sont appelées qu'au clic (bien après le chargement
+   complet de la page), donc l'ordre des <script> n'a pas d'importance.
+   ------------------------------------------------------------------------- */
+
+const P1_ROSTER_KEY = "gpsP1Roster_v1";
+const DEFAULT_P1_ROSTER = ["Faucher", "Pieronne", "Orthosie", "Nya"];
+const P1_WEEK_EXCLUSIONS_KEY = "gpsP1WeekExclusions_v1"; // { [weekMonday]: [fullName, ...] }
+
+function loadP1Roster() {
+  try {
+    const raw = localStorage.getItem(P1_ROSTER_KEY);
+    const list = raw ? JSON.parse(raw) : null;
+    return Array.isArray(list) && list.length ? list : DEFAULT_P1_ROSTER.slice();
+  } catch (e) { return DEFAULT_P1_ROSTER.slice(); }
+}
+function saveP1Roster(list) {
+  try { localStorage.setItem(P1_ROSTER_KEY, JSON.stringify(list)); } catch (e) {}
+}
+let p1Roster = loadP1Roster();
+
+function loadP1WeekExclusions() {
+  try { return JSON.parse(localStorage.getItem(P1_WEEK_EXCLUSIONS_KEY) || "{}"); }
+  catch (e) { return {}; }
+}
+function saveP1WeekExclusions(obj) {
+  try { localStorage.setItem(P1_WEEK_EXCLUSIONS_KEY, JSON.stringify(obj)); } catch (e) {}
+}
+let p1WeekExclusions = loadP1WeekExclusions();
+
+let p1CurrentWeek = null; // "dd/mm/yyyy" du lundi affiché
+let p1SelectedPlayer = null;
+let p1CollectiveCharts = [];
+let p1IndividualCharts = [];
+
+// Métriques cumulées sur la semaine (charge), au pic (VMAX/accel), ou en moyenne (%).
+const P1_SUM_KEYS = ["distance", "dist18", "dist24", "contacts", "rhie", "accel23"];
+const P1_MAX_KEYS = ["vmax", "accelMax"];
+const P1_AVG_KEYS = ["pctMarche", "pctHi"];
+const P1_METRIC_DEFS = [
+  { key: "distance", label: "Volume global (m)", decimals: 0 },
+  { key: "pctMarche", label: "% Marche", decimals: 1 },
+  { key: "pctHi", label: "% HI", decimals: 1 },
+  { key: "dist18", label: "Distance +18km/h", decimals: 0 },
+  { key: "dist24", label: "Distance +24km/h", decimals: 0 },
+  { key: "vmax", label: "VMAX (km/h)", decimals: 2 },
+  { key: "accelMax", label: "ACCEL MAX", decimals: 2 },
+  { key: "contacts", label: "Contacts", decimals: 0 },
+  { key: "rhie", label: "RHIE", decimals: 0 },
+  { key: "accel23", label: "ACCEL 2-3", decimals: 0 },
+];
+
+function p1SafeParseDate(dateStr) {
+  if (!dateStr || !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(dateStr)) return null;
+  try { return parseFR(dateStr); } catch (e) { return null; }
+}
+
+// Retrouve, dans les séances enregistrées, les noms complets correspondant
+// aux bouts de noms du roster P1 (ex : "Faucher" -> "Aston Faucher").
+function p1MatchedFullNames() {
+  const names = new Set();
+  savedSessions.forEach((s) => {
+    ["3/4", "Avant"].forEach((g) => {
+      (s.groups[g] || []).forEach((p) => {
+        const full = p.displayName || p.player;
+        if (!full) return;
+        if (p1Roster.some((r) => r && full.toLowerCase().indexOf(r.toLowerCase()) !== -1)) {
+          names.add(full);
+        }
+      });
+    });
+  });
+  return Array.from(names).sort();
+}
+
+function p1PlayerWeekEntries(fullName, weekMonday) {
+  const days = weekDayKeys(weekMonday);
+  const entries = [];
+  savedSessions.forEach((s) => {
+    if (days.indexOf(s.date) === -1) return;
+    ["3/4", "Avant"].forEach((g) => {
+      const p = (s.groups[g] || []).find((pp) => (pp.displayName || pp.player) === fullName);
+      if (p) entries.push(p);
+    });
+  });
+  return entries;
+}
+
+function p1AggregateEntries(entries) {
+  if (!entries.length) return null;
+  const agg = { sessionCount: entries.length };
+  P1_SUM_KEYS.forEach((k) => { agg[k] = entries.reduce((sum, e) => sum + (Number(e[k]) || 0), 0); });
+  P1_MAX_KEYS.forEach((k) => { agg[k] = Math.max.apply(null, entries.map((e) => Number(e[k]) || 0)); });
+  P1_AVG_KEYS.forEach((k) => {
+    const vals = entries.map((e) => Number(e[k]) || 0);
+    agg[k] = vals.reduce((a, b) => a + b, 0) / vals.length;
+  });
+  return agg;
+}
+
+function p1PlayerWeekAgg(fullName, weekMonday) {
+  return p1AggregateEntries(p1PlayerWeekEntries(fullName, weekMonday));
+}
+
+function p1TeamWeekAgg(weekMonday) {
+  const excluded = p1WeekExclusions[weekMonday] || [];
+  const included = p1MatchedFullNames().filter((n) => excluded.indexOf(n) === -1);
+  const perPlayer = included.map((n) => p1PlayerWeekAgg(n, weekMonday)).filter(Boolean);
+  if (!perPlayer.length) return null;
+  const agg = { playerCount: perPlayer.length };
+  P1_METRIC_DEFS.forEach((m) => {
+    const vals = perPlayer.map((p) => Number(p[m.key]) || 0);
+    agg[m.key] = vals.reduce((a, b) => a + b, 0) / vals.length;
+  });
+  return agg;
+}
+
+// Tous les lundis de la saison où au moins une séance enregistrée existe.
+function p1AllSeasonWeeks() {
+  const weeks = new Set();
+  savedSessions.forEach((s) => {
+    const d = p1SafeParseDate(s.date);
+    if (d) weeks.add(fmtFR(mondayOf(d)));
+  });
+  return Array.from(weeks).sort((a, b) => parseFR(a) - parseFR(b));
+}
+
+function p1TeamSeasonSeries(metricKey) {
+  return p1AllSeasonWeeks().map((wk) => ({ week: wk, value: (p1TeamWeekAgg(wk) || {})[metricKey] ?? null }));
+}
+function p1PlayerSeasonSeries(fullName, metricKey) {
+  return p1AllSeasonWeeks().map((wk) => ({ week: wk, value: (p1PlayerWeekAgg(fullName, wk) || {})[metricKey] ?? null }));
+}
+
+function p1PctDiff(cur, prev) {
+  if (cur == null || prev == null || !isFinite(prev) || prev === 0) return null;
+  return ((cur - prev) / prev) * 100;
+}
+function p1Fmt(v, decimals) {
+  if (v == null || !isFinite(v)) return "—";
+  return v.toLocaleString("fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function initP1Week() {
+  if (p1CurrentWeek) return;
+  const weeks = p1AllSeasonWeeks();
+  p1CurrentWeek = weeks.length ? weeks[weeks.length - 1] : fmtFR(mondayOf(new Date()));
+}
+
+function moveP1Week(dir) {
+  initP1Week();
+  p1CurrentWeek = dir > 0 ? nextWeekKey(p1CurrentWeek) : prevWeekKey(p1CurrentWeek);
+  renderP1Tab();
+}
+
+function saveP1RosterFromInput() {
+  const raw = document.getElementById("p1RosterInput").value;
+  const list = raw.split("\n").map((s) => s.trim()).filter(Boolean);
+  if (!list.length) { alert("Indiquez au moins un nom."); return; }
+  p1Roster = list;
+  saveP1Roster(p1Roster);
+  renderP1Tab();
+}
+
+function toggleP1WeekExclusion(fullName, checked) {
+  initP1Week();
+  const list = p1WeekExclusions[p1CurrentWeek] || [];
+  const idx = list.indexOf(fullName);
+  if (checked && idx !== -1) list.splice(idx, 1);
+  if (!checked && idx === -1) list.push(fullName);
+  p1WeekExclusions[p1CurrentWeek] = list;
+  saveP1WeekExclusions(p1WeekExclusions);
+  renderP1CollectiveOnly();
+}
+
+function p1DestroyCharts(arr) {
+  arr.forEach((c) => { try { c.destroy(); } catch (e) {} });
+  arr.length = 0;
+}
+
+function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, chartsArr) {
+  p1DestroyCharts(chartsArr);
+  containerEl.innerHTML = "";
+  if (!currentAgg) {
+    containerEl.innerHTML = '<p class="p1-empty">Aucune séance enregistrée pour cette semaine.</p>';
+    return;
+  }
+  P1_METRIC_DEFS.forEach((m) => {
+    const card = document.createElement("div");
+    card.className = "p1-metric-card";
+    const diff = prevAgg ? p1PctDiff(currentAgg[m.key], prevAgg[m.key]) : null;
+    const diffHtml = diff == null
+      ? '<div class="p1-metric-diff">— vs S-1</div>'
+      : `<div class="p1-metric-diff ${diff >= 0 ? "up" : "down"}">${diff >= 0 ? "▲" : "▼"} ${p1Fmt(Math.abs(diff), 1)}% vs S-1</div>`;
+    card.innerHTML =
+      `<div class="p1-metric-label">${m.label}</div>` +
+      `<div class="p1-metric-value">${p1Fmt(currentAgg[m.key], m.decimals)}</div>` +
+      diffHtml +
+      `<div class="p1-metric-chart-wrap"><canvas></canvas></div>`;
+    containerEl.appendChild(card);
+
+    const series = seasonSeriesFn(m.key);
+    const canvas = card.querySelector("canvas");
+    if (series.filter((p) => p.value != null).length >= 2 && typeof Chart !== "undefined") {
+      const chart = new Chart(canvas, {
+        type: "line",
+        data: {
+          labels: series.map((p) => p.week),
+          datasets: [{
+            data: series.map((p) => p.value),
+            borderColor: "#D6001C",
+            backgroundColor: "rgba(214,0,28,.08)",
+            tension: 0.3,
+            pointRadius: 2,
+            fill: true,
+            spanGaps: true,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: true } },
+          scales: { x: { display: false }, y: { display: false } },
+        },
+      });
+      chartsArr.push(chart);
+    }
+  });
+}
+
+function renderP1CollectiveOnly() {
+  initP1Week();
+  const grid = document.getElementById("p1CollectiveGrid");
+  if (!grid) return;
+  const cur = p1TeamWeekAgg(p1CurrentWeek);
+  const prev = p1TeamWeekAgg(prevWeekKey(p1CurrentWeek));
+  renderP1MetricGrid(grid, cur, prev, (key) => p1TeamSeasonSeries(key), p1CollectiveCharts);
+}
+
+function renderP1Individual() {
+  initP1Week();
+  const select = document.getElementById("p1PlayerSelect");
+  const grid = document.getElementById("p1IndividualGrid");
+  if (!select || !grid) return;
+  p1SelectedPlayer = select.value;
+  if (!p1SelectedPlayer) {
+    p1DestroyCharts(p1IndividualCharts);
+    grid.innerHTML = '<p class="p1-empty">Choisissez un joueur.</p>';
+    return;
+  }
+  const cur = p1PlayerWeekAgg(p1SelectedPlayer, p1CurrentWeek);
+  const prev = p1PlayerWeekAgg(p1SelectedPlayer, prevWeekKey(p1CurrentWeek));
+  renderP1MetricGrid(grid, cur, prev, (key) => p1PlayerSeasonSeries(p1SelectedPlayer, key), p1IndividualCharts);
+}
+
+function renderP1Tab() {
+  initP1Week();
+
+  const label = document.getElementById("p1WeekLabel");
+  if (label) {
+    const days = weekDayKeys(p1CurrentWeek);
+    label.textContent = "Semaine du " + days[0] + " au " + days[6];
+  }
+
+  const matched = p1MatchedFullNames();
+  const excluded = p1WeekExclusions[p1CurrentWeek] || [];
+  const rosterBox = document.getElementById("p1RosterChecks");
+  if (rosterBox) {
+    rosterBox.innerHTML = "";
+    if (!matched.length) {
+      rosterBox.innerHTML = '<span class="p1-empty">Aucun joueur du groupe P1 trouvé dans les séances enregistrées — vérifiez la liste ci-dessous.</span>';
+    }
+    matched.forEach((name) => {
+      const wrap = document.createElement("label");
+      wrap.className = "p1-roster-check";
+      const checked = excluded.indexOf(name) === -1;
+      wrap.innerHTML = `<input type="checkbox" ${checked ? "checked" : ""}> ${name}`;
+      wrap.querySelector("input").addEventListener("change", (e) => {
+        toggleP1WeekExclusion(name, e.target.checked);
+      });
+      rosterBox.appendChild(wrap);
+    });
+  }
+  const rosterInput = document.getElementById("p1RosterInput");
+  if (rosterInput && document.activeElement !== rosterInput) rosterInput.value = p1Roster.join("\n");
+
+  const select = document.getElementById("p1PlayerSelect");
+  if (select) {
+    const prevSelected = p1SelectedPlayer;
+    select.innerHTML = "";
+    matched.forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    });
+    if (matched.length) {
+      select.value = matched.indexOf(prevSelected) !== -1 ? prevSelected : matched[0];
+    }
+  }
+
+  renderP1CollectiveOnly();
+  renderP1Individual();
+}
+
 function initTabs() {
   const buttons = document.querySelectorAll("#hub-gps .tab-btn");
   buttons.forEach((btn) => {
@@ -6522,6 +6896,7 @@ function initTabs() {
       document.querySelectorAll("#hub-gps .tab-panel").forEach((p) => p.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+      if (btn.dataset.tab === "p1") renderP1Tab();
     });
   });
 }
