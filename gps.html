@@ -3014,7 +3014,30 @@ Petit Enzo ; 9</pre>
 // Identifiants — modifiez librement
 var USERS = [
   { user: 'Buge.theo', pass: 'nissa2025', role: 'admin' },
+  // Accès restreint : uniquement le dashboard Wellness (Joueurs / Dashboard
+  // staff / Moyennes / Évolution / Légende) avec navigation dans les dates.
+  // Pas d'accès à RPE, aux réglages, ni aux autres onglets (GPS, Joueur,
+  // Perf physique). Voir applyRoleRestrictions().
+  { user: 'Tato.luca', pass: 'Tatoluca2026', role: 'prepa' },
 ];
+
+// Restreint l'interface visible selon le rôle du compte connecté. C'est une
+// restriction côté interface (cohérente avec le système de connexion actuel,
+// qui n'est pas un vrai verrou serveur) : elle cache la navigation et bloque
+// switchHub()/switchView() pour un usage normal au clic, pas une sécurité
+// contre quelqu'un qui irait modifier le code depuis les outils développeur.
+function applyRoleRestrictions() {
+  if (!currentUser) return;
+  var isPrepa = currentUser.role === 'prepa';
+  var hamburger = document.querySelector('.hub-hamburger');
+  var topnav = document.querySelector('.hub-topbar-nav');
+  var backBtn = document.getElementById('backBtn');
+  var vsRpe = document.getElementById('vs-rpe');
+  if (hamburger) hamburger.style.display = isPrepa ? 'none' : '';
+  if (topnav) topnav.style.display = isPrepa ? 'none' : '';
+  if (backBtn) backBtn.style.display = isPrepa ? 'none' : '';
+  if (vsRpe) vsRpe.style.display = isPrepa ? 'none' : '';
+}
 
 var SESSION_KEY = 'nissaHubSession_v1';
 var currentUser = null;
@@ -3058,7 +3081,8 @@ function doLogin() {
   // Afficher le site
   var topbar = document.querySelector('.hub-topbar');
   if (topbar) topbar.style.display = 'flex';
-  switchHub('accueil');
+  applyRoleRestrictions();
+  switchHub(match.role === 'prepa' ? 'wellness' : 'accueil');
   // Ajouter bouton logout dans topbar
   var logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) logoutBtn.style.display = 'flex';
@@ -3085,7 +3109,8 @@ document.addEventListener('DOMContentLoaded', function() {
       var logoutBtn = document.getElementById('logoutBtn');
       if (logoutBtn) logoutBtn.style.display = 'flex';
     }, 300);
-    switchHub('accueil');
+    applyRoleRestrictions();
+    switchHub(session.role === 'prepa' ? 'wellness' : 'accueil');
   } else {
     // Masquer le site, afficher login
     var topbar = document.querySelector('.hub-topbar');
@@ -3111,6 +3136,8 @@ var currentSection = 'accueil';
 var SECTIONS = ['gps','wellness','joueur','perf-physique'];
 
 function switchHub(name) {
+  // Compte "prépa" : accès restreint au seul dashboard Wellness.
+  if (currentUser && currentUser.role === 'prepa' && name !== 'wellness') name = 'wellness';
   currentSection = name;
   var ac = document.getElementById('hub-accueil');
   if (ac) ac.style.display = name==='accueil' ? 'flex' : 'none';
@@ -7848,6 +7875,8 @@ function renderRpeIndiv() {
 var CURRENT_VIEW = 'wellness';
 
 function switchView(view) {
+  // Compte "prépa" : pas d'accès à la vue RPE.
+  if (currentUser && currentUser.role === 'prepa' && view === 'rpe') view = 'wellness';
   CURRENT_VIEW = view;
   document.getElementById('vs-wellness').classList.toggle('active', view==='wellness');
   document.getElementById('vs-rpe').classList.toggle('active', view==='rpe');
