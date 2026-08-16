@@ -2202,10 +2202,12 @@ table.roster-table select { padding: 4px; }
     <div class="perf-form-card" id="manualPdfCard" style="margin:16px 0">
       <div class="perf-form-title">📄 Ajouter une séance oubliée (PDF)</div>
       <p class="panel-help" style="margin-top:0">
-        Si vous avez oublié d'enregistrer une séance depuis le CSV, vous pouvez au moins garder une trace :
-        joignez le PDF de la séance et remplissez les infos ci-dessous. Elle apparaîtra dans la liste ; si vous
-        importez plus tard le CSV correspondant (même date, même club), les données GPS complètes viendront
-        remplacer cette entrée sans perdre la catégorie ni le PDF joint.
+        Si vous avez oublié d'enregistrer une séance depuis le CSV, joignez ici le PDF du rapport (celui généré
+        par cette appli, page 1 "Tableaux &amp; médianes") : les stats des joueurs sont détectées et extraites
+        automatiquement. Si le PDF n'est pas dans ce format, la séance sera quand même gardée avec le PDF en
+        pièce jointe, mais sans données joueurs. Si vous importez plus tard le CSV correspondant (même date,
+        même club), les données GPS complètes viendront remplacer cette entrée sans perdre la catégorie ni le
+        PDF joint.
       </p>
       <div class="perf-form-row">
         <div class="perf-field">
@@ -2231,7 +2233,7 @@ table.roster-table select { padding: 4px; }
       </div>
       <div class="perf-field" style="margin-top:10px;max-width:360px">
         <label>PDF de la séance</label>
-        <input type="file" id="manualPdfFile" accept="application/pdf">
+        <input type="file" id="manualPdfFile" accept="application/pdf" onchange="handleManualPdfFileChange(this.files[0])">
       </div>
       <div id="manualPdfStatus" style="margin-top:8px;font-size:12px;display:none"></div>
       <button onclick="addManualPdfSession()" class="btn btn-primary" style="margin-top:12px">💾 Enregistrer cette séance</button>
@@ -2441,6 +2443,13 @@ Petit Enzo ; 9</pre>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Lecture de PDF (extraction auto des tableaux GPS depuis un PDF de rapport) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== "undefined") {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+</script>
 </div>
 
 <!-- WELLNESS + RPE (body index2 exact) -->
@@ -5961,6 +5970,166 @@ function deletePdfBlob(id) {
   })).catch((e) => console.error("deletePdfBlob failed", e));
 }
 
+/* -------------------------------------------------------------------------
+   Extraction automatique des données joueurs depuis un PDF de rapport GPS
+   (page 1 "TABLEAUX & MÉDIANES", générée par cette appli elle-même). Le PDF
+   contient un texte sélectionnable par cellule ; on regroupe les items par
+   ligne (même Y) puis par colonne (ordre X), ce qui donne un tableau propre
+   même si un nombre est coupé en deux morceaux par le séparateur de milliers
+   ("5" + "288,19"). Si la structure attendue n'est pas trouvée (PDF scanné,
+   autre mise en page...), on renvoie null et l'appli retombe sur le mode
+   "PDF joint sans données" existant.
+   ------------------------------------------------------------------------- */
+const PDF_METRIC_KEYS = ["pctMarche", "pctHi", "dist18", "dist24", "vmax", "accelMax", "contacts", "rhie", "accel23"];
+
+function parseFrNumPdf(s) {
+  if (s == null) return null;
+  s = String(s).replace(/[\s ]/g, "").replace(",", ".").replace("—", "");
+  if (s === "" || s === "-") return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+function parsePdfPlayerRow(tokens) {
+  const name = tokens[0];
+  let idx = 1;
+  let distanceStr;
+  if (/^\d{1,3}$/.test(tokens[idx] || "") && /^\d{3},\d+$/.test(tokens[idx + 1] || "")) {
+    distanceStr = tokens[idx] + tokens[idx + 1];
+    idx += 2;
+  } else {
+    distanceStr = tokens[idx] || "";
+    idx += 1;
+  }
+  const rest = tokens.slice(idx);
+  if (rest.length !== 9) return null; // ligne inattendue, on l'ignore plutôt que de mal l'interpréter
+  const obj = { player: name, displayName: name, distance: parseFrNumPdf(distanceStr) };
+  PDF_METRIC_KEYS.forEach((k, i) => { obj[k] = parseFrNumPdf(rest[i]); });
+  return obj;
+}
+
+function frDateToIsoDate(str) {
+  const m = String(str || "").match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (!m) return "";
+  let [, dd, mm, yyyy] = m;
+  if (yyyy.length === 2) yyyy = "20" + yyyy;
+  return yyyy + "-" + mm.padStart(2, "0") + "-" + dd.padStart(2, "0");
+}
+
+async function parseGpsReportPdfFile(file) {
+  if (typeof pdfjsLib === "undefined") return null;
+  try {
+    const buf = await file.arrayBuffer();
+    const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await doc.getPage(1);
+    const content = await page.getTextContent();
+    const items = content.items
+      .map((it) => ({ str: it.str, x: it.transform[4], y: Math.round(it.transform[5] * 10) / 10 }))
+      .filter((it) => it.str.trim() !== "");
+    const rowsMap = {};
+    items.forEach((it) => {
+      if (!rowsMap[it.y]) rowsMap[it.y] = [];
+      rowsMap[it.y].push(it);
+    });
+    const ys = Object.keys(rowsMap).map(Number).sort((a, b) => b - a);
+    const lines = ys.map((y) => rowsMap[y].sort((a, b) => a.x - b.x).map((it) => it.str));
+
+    let club = "", theme = "", dateStr = "", duree = "";
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i][0] === "CLUB" && lines[i][1] === "THÈME") {
+        const vals = lines[i + 1] || [];
+        club = vals[0] || ""; theme = vals[1] || ""; dateStr = vals[2] || ""; duree = vals[3] || "";
+        break;
+      }
+    }
+
+    function extractGroup(startLabel) {
+      const startIdx = lines.findIndex((l) => l[0] === startLabel);
+      if (startIdx === -1) return [];
+      let i = startIdx + 1;
+      while (i < lines.length && lines[i][0] !== "JOUEUR") i++;
+      i++; // passe l'entête
+      const out = [];
+      while (i < lines.length) {
+        const first = lines[i][0] || "";
+        if (first.indexOf("OBJECTIF") === 0) break;
+        if (lines[i].length >= 10) {
+          const p = parsePdfPlayerRow(lines[i]);
+          if (p) out.push(p);
+        }
+        i++;
+      }
+      return out;
+    }
+
+    const g34 = extractGroup("3/4");
+    const gAvant = extractGroup("AVANT");
+    if (!g34.length && !gAvant.length) return null; // format non reconnu
+
+    const durationMinutes = duree ? parseInt(duree, 10) || null : null;
+    if (durationMinutes) {
+      [...g34, ...gAvant].forEach((p) => {
+        if (p.distance != null) p.meterPerMin = Math.round((p.distance / durationMinutes) * 100) / 100;
+      });
+    }
+
+    return {
+      club: club,
+      theme: theme,
+      isoDate: frDateToIsoDate(dateStr),
+      durationMinutes: durationMinutes,
+      groups: { "3/4": g34, Avant: gAvant },
+    };
+  } catch (e) {
+    console.error("parseGpsReportPdfFile failed", e);
+    return null;
+  }
+}
+
+let parsedPdfResult = null;
+
+function handleManualPdfFileChange(file) {
+  parsedPdfResult = null;
+  const statusEl = document.getElementById("manualPdfStatus");
+  if (!file) { if (statusEl) statusEl.style.display = "none"; return; }
+  if (file.type && file.type !== "application/pdf") return; // message d'erreur géré à l'enregistrement
+  statusEl.style.display = "block";
+  statusEl.style.color = "#888";
+  statusEl.textContent = "⏳ Analyse du PDF…";
+  parseGpsReportPdfFile(file)
+    .then((result) => {
+      if (!result) {
+        statusEl.style.color = "#e0b341";
+        statusEl.textContent = "⚠ Données non détectées dans ce PDF (mise en page non reconnue) — il sera joint comme simple pièce jointe, sans stats joueurs. Remplissez les champs manuellement.";
+        return;
+      }
+      parsedPdfResult = result;
+      const nb34 = result.groups["3/4"].length;
+      const nbAvant = result.groups.Avant.length;
+      statusEl.style.color = "#2ecc8a";
+      statusEl.textContent = `✓ ${nb34 + nbAvant} joueur(s) détecté(s) (3/4 : ${nb34}, Avant : ${nbAvant}). Vérifiez les champs ci-dessus puis enregistrez.`;
+      // Pré-remplit les champs si l'utilisateur ne les a pas déjà saisis
+      const dateEl = document.getElementById("manualPdfDate");
+      const themeEl = document.getElementById("manualPdfTheme");
+      const durationEl = document.getElementById("manualPdfDuration");
+      const categoryEl = document.getElementById("manualPdfCategory");
+      if (dateEl && !dateEl.value && result.isoDate) dateEl.value = result.isoDate;
+      if (themeEl && !themeEl.value && result.theme) themeEl.value = result.theme;
+      if (durationEl && !durationEl.value && result.durationMinutes) durationEl.value = result.durationMinutes;
+      if (categoryEl && !categoryEl.value && result.club) {
+        const opt = Array.from(categoryEl.options).find(
+          (o) => o.value && o.value.toLowerCase() === result.club.toLowerCase()
+        );
+        if (opt) categoryEl.value = opt.value;
+      }
+    })
+    .catch((e) => {
+      statusEl.style.color = "#e0b341";
+      statusEl.textContent = "⚠ Erreur de lecture du PDF — il sera joint comme simple pièce jointe, sans stats joueurs.";
+      console.error(e);
+    });
+}
+
 function addManualPdfSession() {
   const dateInput = document.getElementById("manualPdfDate").value;
   const theme = document.getElementById("manualPdfTheme").value.trim();
@@ -6005,14 +6174,20 @@ function addManualPdfSession() {
     columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
     category: category || null,
     manualPdf: { name: file.name, size: file.size },
-    groups: { "3/4": [], Avant: [] },
+    groups: parsedPdfResult ? parsedPdfResult.groups : { "3/4": [], Avant: [] },
   };
 
   const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
   let previousEntry = null;
   if (existingIndex !== -1) {
     previousEntry = savedSessions[existingIndex];
-    snapshot.groups = previousEntry.groups;
+    const prevHasData = previousEntry.groups && (
+      (previousEntry.groups["3/4"] || []).length || (previousEntry.groups.Avant || []).length
+    );
+    const newHasData = snapshot.groups["3/4"].length || snapshot.groups.Avant.length;
+    // Ne jamais écraser de vraies données (ex: import CSV, ou un PDF déjà analysé
+    // avec succès plus tôt) par une entrée vide.
+    if (prevHasData && !newHasData) snapshot.groups = previousEntry.groups;
     snapshot.id = previousEntry.id; // même id : réutilise/écrase le PDF déjà stocké pour cette séance
     if (!snapshot.category) snapshot.category = previousEntry.category || null;
     savedSessions[existingIndex] = snapshot;
@@ -6032,7 +6207,17 @@ function addManualPdfSession() {
         statusEl.textContent = "⚠ Échec de l'enregistrement : stockage du navigateur plein. Supprimez d'anciennes séances puis réessayez.";
         return;
       }
+      // Comme pour l'import CSV : vérifie si un des joueurs bat son record de
+      // saison (VMAX / ACCEL) avec les données extraites du PDF, et met à
+      // jour gpsSeasonRecords_v1 en conséquence.
+      const allPlayers = [...snapshot.groups["3/4"], ...snapshot.groups.Avant];
+      const brokenRecords = allPlayers.length ? updateSeasonRecordsWithSession(allPlayers) : [];
+
       renderStatsTab();
+      renderAnalyseTab();
+      renderJoueurTab();
+      renderRecordsTab();
+      parsedPdfResult = null;
       document.getElementById("manualPdfDate").value = "";
       document.getElementById("manualPdfTheme").value = "";
       document.getElementById("manualPdfDuration").value = "";
@@ -6040,7 +6225,11 @@ function addManualPdfSession() {
       fileInput.value = "";
       statusEl.style.display = "block";
       statusEl.style.color = "#2ecc8a";
-      statusEl.textContent = "✓ Séance enregistrée avec le PDF joint.";
+      const nbPlayers = allPlayers.length;
+      statusEl.textContent = nbPlayers
+        ? `✓ Séance enregistrée avec ${nbPlayers} joueur(s) extraits du PDF.` +
+          (brokenRecords.length ? " 🌟 Nouveau record pour : " + brokenRecords.join(", ") + "." : "")
+        : "✓ Séance enregistrée (PDF joint, sans données joueurs extraites).";
     })
     .catch((err) => {
       if (existingIndex !== -1) savedSessions[existingIndex] = previousEntry;
