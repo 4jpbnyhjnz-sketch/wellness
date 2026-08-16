@@ -1843,10 +1843,10 @@ table.roster-table select { padding: 4px; }
 #hub-wellness .view-switch-btn.active{color:#fff!important}
 
 /* --- Onglet GPS : Suivi Joueurs P1 --- */
-.p1-week-nav{display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap}
-.btn-nav-p1{width:32px;height:32px;border-radius:var(--radius);border:1px solid var(--border);background:var(--white);cursor:pointer;font-size:16px}
+.p1-week-nav{display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
+.btn-nav-p1{width:32px;height:32px;border-radius:var(--radius);border:1px solid var(--border);background:var(--white);color:var(--black);cursor:pointer;font-size:16px}
 .btn-nav-p1:hover{background:var(--red);color:#fff;border-color:var(--red)}
-.p1-week-label{font-weight:700;font-size:14px}
+.p1-week-label{font-weight:700;font-size:14px;color:var(--black)}
 .p1-roster-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px}
 .p1-roster-title{font-size:13px;font-weight:700;margin-bottom:10px}
 .p1-roster-checks{display:flex;gap:14px;flex-wrap:wrap}
@@ -6637,18 +6637,18 @@ let p1IndividualCharts = [];
 // Métriques cumulées sur la semaine (charge), au pic (VMAX/accel), ou en moyenne (%).
 const P1_SUM_KEYS = ["distance", "dist18", "dist24", "contacts", "rhie", "accel23"];
 const P1_MAX_KEYS = ["vmax", "accelMax"];
-const P1_AVG_KEYS = ["pctMarche", "pctHi"];
+const P1_AVG_KEYS = [];
+// collective:false => affiché uniquement dans la vue individuelle (un "meilleur"
+// VMAX/accel moyenné entre joueurs n'a pas de sens, seul le pic par joueur en a).
 const P1_METRIC_DEFS = [
-  { key: "distance", label: "Volume global (m)", decimals: 0 },
-  { key: "pctMarche", label: "% Marche", decimals: 1 },
-  { key: "pctHi", label: "% HI", decimals: 1 },
-  { key: "dist18", label: "Distance +18km/h", decimals: 0 },
-  { key: "dist24", label: "Distance +24km/h", decimals: 0 },
-  { key: "vmax", label: "VMAX (km/h)", decimals: 2 },
-  { key: "accelMax", label: "ACCEL MAX", decimals: 2 },
-  { key: "contacts", label: "Contacts", decimals: 0 },
-  { key: "rhie", label: "RHIE", decimals: 0 },
-  { key: "accel23", label: "ACCEL 2-3", decimals: 0 },
+  { key: "distance", label: "Volume global (m)", decimals: 0, collective: true },
+  { key: "dist18", label: "Distance +18km/h", decimals: 0, collective: true },
+  { key: "dist24", label: "Distance +24km/h", decimals: 0, collective: true },
+  { key: "contacts", label: "Contacts", decimals: 0, collective: true },
+  { key: "rhie", label: "RHIE", decimals: 0, collective: true },
+  { key: "accel23", label: "ACCEL 2-3", decimals: 0, collective: true },
+  { key: "vmax", label: "Meilleure VMAX (km/h)", decimals: 2, collective: false },
+  { key: "accelMax", label: "Meilleur ACCEL MAX", decimals: 2, collective: false },
 ];
 
 function p1SafeParseDate(dateStr) {
@@ -6779,14 +6779,14 @@ function p1DestroyCharts(arr) {
   arr.length = 0;
 }
 
-function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, chartsArr) {
+function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, chartsArr, defs) {
   p1DestroyCharts(chartsArr);
   containerEl.innerHTML = "";
   if (!currentAgg) {
     containerEl.innerHTML = '<p class="p1-empty">Aucune séance enregistrée pour cette semaine.</p>';
     return;
   }
-  P1_METRIC_DEFS.forEach((m) => {
+  (defs || P1_METRIC_DEFS).forEach((m) => {
     const card = document.createElement("div");
     card.className = "p1-metric-card";
     const diff = prevAgg ? p1PctDiff(currentAgg[m.key], prevAgg[m.key]) : null;
@@ -6835,7 +6835,7 @@ function renderP1CollectiveOnly() {
   if (!grid) return;
   const cur = p1TeamWeekAgg(p1CurrentWeek);
   const prev = p1TeamWeekAgg(prevWeekKey(p1CurrentWeek));
-  renderP1MetricGrid(grid, cur, prev, (key) => p1TeamSeasonSeries(key), p1CollectiveCharts);
+  renderP1MetricGrid(grid, cur, prev, (key) => p1TeamSeasonSeries(key), p1CollectiveCharts, P1_METRIC_DEFS.filter((m) => m.collective));
 }
 
 function renderP1Individual() {
