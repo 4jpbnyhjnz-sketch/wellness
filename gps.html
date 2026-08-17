@@ -1790,7 +1790,7 @@ table.roster-table select { padding: 4px; }
 #hub-wellness .rpe-history-wrap,#hub-wellness .chart-container,#hub-wellness .header-badge,
 #hub-wellness .view-switch,#hub-wellness .date-nav-bar,#hub-wellness .rpe-missing-type-btn,
 #hub-wellness .date-select,#hub-wellness .btn-nav{
-  background:#ffffff;border-color:#e3e0da;
+  background:#ffffff;border-color:#e3e0da;color:#1a1a1a!important;
 }
 #hub-wellness .metric-card,#hub-wellness .metric-card *,
 #hub-wellness .player-card,#hub-wellness .player-card *,
@@ -1841,6 +1841,13 @@ table.roster-table select { padding: 4px; }
 #hub-wellness .score-track{background:#ececea!important}
 #hub-wellness .ind-pill{background:#f6f5f2!important;border-color:#e3e0da!important}
 #hub-wellness .view-switch-btn.active{color:#fff!important}
+/* Onglet Réglages RPE (durées, corrections) : champs générés en JS avec
+   l'ancien fond sombre — on les repasse en clair pour rester lisibles. */
+#hub-wellness #rpetab-reglages input,
+#hub-wellness #rpetab-reglages select{
+  background:#ffffff!important;color:#1a1a1a!important;border:1px solid #ccc!important;
+}
+#hub-wellness #rpetab-reglages option{background:#ffffff;color:#1a1a1a}
 
 /* --- Onglet GPS : Suivi Joueurs P1 --- */
 .p1-week-nav{display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
@@ -2280,6 +2287,7 @@ table.roster-table select { padding: 4px; }
       <span id="p1WeekLabel" class="p1-week-label">—</span>
       <button class="btn-nav-p1" onclick="moveP1Week(1)">›</button>
       <button class="btn btn-secondary" onclick="renderP1Tab()" style="margin-left:auto">🔄 Actualiser</button>
+      <button class="btn btn-primary" id="p1ReportBtn" onclick="printP1Report()">🖨️ Rapport PDF</button>
     </div>
 
     <div class="p1-roster-box no-print">
@@ -6948,6 +6956,123 @@ function renderP1Tab() {
 
   renderP1CollectiveOnly();
   renderP1Individual();
+}
+
+// Génère un rapport imprimable (fenêtre séparée, comme pour une séance) avec
+// les moyennes de l'équipe et un histogramme par métrique comparant tous les
+// joueurs du groupe P1 sur la semaine affichée.
+function printP1Report() {
+  initP1Week();
+  const matched = p1MatchedFullNames();
+  if (!matched.length) {
+    alert("Aucun joueur du groupe P1 trouvé dans les séances enregistrées.");
+    return;
+  }
+  if (typeof Chart === "undefined") {
+    alert("Les graphiques ne sont pas disponibles (bibliothèque non chargée).");
+    return;
+  }
+  const excluded = p1WeekExclusions[p1CurrentWeek] || [];
+  const included = matched.filter((n) => excluded.indexOf(n) === -1);
+  const days = weekDayKeys(p1CurrentWeek);
+  const teamAgg = p1TeamWeekAgg(p1CurrentWeek);
+  const teamPrevAgg = p1TeamWeekAgg(prevWeekKey(p1CurrentWeek));
+
+  const summaryRows = P1_METRIC_DEFS.filter((m) => m.collective)
+    .map((m) => {
+      const diff = teamAgg && teamPrevAgg ? p1PctDiff(teamAgg[m.key], teamPrevAgg[m.key]) : null;
+      const diffStr = diff == null ? "—" : (diff >= 0 ? "▲ " : "▼ ") + p1Fmt(Math.abs(diff), 1) + "%";
+      return `<tr><td style="text-align:left;font-weight:600">${m.label}</td><td>${teamAgg ? p1Fmt(teamAgg[m.key], m.decimals) : "—"}</td><td>${diffStr}</td></tr>`;
+    })
+    .join("");
+
+  // Un histogramme (canvas hors-écran) par métrique, converti en image PNG.
+  const tmpWrap = document.createElement("div");
+  tmpWrap.style.cssText = "position:fixed;left:-9999px;top:0;width:700px;height:320px";
+  document.body.appendChild(tmpWrap);
+
+  const histoBlocks = P1_METRIC_DEFS.map((m) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 700;
+    canvas.height = 320;
+    tmpWrap.innerHTML = "";
+    tmpWrap.appendChild(canvas);
+    const values = matched.map((n) => {
+      const agg = p1PlayerWeekAgg(n, p1CurrentWeek);
+      return agg ? agg[m.key] : null;
+    });
+    const chart = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: matched,
+        datasets: [{
+          data: values,
+          backgroundColor: matched.map((n) => (excluded.indexOf(n) !== -1 ? "rgba(150,150,150,.5)" : "#D6001C")),
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        responsive: false,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: m.label, font: { size: 16, weight: "bold" }, color: "#1a1a1a" },
+        },
+        scales: {
+          x: { ticks: { font: { size: 11 }, color: "#1a1a1a" }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { font: { size: 11 }, color: "#1a1a1a" }, grid: { color: "rgba(0,0,0,.08)" } },
+        },
+      },
+    });
+    const img = canvas.toDataURL("image/png");
+    chart.destroy();
+    return `<div class="avoid-break" style="margin-bottom:22px"><img src="${img}" style="width:100%;max-width:700px;display:block;margin:0 auto"></div>`;
+  }).join("");
+
+  document.body.removeChild(tmpWrap);
+
+  const reportHtml = `
+    <div class="report-card">
+      <div class="page1-block">
+        <div class="report-header">
+          <div class="report-logo-block"><img src="${NISSA_LOGO_B64}" alt="Nissa Rugby"></div>
+          <div class="report-header-block"><span class="report-header-label">Groupe</span><span class="report-header-value">P1</span></div>
+          <div class="report-header-block"><span class="report-header-label">Semaine</span><span class="report-header-value">${days[0]} au ${days[6]}</span></div>
+          <div class="report-header-block"><span class="report-header-label">Joueurs inclus</span><span class="report-header-value">${included.join(", ") || "—"}</span></div>
+        </div>
+        <h2 class="section-title">Moyennes de l'équipe</h2>
+        <table class="data-table" style="width:100%">
+          <thead><tr><th>Métrique</th><th>Moyenne équipe</th><th>% vs S-1</th></tr></thead>
+          <tbody>${summaryRows}</tbody>
+        </table>
+      </div>
+      <div class="page-break-before avoid-break-group">
+        <h2 class="section-title">Comparaison des joueurs par métrique</h2>
+        <p class="panel-help">Semaine du ${days[0]} au ${days[6]}${excluded.length ? " — joueur(s) exclu(s) de la moyenne en gris : " + excluded.join(", ") : ""}</p>
+        ${histoBlocks}
+      </div>
+    </div>
+  `;
+
+  const css = document.querySelector("style") ? document.querySelector("style").innerHTML : "";
+  const w = window.open("", "_blank", "width=900,height=700");
+  if (!w) {
+    alert("La fenêtre d'impression a été bloquée par le navigateur. Autorise les pop-ups pour ce site puis réessaie.");
+    return;
+  }
+  w.document.open();
+  w.document.write(
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport Suivi P1</title><style>' +
+      css +
+      '\nbody{background:#fff;margin:0}\nbody *{visibility:visible!important}\n#p1PrintRoot{position:static!important;width:auto!important;display:block!important}\n</style></head><body><div id="p1PrintRoot">' +
+      reportHtml +
+      "</div></body></html>"
+  );
+  w.document.close();
+  setTimeout(function () {
+    w.focus();
+    w.print();
+  }, 350);
 }
 
 function initTabs() {
