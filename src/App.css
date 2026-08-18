@@ -77,6 +77,40 @@
   overflow-x: auto;
 }
 
+.hub-topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.logout-btn {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: rgba(214, 0, 28, 0.25);
+  border-color: rgba(214, 0, 28, 0.65);
+}
+
 .hub-nav-btn {
   border: none;
   border-radius: 6px;
@@ -273,6 +307,12 @@
 
   .hub-nav {
     width: 100%;
+  }
+
+  .hub-topbar-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
   }
 
   .home-hero h1 {

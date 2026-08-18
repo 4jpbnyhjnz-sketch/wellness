@@ -1,13 +1,14 @@
 import { supabase } from '../supabaseClient'
 import type { AuthUser } from './types'
 
-function mapSessionUserToAuthUser(user: {
+export type SupabaseSessionUser = {
   id: string
   login?: string | null
   user_metadata?: { full_name?: string }
   app_metadata?: { role?: string }
-}): AuthUser {
+}
 
+export function mapSupabaseUserToAuthUser(user: SupabaseSessionUser): AuthUser {
   const login = user.login ?? ''
   const displayName = user.user_metadata?.full_name ?? login ?? 'Utilisateur'
   const role = user.app_metadata?.role ?? 'authenticated'
@@ -30,10 +31,7 @@ export async function loginWithSupabase(
     throw new Error('Merci de renseigner identifiant et mot de passe.')
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    login,
-    password,
-  })
+  const { data, error } = await supabase.auth.signInWithPassword({ login, password })
 
   if (error) {
     throw new Error(error.message)
@@ -43,5 +41,5 @@ export async function loginWithSupabase(
     throw new Error('Connexion impossible: utilisateur introuvable.')
   }
 
-  return mapSessionUserToAuthUser(data.user)
+  return mapSupabaseUserToAuthUser(data.user)
 }

@@ -13,6 +13,11 @@ type HubModule = {
   accentColor: string
 }
 
+type AppProps = {
+  userDisplayName?: string
+  onLogout?: () => void
+}
+
 const HUB_MODULES: HubModule[] = [
   {
     id: 'gps',
@@ -51,7 +56,7 @@ const HUB_MODULES: HubModule[] = [
   },
 ]
 
-function App() {
+function App({ userDisplayName, onLogout }: AppProps) {
   const [activeView, setActiveView] = useState<HubView>('accueil')
   const activeModule = HUB_MODULES.find((module) => module.id === activeView)
 
@@ -86,6 +91,14 @@ function App() {
             </button>
           ))}
         </nav>
+        <div className="hub-topbar-actions">
+          {userDisplayName ? <span className="user-chip">{userDisplayName}</span> : null}
+          {onLogout ? (
+            <button type="button" className="logout-btn" onClick={onLogout}>
+              Deconnexion
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <main>
