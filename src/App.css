@@ -44,6 +44,12 @@
   font-weight: 800;
 }
 
+.brand-logo img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
 .brand-text {
   display: flex;
   flex-direction: column;
@@ -120,6 +126,12 @@
   font-weight: 800;
   letter-spacing: 0.1em;
   box-shadow: 0 0 0 8px rgba(214, 0, 28, 0.06), 0 0 0 16px rgba(214, 0, 28, 0.03);
+}
+
+.home-logo img {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
 }
 
 .home-hero h1 {

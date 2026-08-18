@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import './App.css'
+import nissaLogo from './assets/nissa_rugby.svg'
 
 type HubModuleId = 'gps' | 'wellness' | 'rpe' | 'joueur' | 'perf-physique'
 type HubView = 'accueil' | HubModuleId
@@ -58,7 +59,9 @@ function App() {
     <div className="hub-app">
       <header className="hub-topbar">
         <button type="button" className="brand" onClick={() => setActiveView('accueil')}>
-          <span className="brand-logo">NR</span>
+          <span className="brand-logo">
+            <img src={nissaLogo} alt="Logo Nissa Rugby" />
+          </span>
           <span className="brand-text">
             <span className="brand-name">Nissa Rugby</span>
             <span className="brand-sub">Performance Hub</span>
@@ -90,7 +93,7 @@ function App() {
           <section className="home-screen">
             <div className="home-hero">
               <div className="home-logo" aria-hidden="true">
-                NR
+                <img src={nissaLogo} alt="" />
               </div>
               <h1>Nissa Rugby</h1>
               <p>Performance Hub · Saison 2025-2026</p>
