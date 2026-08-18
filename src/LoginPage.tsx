@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { type AuthUser, loginWithMockDb, mockUsersForDev } from './auth/mockAuth'
-import { supabase } from './supabaseClient'
+import type { AuthUser } from './auth/types'
+import { loginWithSupabase } from './auth/supabaseAuth'
 
 import './LoginPage.css'
 import nissaLogo from './assets/nissa_rugby.svg'
@@ -22,7 +22,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     setErrorMessage('')
 
     try {
-      const user = await loginWithMockDb(username, password)
+      const user = await loginWithSupabase(username, password)
       onLoginSuccess?.(user)
     } catch (error) {
       if (error instanceof Error) {
@@ -47,7 +47,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         <form onSubmit={handleSubmit}>
           <label className="login-field">
-            <span>Identifiant</span>
+            <span>Email / Identifiant</span>
             <input
               className="login-input"
               type="text"
@@ -80,17 +80,6 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             {errorMessage}
           </p>
         </form>
-
-        <details className="login-dev-hint">
-          <summary>Comptes de test (mock)</summary>
-          <ul>
-            {mockUsersForDev.map((user) => (
-              <li key={user.username}>
-                <code>{user.username}</code> / <code>{user.password}</code> ({user.role})
-              </li>
-            ))}
-          </ul>
-        </details>
       </div>
     </div>
   )
