@@ -6736,6 +6736,35 @@ function p1TeamWeekAgg(weekMonday) {
   return agg;
 }
 
+// Agregat d'un seul joueur sur UN jour precis (utile pour le recap quotidien
+// du rapport imprimable) — reutilise p1AggregateEntries pour gerer le cas de
+// plusieurs seances le meme jour (somme/pic/moyenne selon la metrique).
+function p1PlayerDayAgg(fullName, dateStr) {
+  const entries = [];
+  savedSessions.forEach((s) => {
+    if (s.date !== dateStr) return;
+    ["3/4", "Avant"].forEach((g) => {
+      const p = (s.groups[g] || []).find((pp) => (pp.displayName || pp.player) === fullName);
+      if (p) entries.push(p);
+    });
+  });
+  return p1AggregateEntries(entries);
+}
+
+// Moyenne d'equipe sur UN jour precis (memes exclusions que la semaine affichee).
+function p1TeamDayAgg(dateStr, weekMonday) {
+  const excluded = p1WeekExclusions[weekMonday] || [];
+  const included = p1MatchedFullNames().filter((n) => excluded.indexOf(n) === -1);
+  const perPlayer = included.map((n) => p1PlayerDayAgg(n, dateStr)).filter(Boolean);
+  if (!perPlayer.length) return null;
+  const agg = { playerCount: perPlayer.length };
+  P1_METRIC_DEFS.forEach((m) => {
+    const vals = perPlayer.map((p) => Number(p[m.key]) || 0);
+    agg[m.key] = vals.reduce((a, b) => a + b, 0) / vals.length;
+  });
+  return agg;
+}
+
 // Tous les lundis de la saison où au moins une séance enregistrée existe.
 function p1AllSeasonWeeks() {
   const weeks = new Set();
@@ -6958,18 +6987,19 @@ function renderP1Tab() {
   renderP1Individual();
 }
 
-// Génère un rapport imprimable (fenêtre séparée, comme pour une séance) avec
-// les moyennes de l'équipe et un histogramme par métrique comparant tous les
-// joueurs du groupe P1 sur la semaine affichée.
+// Genere un rapport imprimable (fenetre separee, comme pour une seance) avec
+// les moyennes de l'equipe, un histogramme par metrique comparant tous les
+// joueurs du groupe P1 sur la semaine affichee, puis un detail par joueur
+// (toutes les stats, semaine S vs semaine S-1) en histogramme.
 function printP1Report() {
   initP1Week();
   const matched = p1MatchedFullNames();
   if (!matched.length) {
-    alert("Aucun joueur du groupe P1 trouvé dans les séances enregistrées.");
+    alert("Aucun joueur du groupe P1 trouve dans les seances enregistrees.");
     return;
   }
   if (typeof Chart === "undefined") {
-    alert("Les graphiques ne sont pas disponibles (bibliothèque non chargée).");
+    alert("Les graphiques ne sont pas disponibles (bibliotheque non chargee).");
     return;
   }
   const excluded = p1WeekExclusions[p1CurrentWeek] || [];
@@ -6981,52 +7011,86 @@ function printP1Report() {
   const summaryRows = P1_METRIC_DEFS.filter((m) => m.collective)
     .map((m) => {
       const diff = teamAgg && teamPrevAgg ? p1PctDiff(teamAgg[m.key], teamPrevAgg[m.key]) : null;
-      const diffStr = diff == null ? "—" : (diff >= 0 ? "▲ " : "▼ ") + p1Fmt(Math.abs(diff), 1) + "%";
-      return `<tr><td style="text-align:left;font-weight:600">${m.label}</td><td>${teamAgg ? p1Fmt(teamAgg[m.key], m.decimals) : "—"}</td><td>${diffStr}</td></tr>`;
+      const diffStr = diff == null ? "\u2014" : (diff >= 0 ? "\u25b2 " : "\u25bc ") + p1Fmt(Math.abs(diff), 1) + "%";
+      return `<tr><td style="text-align:left;font-weight:600">${m.label}</td><td>${teamAgg ? p1Fmt(teamAgg[m.key], m.decimals) : "\u2014"}</td><td>${diffStr}</td></tr>`;
     })
     .join("");
 
-  // Un histogramme (canvas hors-écran) par métrique, converti en image PNG.
+  // Recap quotidien : une ligne par jour de la semaine affichee, une colonne par metrique.
+  const collectiveDefs = P1_METRIC_DEFS.filter((m) => m.collective);
+  const dailyHeaderCells = collectiveDefs.map((m) => `<th>${m.label}</th>`).join("");
+  const dailyRows = days
+    .map((dayStr) => {
+      const dayAgg = p1TeamDayAgg(dayStr, p1CurrentWeek);
+      const cells = collectiveDefs
+        .map((m) => `<td>${dayAgg ? p1Fmt(dayAgg[m.key], m.decimals) : "\u2014"}</td>`)
+        .join("");
+      return `<tr><td style="text-align:left;font-weight:600">${dayStr}</td>${cells}</tr>`;
+    })
+    .join("");
+
+  // Canvas hors-ecran reutilise pour generer chaque image de graphique.
   const tmpWrap = document.createElement("div");
   tmpWrap.style.cssText = "position:fixed;left:-9999px;top:0;width:700px;height:320px";
   document.body.appendChild(tmpWrap);
 
-  const histoBlocks = P1_METRIC_DEFS.map((m) => {
+  function renderBarChartImg(width, height, labels, values, colors, titleText, fontSize) {
     const canvas = document.createElement("canvas");
-    canvas.width = 700;
-    canvas.height = 320;
+    canvas.width = width;
+    canvas.height = height;
     tmpWrap.innerHTML = "";
     tmpWrap.appendChild(canvas);
-    const values = matched.map((n) => {
-      const agg = p1PlayerWeekAgg(n, p1CurrentWeek);
-      return agg ? agg[m.key] : null;
-    });
     const chart = new Chart(canvas, {
       type: "bar",
       data: {
-        labels: matched,
-        datasets: [{
-          data: values,
-          backgroundColor: matched.map((n) => (excluded.indexOf(n) !== -1 ? "rgba(150,150,150,.5)" : "#D6001C")),
-          borderRadius: 4,
-        }],
+        labels: labels,
+        datasets: [{ data: values, backgroundColor: colors, borderRadius: 4 }],
       },
       options: {
         responsive: false,
         animation: false,
         plugins: {
           legend: { display: false },
-          title: { display: true, text: m.label, font: { size: 16, weight: "bold" }, color: "#1a1a1a" },
+          title: { display: true, text: titleText, font: { size: fontSize, weight: "bold" }, color: "#1a1a1a" },
         },
         scales: {
-          x: { ticks: { font: { size: 11 }, color: "#1a1a1a" }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { font: { size: 11 }, color: "#1a1a1a" }, grid: { color: "rgba(0,0,0,.08)" } },
+          x: { ticks: { font: { size: fontSize - 2 }, color: "#1a1a1a" }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { font: { size: fontSize - 3 }, color: "#1a1a1a" }, grid: { color: "rgba(0,0,0,.08)" } },
         },
       },
     });
     const img = canvas.toDataURL("image/png");
     chart.destroy();
+    return img;
+  }
+
+  // 1) Un histogramme par metrique, comparant tous les joueurs du groupe (semaine affichee).
+  const histoBlocks = P1_METRIC_DEFS.map((m) => {
+    const values = matched.map((n) => {
+      const agg = p1PlayerWeekAgg(n, p1CurrentWeek);
+      return agg ? agg[m.key] : null;
+    });
+    const colors = matched.map((n) => (excluded.indexOf(n) !== -1 ? "rgba(150,150,150,.5)" : "#D6001C"));
+    const img = renderBarChartImg(700, 320, matched, values, colors, m.label, 16);
     return `<div class="avoid-break" style="margin-bottom:22px"><img src="${img}" style="width:100%;max-width:700px;display:block;margin:0 auto"></div>`;
+  }).join("");
+
+  // 2) Detail par joueur : toutes les stats, semaine S vs semaine S-1.
+  const playerSections = matched.map((playerName) => {
+    const curAgg = p1PlayerWeekAgg(playerName, p1CurrentWeek);
+    const prevAgg = p1PlayerWeekAgg(playerName, prevWeekKey(p1CurrentWeek));
+    const metricBlocks = P1_METRIC_DEFS.map((m) => {
+      const curVal = curAgg ? curAgg[m.key] : null;
+      const prevVal = prevAgg ? prevAgg[m.key] : null;
+      const img = renderBarChartImg(320, 220, ["S-1", "S"], [prevVal, curVal], ["rgba(150,150,150,.5)", "#D6001C"], m.label, 12);
+      return `<div class="avoid-break" style="flex:1 1 220px;max-width:260px"><img src="${img}" style="width:100%;display:block"></div>`;
+    }).join("");
+    return `
+      <div class="avoid-break-group" style="margin-bottom:24px">
+        <h3 class="section-title" style="font-size:15px">${playerName}</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">${metricBlocks}</div>
+      </div>
+    `;
   }).join("");
 
   document.body.removeChild(tmpWrap);
@@ -7038,18 +7102,28 @@ function printP1Report() {
           <div class="report-logo-block"><img src="${NISSA_LOGO_B64}" alt="Nissa Rugby"></div>
           <div class="report-header-block"><span class="report-header-label">Groupe</span><span class="report-header-value">P1</span></div>
           <div class="report-header-block"><span class="report-header-label">Semaine</span><span class="report-header-value">${days[0]} au ${days[6]}</span></div>
-          <div class="report-header-block"><span class="report-header-label">Joueurs inclus</span><span class="report-header-value">${included.join(", ") || "—"}</span></div>
+          <div class="report-header-block"><span class="report-header-label">Joueurs inclus</span><span class="report-header-value">${included.join(", ") || "\u2014"}</span></div>
         </div>
-        <h2 class="section-title">Moyennes de l'équipe</h2>
+        <h2 class="section-title">Moyennes de l'equipe</h2>
         <table class="data-table" style="width:100%">
-          <thead><tr><th>Métrique</th><th>Moyenne équipe</th><th>% vs S-1</th></tr></thead>
+          <thead><tr><th>Metrique</th><th>Moyenne equipe</th><th>% vs S-1</th></tr></thead>
           <tbody>${summaryRows}</tbody>
+        </table>
+        <h2 class="section-title" style="margin-top:20px">Recap par jour</h2>
+        <table class="data-table" style="width:100%;font-size:12px">
+          <thead><tr><th>Jour</th>${dailyHeaderCells}</tr></thead>
+          <tbody>${dailyRows}</tbody>
         </table>
       </div>
       <div class="page-break-before avoid-break-group">
-        <h2 class="section-title">Comparaison des joueurs par métrique</h2>
-        <p class="panel-help">Semaine du ${days[0]} au ${days[6]}${excluded.length ? " — joueur(s) exclu(s) de la moyenne en gris : " + excluded.join(", ") : ""}</p>
+        <h2 class="section-title">Comparaison des joueurs par metrique</h2>
+        <p class="panel-help">Semaine du ${days[0]} au ${days[6]}${excluded.length ? " \u2014 joueur(s) exclu(s) de la moyenne en gris : " + excluded.join(", ") : ""}</p>
         ${histoBlocks}
+      </div>
+      <div class="page-break-before avoid-break-group">
+        <h2 class="section-title">Detail par joueur \u2014 semaine S vs semaine S-1</h2>
+        <p class="panel-help">Toutes les statistiques de chaque joueur, semaine affichee (S) comparee a la semaine precedente (S-1).</p>
+        ${playerSections}
       </div>
     </div>
   `;
@@ -7057,7 +7131,7 @@ function printP1Report() {
   const css = document.querySelector("style") ? document.querySelector("style").innerHTML : "";
   const w = window.open("", "_blank", "width=900,height=700");
   if (!w) {
-    alert("La fenêtre d'impression a été bloquée par le navigateur. Autorise les pop-ups pour ce site puis réessaie.");
+    alert("La fenetre d'impression a ete bloquee par le navigateur. Autorise les pop-ups pour ce site puis reessaie.");
     return;
   }
   w.document.open();
