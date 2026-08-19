@@ -3321,6 +3321,25 @@ const DEFAULT_MATCH_OBJECTIVES_BY_POSITION = {
   "3ème ligne centre": { vmax: "27" },
 };
 
+// Références match complètes par poste (valeurs/min + totaux), saisies à
+// partir de la fiche de référence du club. Ne préremplissent que les champs
+// encore vides — n'écrasent jamais une valeur déjà personnalisée par le staff.
+// NB : le "RHIE Total Bouts /min" de la fiche source n'a pas d'équivalent
+// stocké ici (seul RHIE Total Bouts en valeur absolue existe) ; il n'a donc
+// pas été repris — prévenir si besoin de le suivre en plus.
+const DEFAULT_MATCH_REFERENCE_BY_POSITION = {
+  "Pilier":             { meterPerMin: "70",    hsrPerMin: "2,05", thiPerMin: "0,00", accelPerMin: "0,05", distance: "4129,06", dist18: "123,17", dist24: "0,00",   rhie: "11,19", accel23: "2,90" },
+  "Talonneur":          { meterPerMin: "73,33", hsrPerMin: "3,70", thiPerMin: "0,23", accelPerMin: "0,17", distance: "4399,75", dist18: "222,05", dist24: "15",     rhie: "16,12", accel23: "10,19" },
+  "2ème ligne":         { meterPerMin: "71",    hsrPerMin: "3,28", thiPerMin: "0,12", accelPerMin: "0,14", distance: "4275,03", dist18: "213,25", dist24: "20",     rhie: "12,38", accel23: "9,29" },
+  "3ème ligne aile":    { meterPerMin: "73,93", hsrPerMin: "3,72", thiPerMin: "0,09", accelPerMin: "0,17", distance: "5175,14", dist18: "260,44", dist24: "50",     rhie: "20,59", accel23: "11,67" },
+  "3ème ligne centre":  { meterPerMin: "71,65", hsrPerMin: "4,28", thiPerMin: "0,96", accelPerMin: "0,15", distance: "5374,05", dist18: "320,82", dist24: "71,95",  rhie: "19,64", accel23: "11,34" },
+  "9":                  { meterPerMin: "80,09", hsrPerMin: "7,18", thiPerMin: "0,66", accelPerMin: "0,27", distance: "5205,65", dist18: "466,96", dist24: "42,75",  rhie: "18,16", accel23: "17,80" },
+  "10":                 { meterPerMin: "83,66", hsrPerMin: "7,18", thiPerMin: "0,66", accelPerMin: "0,35", distance: "5856,14", dist18: "502,88", dist24: "46,04",  rhie: "19,40", accel23: "24,17" },
+  "Centre":             { meterPerMin: "73,03", hsrPerMin: "8,00", thiPerMin: "1,82", accelPerMin: "0,27", distance: "5476,93", dist18: "599,83", dist24: "136,43", rhie: "22,32", accel23: "20,54" },
+  "Ailier":             { meterPerMin: "72,54", hsrPerMin: "9,31", thiPerMin: "2,89", accelPerMin: "0,28", distance: "5077,65", dist18: "651,42", dist24: "201,96", rhie: "19,82", accel23: "19,84" },
+  "Arrière":            { meterPerMin: "76,88", hsrPerMin: "6,37", thiPerMin: "1,22", accelPerMin: "0,17", distance: "5381,80", dist18: "445,82", dist24: "85,07",  rhie: "13,66", accel23: "11,94" },
+};
+
 const ROSTER_POSITIONS_KEY = "gpsRosterPositions_v1";
 const MATCH_OBJECTIVES_KEY = "gpsMatchObjectives_v1";
 
@@ -3617,6 +3636,19 @@ let matchObjectives = loadMatchObjectives();
       const groupDefault = DEFAULT_OBJECTIVES_BY_GROUP.Avant ? DEFAULT_OBJECTIVES_BY_GROUP.Avant[key] : undefined;
       if (current === undefined || current === null || current === "" || current === groupDefault) {
         matchObjectives[position][key] = overrides[key];
+        changed = true;
+      }
+    });
+  });
+  // Fiche de référence complète par poste (valeurs/min + totaux) : ne
+  // remplit que les champs encore vides.
+  Object.keys(DEFAULT_MATCH_REFERENCE_BY_POSITION).forEach((position) => {
+    if (!matchObjectives[position]) matchObjectives[position] = {};
+    const refs = DEFAULT_MATCH_REFERENCE_BY_POSITION[position];
+    Object.keys(refs).forEach((key) => {
+      const current = matchObjectives[position][key];
+      if (current === undefined || current === null || current === "") {
+        matchObjectives[position][key] = refs[key];
         changed = true;
       }
     });
@@ -5347,6 +5379,11 @@ function renderMatchAssignmentBox(unclassified) {
   const title = document.createElement("h3");
   title.textContent = "⚠️ Joueurs non reconnus — associez-les au listing pro";
   box.appendChild(title);
+  const hint = document.createElement("p");
+  hint.className = "panel-help";
+  hint.style.cssText = "margin:-6px 0 10px";
+  hint.textContent = "Joueur déjà dans le listing : tapez son nom (autocomplétion). Nouveau joueur : tapez son nom et choisissez un poste, il sera ajouté automatiquement au listing.";
+  box.appendChild(hint);
 
   const officialNames = Object.keys(roster).sort((a, b) => a.localeCompare(b));
 
@@ -5395,26 +5432,52 @@ function renderMatchAssignmentBox(unclassified) {
     });
 
     function save() {
-      if (!inputPlayer.value || !roster[inputPlayer.value]) return;
+      const typedName = inputPlayer.value.trim();
+      if (!typedName) return;
+      let group = roster[typedName];
+      if (!group) {
+        // Joueur absent du listing : on le crée si un poste a été choisi
+        // (le poste détermine automatiquement le groupe 3/4 ou Avant).
+        if (!selectPos.value) return;
+        group = POSITIONS_34.indexOf(selectPos.value) !== -1 ? "3/4" : "Avant";
+        roster[typedName] = group;
+        rosterPositions[typedName] = selectPos.value;
+        saveRoster(roster);
+        saveRosterPositions(rosterPositions);
+        if (typeof renderRosterTable === "function") renderRosterTable();
+      }
       matchAliasMap[s.player] = {
-        officialName: inputPlayer.value,
-        group: roster[inputPlayer.value],
-        position: selectPos.value || rosterPositions[inputPlayer.value] || "",
+        officialName: typedName,
+        group: group,
+        position: selectPos.value || rosterPositions[typedName] || "",
       };
       rerenderMatchIfLoaded();
     }
+    // On ne "commit" (et donc ne re-rend le rapport, ce qui fait disparaître
+    // cette ligne une fois le joueur classé) qu'au clic sur "Associer" ou au
+    // changement de poste — jamais à chaque frappe, sinon la ligne disparaît
+    // avant même d'avoir pu choisir/changer le poste à la main.
     inputPlayer.addEventListener("input", () => {
-      if (!roster[inputPlayer.value]) return;
-      // Auto-sélectionner le poste du joueur dans le listing
-      const savedPos = rosterPositions[inputPlayer.value] || "";
-      if (savedPos) selectPos.value = savedPos;
-      save();
+      const typedName = inputPlayer.value.trim();
+      if (roster[typedName]) {
+        // Pré-remplit avec le poste habituel du joueur, modifiable ensuite.
+        const savedPos = rosterPositions[typedName] || "";
+        if (savedPos) selectPos.value = savedPos;
+      }
     });
     selectPos.addEventListener("change", save);
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "btn btn-secondary";
+    confirmBtn.textContent = "✓ Associer";
+    confirmBtn.style.cssText = "flex:0 0 auto";
+    confirmBtn.addEventListener("click", save);
 
     row.appendChild(inputPlayer);
     row.appendChild(datalist);
     row.appendChild(selectPos);
+    row.appendChild(confirmBtn);
     box.appendChild(row);
   });
 
