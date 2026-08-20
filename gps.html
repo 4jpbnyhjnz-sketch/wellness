@@ -1792,6 +1792,10 @@ table.roster-table select { padding: 4px; }
 #hub-wellness .date-select,#hub-wellness .btn-nav{
   background:#ffffff;border-color:#e3e0da;color:#1a1a1a!important;
 }
+#hub-wellness #rpetab-reglages input,#hub-wellness #rpetab-reglages select{
+  background:#ffffff!important;color:#1a1a1a!important;border:1px solid #ccc!important;
+}
+#hub-wellness #rpetab-reglages option{background:#ffffff!important;color:#1a1a1a!important;}
 #hub-wellness .metric-card,#hub-wellness .metric-card *,
 #hub-wellness .player-card,#hub-wellness .player-card *,
 #hub-wellness .avg-table,#hub-wellness .avg-table *,
@@ -1841,13 +1845,6 @@ table.roster-table select { padding: 4px; }
 #hub-wellness .score-track{background:#ececea!important}
 #hub-wellness .ind-pill{background:#f6f5f2!important;border-color:#e3e0da!important}
 #hub-wellness .view-switch-btn.active{color:#fff!important}
-/* Onglet Réglages RPE (durées, corrections) : champs générés en JS avec
-   l'ancien fond sombre — on les repasse en clair pour rester lisibles. */
-#hub-wellness #rpetab-reglages input,
-#hub-wellness #rpetab-reglages select{
-  background:#ffffff!important;color:#1a1a1a!important;border:1px solid #ccc!important;
-}
-#hub-wellness #rpetab-reglages option{background:#ffffff;color:#1a1a1a}
 
 /* --- Onglet GPS : Suivi Joueurs P1 --- */
 .p1-week-nav{display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
@@ -1861,15 +1858,14 @@ table.roster-table select { padding: 4px; }
 .p1-roster-edit{margin-top:12px;font-size:12px;color:#555}
 .p1-indiv-select-row{display:flex;align-items:center;gap:10px;margin:12px 0}
 .p1-indiv-select-row select{padding:6px 10px;font-family:inherit;font-size:13px;border:1px solid #ccc;border-radius:var(--radius)}
-.p1-metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:12px}
-.p1-metric-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s ease,transform .15s ease}
-.p1-metric-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.1);transform:translateY(-1px)}
-.p1-metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:8px;font-weight:600}
-.p1-metric-value{font-size:26px;font-weight:800;letter-spacing:-.01em;color:var(--black)}
-.p1-metric-diff{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;margin-top:8px;padding:3px 8px;border-radius:20px;background:#f2f1ef;color:#888}
-.p1-metric-diff.up{color:#1e7d3a;background:rgba(46,125,50,.1)}
-.p1-metric-diff.down{color:var(--red);background:rgba(214,0,28,.08)}
-.p1-metric-chart-wrap{height:95px;margin-top:12px;position:relative}
+.p1-metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:12px}
+.p1-metric-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.p1-metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#666;margin-bottom:6px}
+.p1-metric-value{font-size:24px;font-weight:800}
+.p1-metric-diff{font-size:12px;font-weight:700;margin-top:2px;color:#888}
+.p1-metric-diff.up{color:#2e7d32}
+.p1-metric-diff.down{color:var(--red)}
+.p1-metric-chart-wrap{height:70px;margin-top:10px;position:relative}
 .p1-empty{font-size:13px;color:#777;padding:12px 0}
 
 </style>
@@ -2287,7 +2283,7 @@ table.roster-table select { padding: 4px; }
       <span id="p1WeekLabel" class="p1-week-label">—</span>
       <button class="btn-nav-p1" onclick="moveP1Week(1)">›</button>
       <button class="btn btn-secondary" onclick="renderP1Tab()" style="margin-left:auto">🔄 Actualiser</button>
-      <button class="btn btn-primary" id="p1ReportBtn" onclick="printP1Report()">🖨️ Rapport PDF</button>
+      <button class="btn btn-secondary" onclick="printP1Report()">🖨️ Rapport PDF</button>
     </div>
 
     <div class="p1-roster-box no-print">
@@ -2841,7 +2837,10 @@ Petit Enzo ; 9</pre>
             <div class="rpe-summary-value" id="srpe-avg-week">–</div>
           </div>
         </div>
-        <div class="section-label">Évolution du sRPE collectif par semaine</div>
+        <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span>Évolution du sRPE collectif par semaine</span>
+          <select class="date-select" id="srpeSeasonSelect" onchange="renderSrpeChart()"></select>
+        </div>
         <div class="chart-container">
           <div class="chart-wrap" style="height:320px"><canvas id="srpeChart"></canvas></div>
         </div>
@@ -3321,12 +3320,9 @@ const DEFAULT_MATCH_OBJECTIVES_BY_POSITION = {
   "3ème ligne centre": { vmax: "27" },
 };
 
-// Références match complètes par poste (valeurs/min + totaux), saisies à
-// partir de la fiche de référence du club. Ne préremplissent que les champs
-// encore vides — n'écrasent jamais une valeur déjà personnalisée par le staff.
-// NB : le "RHIE Total Bouts /min" de la fiche source n'a pas d'équivalent
-// stocké ici (seul RHIE Total Bouts en valeur absolue existe) ; il n'a donc
-// pas été repris — prévenir si besoin de le suivre en plus.
+// Références match par poste (issues des tableaux de référence photographiés) :
+// valeurs par minute + totaux de match. Même logique de préremplissage "safe"
+// que les objectifs ci-dessus (ne remplit que les champs vides).
 const DEFAULT_MATCH_REFERENCE_BY_POSITION = {
   "Pilier":             { meterPerMin: "70",    hsrPerMin: "2,05", thiPerMin: "0,00", accelPerMin: "0,05", distance: "4129,06", dist18: "123,17", dist24: "0,00",   rhie: "11,19", accel23: "2,90" },
   "Talonneur":          { meterPerMin: "73,33", hsrPerMin: "3,70", thiPerMin: "0,23", accelPerMin: "0,17", distance: "4399,75", dist18: "222,05", dist24: "15",     rhie: "16,12", accel23: "10,19" },
@@ -3640,8 +3636,6 @@ let matchObjectives = loadMatchObjectives();
       }
     });
   });
-  // Fiche de référence complète par poste (valeurs/min + totaux) : ne
-  // remplit que les champs encore vides.
   Object.keys(DEFAULT_MATCH_REFERENCE_BY_POSITION).forEach((position) => {
     if (!matchObjectives[position]) matchObjectives[position] = {};
     const refs = DEFAULT_MATCH_REFERENCE_BY_POSITION[position];
@@ -4936,13 +4930,13 @@ const GROUP_SHAPES = { "3/4": "circle", Avant: "triangle" };
 const SCATTER_PRESETS = {
   "3/4": [
     { label: "Distance / +24km/h",    x: "distance", y: "dist24" },
-    { label: "Accel / RHIE",           x: "accelMax", y: "rhie" },
+    { label: "RHIE / Nb accel",        x: "accel23",  y: "rhie" },
     { label: "+18km/h / Contact",      x: "dist18",   y: "contacts" },
     { label: "VMAX / +24km/h",         x: "vmax",     y: "dist24" },
   ],
   Avant: [
     { label: "Distance / +18km/h",    x: "distance", y: "dist18" },
-    { label: "Accel / RHIE",           x: "accelMax", y: "rhie" },
+    { label: "RHIE / Nb accel",        x: "accel23",  y: "rhie" },
     { label: "+18km/h / Contact",      x: "dist18",   y: "contacts" },
     { label: "Contact / RHIE",         x: "contacts", y: "rhie" },
   ],
@@ -5379,9 +5373,9 @@ function renderMatchAssignmentBox(unclassified) {
   const title = document.createElement("h3");
   title.textContent = "⚠️ Joueurs non reconnus — associez-les au listing pro";
   box.appendChild(title);
+
   const hint = document.createElement("p");
-  hint.className = "panel-help";
-  hint.style.cssText = "margin:-6px 0 10px";
+  hint.style.cssText = "margin:0 0 10px;font-size:13px;color:#777;";
   hint.textContent = "Joueur déjà dans le listing : tapez son nom (autocomplétion). Nouveau joueur : tapez son nom et choisissez un poste, il sera ajouté automatiquement au listing.";
   box.appendChild(hint);
 
@@ -5431,13 +5425,17 @@ function renderMatchAssignmentBox(unclassified) {
       selectPos.appendChild(optGroup);
     });
 
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "btn btn-secondary";
+    confirmBtn.textContent = "✓ Associer";
+    confirmBtn.style.cssText = "flex-shrink:0;font-size:12px;padding:6px 12px;";
+
     function save() {
       const typedName = inputPlayer.value.trim();
       if (!typedName) return;
       let group = roster[typedName];
       if (!group) {
-        // Joueur absent du listing : on le crée si un poste a été choisi
-        // (le poste détermine automatiquement le groupe 3/4 ou Avant).
         if (!selectPos.value) return;
         group = POSITIONS_34.indexOf(selectPos.value) !== -1 ? "3/4" : "Avant";
         roster[typedName] = group;
@@ -5453,25 +5451,15 @@ function renderMatchAssignmentBox(unclassified) {
       };
       rerenderMatchIfLoaded();
     }
-    // On ne "commit" (et donc ne re-rend le rapport, ce qui fait disparaître
-    // cette ligne une fois le joueur classé) qu'au clic sur "Associer" ou au
-    // changement de poste — jamais à chaque frappe, sinon la ligne disparaît
-    // avant même d'avoir pu choisir/changer le poste à la main.
     inputPlayer.addEventListener("input", () => {
+      // Auto-sélectionner le poste du joueur si déjà connu, sans valider
+      // automatiquement — évite que la ligne disparaisse avant d'avoir pu
+      // choisir/vérifier le poste.
       const typedName = inputPlayer.value.trim();
-      if (roster[typedName]) {
-        // Pré-remplit avec le poste habituel du joueur, modifiable ensuite.
-        const savedPos = rosterPositions[typedName] || "";
-        if (savedPos) selectPos.value = savedPos;
-      }
+      const savedPos = rosterPositions[typedName] || "";
+      if (savedPos) selectPos.value = savedPos;
     });
     selectPos.addEventListener("change", save);
-
-    const confirmBtn = document.createElement("button");
-    confirmBtn.type = "button";
-    confirmBtn.className = "btn btn-secondary";
-    confirmBtn.textContent = "✓ Associer";
-    confirmBtn.style.cssText = "flex:0 0 auto";
     confirmBtn.addEventListener("click", save);
 
     row.appendChild(inputPlayer);
@@ -5482,10 +5470,10 @@ function renderMatchAssignmentBox(unclassified) {
   });
 
   if (!officialNames.length) {
-    const hint = document.createElement("p");
-    hint.style.cssText = "margin:10px 0 0;font-size:13px;color:#777;";
-    hint.textContent = "Le listing pro est vide — ajoutez vos joueurs dans Réglages.";
-    box.appendChild(hint);
+    const emptyHint = document.createElement("p");
+    emptyHint.style.cssText = "margin:10px 0 0;font-size:13px;color:#777;";
+    emptyHint.textContent = "Le listing pro est vide — ajoutez vos joueurs dans Réglages, ou créez-les directement ci-dessus.";
+    box.appendChild(emptyHint);
   }
 }
 
@@ -5558,6 +5546,10 @@ function renderMatchReport(rows, meta) {
   const stats = buildMatchPlayerStats(rows);
   const grouped = groupMatchPlayers(stats);
   matchLastGrouped = grouped;
+
+  const totalClassified = (grouped["3/4"] || []).length + (grouped.Avant || []).length;
+  applyDensityScale(document.getElementById("matchPage1"), totalClassified);
+  applyDensityScale(document.getElementById("matchPage2"), totalClassified);
 
   document.getElementById("matchDate").textContent = meta.date || "—";
   document.getElementById("matchDuration").textContent = meta.durationSeconds
@@ -6153,10 +6145,11 @@ function parseFrNumPdf(s) {
   return isNaN(n) ? null : n;
 }
 
-// Le PDF coupe TOUT nombre à 4+ chiffres en 2 tokens au niveau du séparateur de
-// milliers (ex : "1 612,22" -> "1" + "612,22") — pas seulement la distance, mais
-// n'importe quelle métrique de la ligne (dist +18km/h, etc.). On fusionne donc
-// systématiquement ces paires avant toute autre analyse de la ligne.
+// Le PDF (généré par impression navigateur) coupe parfois un même nombre
+// >= 1000 en deux tokens adjacents au niveau du séparateur de milliers
+// (ex. "1 612,22" -> "1" + "612,22"). Ça peut arriver sur N'IMPORTE QUELLE
+// colonne (pas seulement la distance) : on fusionne donc TOUTE la ligne
+// avant d'en extraire les valeurs positionnellement.
 function mergeSplitThousands(tokens) {
   const out = [];
   for (let i = 0; i < tokens.length; i++) {
@@ -6171,11 +6164,10 @@ function mergeSplitThousands(tokens) {
 }
 
 function parsePdfPlayerRow(tokens) {
-  // On fusionne d'abord les nombres coupés (distance ou toute autre métrique),
-  // puis on part de la DROITE : les 9 dernières valeurs sont toujours les
-  // métriques, précédées de la distance, et tout ce qui reste avant est le nom
-  // du joueur — même s'il est coupé en plusieurs tokens par l'extraction PDF
-  // (nom composé, particule détachée type "Van Der Berg").
+  // On part de la DROITE : les 9 dernières valeurs sont toujours les métriques,
+  // précédées de la distance, et tout ce qui reste avant est le nom du joueur
+  // — même s'il est coupé en plusieurs tokens par l'extraction PDF (nom
+  // composé, particule détachée type "Van Der Berg").
   const merged = mergeSplitThousands(tokens);
   const metricsCount = PDF_METRIC_KEYS.length;
   if (merged.length < metricsCount + 2) return null; // il faut au moins 1 token de nom + 1 de distance
@@ -6799,9 +6791,7 @@ function p1TeamWeekAgg(weekMonday) {
   return agg;
 }
 
-// Agregat d'un seul joueur sur UN jour precis (utile pour le recap quotidien
-// du rapport imprimable) — reutilise p1AggregateEntries pour gerer le cas de
-// plusieurs seances le meme jour (somme/pic/moyenne selon la metrique).
+// Agrégat d'UN joueur pour UN jour précis (utilisé par le récap par jour du rapport PDF P1).
 function p1PlayerDayAgg(fullName, dateStr) {
   const entries = [];
   savedSessions.forEach((s) => {
@@ -6814,7 +6804,7 @@ function p1PlayerDayAgg(fullName, dateStr) {
   return p1AggregateEntries(entries);
 }
 
-// Moyenne d'equipe sur UN jour precis (memes exclusions que la semaine affichee).
+// Moyenne d'équipe pour UN jour précis (respecte les exclusions de la semaine affichée).
 function p1TeamDayAgg(dateStr, weekMonday) {
   const excluded = p1WeekExclusions[weekMonday] || [];
   const included = p1MatchedFullNames().filter((n) => excluded.indexOf(n) === -1);
@@ -6915,10 +6905,6 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
     const series = seasonSeriesFn(m.key);
     const canvas = card.querySelector("canvas");
     if (series.filter((p) => p.value != null).length >= 2 && typeof Chart !== "undefined") {
-      const ctx2d = canvas.getContext("2d");
-      const gradient = ctx2d.createLinearGradient(0, 0, 0, 95);
-      gradient.addColorStop(0, "rgba(214,0,28,.22)");
-      gradient.addColorStop(1, "rgba(214,0,28,0)");
       const chart = new Chart(canvas, {
         type: "line",
         data: {
@@ -6926,12 +6912,9 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
           datasets: [{
             data: series.map((p) => p.value),
             borderColor: "#D6001C",
-            backgroundColor: gradient,
-            borderWidth: 2,
+            backgroundColor: "rgba(214,0,28,.08)",
             tension: 0.3,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointHoverBackgroundColor: "#D6001C",
+            pointRadius: 2,
             fill: true,
             spanGaps: true,
           }],
@@ -6939,35 +6922,8 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { enabled: true, callbacks: { title: (items) => "Semaine du " + items[0].label } },
-          },
-          scales: {
-            x: {
-              display: true,
-              ticks: {
-                color: "#999",
-                font: { size: 9 },
-                maxRotation: 0,
-                autoSkip: true,
-                maxTicksLimit: 4,
-                callback: function (val) {
-                  const label = this.getLabelForValue(val);
-                  const parts = String(label).split("/");
-                  return parts.length === 3 ? parts[0] + "/" + parts[1] : label;
-                },
-              },
-              grid: { display: false },
-              border: { color: "#e0e0e0" },
-            },
-            y: {
-              display: true,
-              ticks: { color: "#999", font: { size: 9 }, maxTicksLimit: 3 },
-              grid: { color: "rgba(0,0,0,.06)" },
-              border: { display: false },
-            },
-          },
+          plugins: { legend: { display: false }, tooltip: { enabled: true } },
+          scales: { x: { display: false }, y: { display: false } },
         },
       });
       chartsArr.push(chart);
@@ -7050,143 +7006,120 @@ function renderP1Tab() {
   renderP1Individual();
 }
 
-// Genere un rapport imprimable (fenetre separee, comme pour une seance) avec
-// les moyennes de l'equipe, un histogramme par metrique comparant tous les
-// joueurs du groupe P1 sur la semaine affichee, puis un detail par joueur
-// (toutes les stats, semaine S vs semaine S-1) en histogramme.
+// Génère l'image PNG (data URL) d'un histogramme, via un canvas hors-écran.
+function renderBarChartImg(width, height, labels, values, colors, titleText, fontSize) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const chart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        title: titleText ? { display: true, text: titleText, font: { size: fontSize || 11 }, color: "#1a1a1a" } : { display: false },
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 }, color: "#555" }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { size: 9 }, color: "#555" }, grid: { color: "#eee" } },
+      },
+    },
+  });
+  const dataUrl = canvas.toDataURL("image/png");
+  chart.destroy();
+  return dataUrl;
+}
+
+// Rapport PDF imprimable de l'onglet Suivi Joueurs P1 : moyennes d'équipe de la
+// semaine affichée (+ % vs S-1), récap jour par jour, histogrammes comparant
+// les joueurs entre eux sur chaque métrique, puis un détail par joueur
+// (semaine S vs S-1) sous forme de mini-histogrammes.
 function printP1Report() {
   initP1Week();
-  const matched = p1MatchedFullNames();
-  if (!matched.length) {
-    alert("Aucun joueur du groupe P1 trouve dans les seances enregistrees.");
+  const cur = p1TeamWeekAgg(p1CurrentWeek);
+  if (!cur) {
+    alert("Aucune séance enregistrée pour cette semaine — impossible de générer le rapport.");
     return;
   }
-  if (typeof Chart === "undefined") {
-    alert("Les graphiques ne sont pas disponibles (bibliotheque non chargee).");
-    return;
-  }
-  const excluded = p1WeekExclusions[p1CurrentWeek] || [];
-  const included = matched.filter((n) => excluded.indexOf(n) === -1);
+  const prevWeek = prevWeekKey(p1CurrentWeek);
+  const prev = p1TeamWeekAgg(prevWeek);
   const days = weekDayKeys(p1CurrentWeek);
-  const teamAgg = p1TeamWeekAgg(p1CurrentWeek);
-  const teamPrevAgg = p1TeamWeekAgg(prevWeekKey(p1CurrentWeek));
-
-  const summaryRows = P1_METRIC_DEFS.filter((m) => m.collective)
-    .map((m) => {
-      const diff = teamAgg && teamPrevAgg ? p1PctDiff(teamAgg[m.key], teamPrevAgg[m.key]) : null;
-      const diffStr = diff == null ? "\u2014" : (diff >= 0 ? "\u25b2 " : "\u25bc ") + p1Fmt(Math.abs(diff), 1) + "%";
-      return `<tr><td style="text-align:left;font-weight:600">${m.label}</td><td>${teamAgg ? p1Fmt(teamAgg[m.key], m.decimals) : "\u2014"}</td><td>${diffStr}</td></tr>`;
-    })
-    .join("");
-
-  // Recap quotidien : une ligne par jour de la semaine affichee, une colonne par metrique.
+  const excluded = p1WeekExclusions[p1CurrentWeek] || [];
+  const included = p1MatchedFullNames().filter((n) => excluded.indexOf(n) === -1);
   const collectiveDefs = P1_METRIC_DEFS.filter((m) => m.collective);
-  const dailyHeaderCells = collectiveDefs.map((m) => `<th>${m.label}</th>`).join("");
-  const dailyRows = days
-    .map((dayStr) => {
-      const dayAgg = p1TeamDayAgg(dayStr, p1CurrentWeek);
-      const cells = collectiveDefs
-        .map((m) => `<td>${dayAgg ? p1Fmt(dayAgg[m.key], m.decimals) : "\u2014"}</td>`)
-        .join("");
-      return `<tr><td style="text-align:left;font-weight:600">${dayStr}</td>${cells}</tr>`;
-    })
-    .join("");
 
-  // Canvas hors-ecran reutilise pour generer chaque image de graphique.
-  const tmpWrap = document.createElement("div");
-  tmpWrap.style.cssText = "position:fixed;left:-9999px;top:0;width:700px;height:320px";
-  document.body.appendChild(tmpWrap);
-
-  function renderBarChartImg(width, height, labels, values, colors, titleText, fontSize) {
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    tmpWrap.innerHTML = "";
-    tmpWrap.appendChild(canvas);
-    const chart = new Chart(canvas, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [{ data: values, backgroundColor: colors, borderRadius: 4 }],
-      },
-      options: {
-        responsive: false,
-        animation: false,
-        plugins: {
-          legend: { display: false },
-          title: { display: true, text: titleText, font: { size: fontSize, weight: "bold" }, color: "#1a1a1a" },
-        },
-        scales: {
-          x: { ticks: { font: { size: fontSize - 2 }, color: "#1a1a1a" }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { font: { size: fontSize - 3 }, color: "#1a1a1a" }, grid: { color: "rgba(0,0,0,.08)" } },
-        },
-      },
-    });
-    const img = canvas.toDataURL("image/png");
-    chart.destroy();
-    return img;
-  }
-
-  // 1) Un histogramme par metrique, comparant tous les joueurs du groupe (semaine affichee).
-  const histoBlocks = P1_METRIC_DEFS.map((m) => {
-    const values = matched.map((n) => {
-      const agg = p1PlayerWeekAgg(n, p1CurrentWeek);
-      return agg ? agg[m.key] : null;
-    });
-    const colors = matched.map((n) => (excluded.indexOf(n) !== -1 ? "rgba(150,150,150,.5)" : "#D6001C"));
-    const img = renderBarChartImg(700, 320, matched, values, colors, m.label, 16);
-    return `<div class="avoid-break" style="margin-bottom:22px"><img src="${img}" style="width:100%;max-width:700px;display:block;margin:0 auto"></div>`;
+  const teamRowsHtml = collectiveDefs.map((m) => {
+    const diff = prev ? p1PctDiff(cur[m.key], prev[m.key]) : null;
+    const diffStr = diff == null ? "—" : (diff >= 0 ? "+" : "") + p1Fmt(diff, 1) + "%";
+    return `<tr><td>${m.label}</td><td>${p1Fmt(cur[m.key], m.decimals)}</td><td>${diffStr}</td></tr>`;
   }).join("");
 
-  // 2) Detail par joueur : toutes les stats, semaine S vs semaine S-1.
-  const playerSections = matched.map((playerName) => {
-    const curAgg = p1PlayerWeekAgg(playerName, p1CurrentWeek);
-    const prevAgg = p1PlayerWeekAgg(playerName, prevWeekKey(p1CurrentWeek));
-    const metricBlocks = P1_METRIC_DEFS.map((m) => {
-      const curVal = curAgg ? curAgg[m.key] : null;
-      const prevVal = prevAgg ? prevAgg[m.key] : null;
-      const img = renderBarChartImg(320, 220, ["S-1", "S"], [prevVal, curVal], ["rgba(150,150,150,.5)", "#D6001C"], m.label, 12);
-      return `<div class="avoid-break" style="flex:1 1 220px;max-width:260px"><img src="${img}" style="width:100%;display:block"></div>`;
-    }).join("");
-    return `
-      <div class="avoid-break-group" style="margin-bottom:24px">
-        <h3 class="section-title" style="font-size:15px">${playerName}</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:10px">${metricBlocks}</div>
-      </div>
-    `;
+  const dailyHeadHtml = collectiveDefs.map((m) => `<th>${m.label}</th>`).join("");
+  const dailyRowsHtml = days.map((d) => {
+    const dayAgg = p1TeamDayAgg(d, p1CurrentWeek);
+    const cells = collectiveDefs.map((m) => `<td>${dayAgg ? p1Fmt(dayAgg[m.key], m.decimals) : "—"}</td>`).join("");
+    return `<tr><td>${d}</td>${cells}</tr>`;
   }).join("");
 
-  document.body.removeChild(tmpWrap);
+  let metricImgsHtml = "";
+  P1_METRIC_DEFS.forEach((m) => {
+    const withVals = included
+      .map((n) => ({ n, agg: p1PlayerWeekAgg(n, p1CurrentWeek) }))
+      .filter((x) => x.agg);
+    if (!withVals.length) return;
+    const labels = withVals.map((x) => x.n.split(" ").slice(-1)[0]);
+    const values = withVals.map((x) => Number(x.agg[m.key]) || 0);
+    const img = renderBarChartImg(560, 220, labels, values, "#D6001C", m.label, 12);
+    metricImgsHtml += `<div class="avoid-break" style="margin-bottom:14px"><img src="${img}" style="max-width:100%"></div>`;
+  });
+
+  let playersHtml = "";
+  included.forEach((name) => {
+    const curP = p1PlayerWeekAgg(name, p1CurrentWeek);
+    if (!curP) return;
+    const prevP = p1PlayerWeekAgg(name, prevWeek);
+    let imgsRow = "";
+    P1_METRIC_DEFS.forEach((m) => {
+      const vCur = Number(curP[m.key]) || 0;
+      const vPrev = prevP ? Number(prevP[m.key]) || 0 : 0;
+      const img = renderBarChartImg(220, 170, ["S-1", "S"], [vPrev, vCur], ["#bbbbbb", "#D6001C"], m.label, 10);
+      imgsRow += `<img src="${img}" style="width:150px;margin:4px">`;
+    });
+    playersHtml += `<div class="avoid-break-group" style="margin-bottom:18px"><h3 class="section-title" style="font-size:14px">${name}</h3><div style="display:flex;flex-wrap:wrap">${imgsRow}</div></div>`;
+  });
 
   const reportHtml = `
     <div class="report-card">
       <div class="page1-block">
+        <p class="page-title">Page 1 — Rapport hebdomadaire P1</p>
         <div class="report-header">
           <div class="report-logo-block"><img src="${NISSA_LOGO_B64}" alt="Nissa Rugby"></div>
           <div class="report-header-block"><span class="report-header-label">Groupe</span><span class="report-header-value">P1</span></div>
           <div class="report-header-block"><span class="report-header-label">Semaine</span><span class="report-header-value">${days[0]} au ${days[6]}</span></div>
-          <div class="report-header-block"><span class="report-header-label">Joueurs inclus</span><span class="report-header-value">${included.join(", ") || "\u2014"}</span></div>
+          <div class="report-header-block"><span class="report-header-label">Joueurs inclus</span><span class="report-header-value">${included.length}</span></div>
         </div>
-        <h2 class="section-title">Moyennes de l'equipe</h2>
-        <table class="data-table" style="width:100%">
-          <thead><tr><th>Metrique</th><th>Moyenne equipe</th><th>% vs S-1</th></tr></thead>
-          <tbody>${summaryRows}</tbody>
-        </table>
-        <h2 class="section-title" style="margin-top:20px">Recap par jour</h2>
-        <table class="data-table" style="width:100%;font-size:12px">
-          <thead><tr><th>Jour</th>${dailyHeaderCells}</tr></thead>
-          <tbody>${dailyRows}</tbody>
-        </table>
+        <h2 class="section-title">Moyennes de l'équipe</h2>
+        <table class="data-table"><thead><tr><th>Métrique</th><th>Semaine S</th><th>% vs S-1</th></tr></thead><tbody>${teamRowsHtml}</tbody></table>
+        <h2 class="section-title" style="margin-top:20px">Récap par jour</h2>
+        <table class="data-table"><thead><tr><th>Jour</th>${dailyHeadHtml}</tr></thead><tbody>${dailyRowsHtml}</tbody></table>
       </div>
       <div class="page-break-before avoid-break-group">
-        <h2 class="section-title">Comparaison des joueurs par metrique</h2>
-        <p class="panel-help">Semaine du ${days[0]} au ${days[6]}${excluded.length ? " \u2014 joueur(s) exclu(s) de la moyenne en gris : " + excluded.join(", ") : ""}</p>
-        ${histoBlocks}
+        <h2 class="section-title">Comparaison des joueurs par métrique</h2>
+        <p class="page-title">Semaine du ${days[0]} au ${days[6]}</p>
+        ${metricImgsHtml}
       </div>
       <div class="page-break-before avoid-break-group">
-        <h2 class="section-title">Detail par joueur \u2014 semaine S vs semaine S-1</h2>
-        <p class="panel-help">Toutes les statistiques de chaque joueur, semaine affichee (S) comparee a la semaine precedente (S-1).</p>
-        ${playerSections}
+        <h2 class="section-title">Détail par joueur — semaine S vs semaine S-1</h2>
+        ${playersHtml}
       </div>
     </div>
   `;
@@ -7194,16 +7127,16 @@ function printP1Report() {
   const css = document.querySelector("style") ? document.querySelector("style").innerHTML : "";
   const w = window.open("", "_blank", "width=900,height=700");
   if (!w) {
-    alert("La fenetre d'impression a ete bloquee par le navigateur. Autorise les pop-ups pour ce site puis reessaie.");
+    alert("La fenêtre d'impression a été bloquée par le navigateur. Autorise les pop-ups pour ce site puis réessaie.");
     return;
   }
   w.document.open();
   w.document.write(
-    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport Suivi P1</title><style>' +
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport P1</title><style>' +
       css +
-      '\nbody{background:#fff;margin:0}\nbody *{visibility:visible!important}\n#p1PrintRoot{position:static!important;width:auto!important;display:block!important}\n</style></head><body><div id="p1PrintRoot">' +
+      "\nbody{background:#fff;margin:0}\n</style></head><body>" +
       reportHtml +
-      "</div></body></html>"
+      "</body></html>"
   );
   w.document.close();
   setTimeout(function () {
@@ -7831,7 +7764,7 @@ var CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?fo
 var WD = {}, ALLDAYS = [], chartInst = null;
 var PAVG21 = {}, PAVG3 = {}, PPERS = {};
 var RPE = {}, RPEDAYS = [];
-var SRPE_WEEK = {}, SRPE_WEEKS = [], SRPE_DAY = {};
+var SRPE_WEEK = {}, SRPE_WEEKS = [], SRPE_WEEKS_ALL = [], SRPE_DAY = {};
 var RAW_ROWS = [];
 
 // ── Roster fixe Espoirs (evite les joueurs fantomes / doublons de casse) ──
@@ -8132,7 +8065,7 @@ async function loadData() {
     var res=processData(rows);
     WD=res.out;PAVG21=res.pa21;PAVG3=res.pa3;PPERS=res.pp;
     RPE=res.rpeOut;RPEDAYS=res.rpeDates;
-    SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_DAY=res.srpeByDate;
+    SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_WEEKS_ALL=res.srpeWeeks.slice();SRPE_DAY=res.srpeByDate;
     buildRpeRoster();
     ALLDAYS=Object.keys(WD).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
     setProgress(100,'Pret !');
@@ -8180,7 +8113,7 @@ function reprocessData() {
   var res=processData(RAW_ROWS);
   WD=res.out;PAVG21=res.pa21;PAVG3=res.pa3;PPERS=res.pp;
   RPE=res.rpeOut;RPEDAYS=res.rpeDates;
-  SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_DAY=res.srpeByDate;
+  SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_WEEKS_ALL=res.srpeWeeks.slice();SRPE_DAY=res.srpeByDate;
   buildRpeRoster();
   render();
 }
@@ -8600,7 +8533,21 @@ function switchTab(name) {
 
 var srpeChartInst = null;
 
+function populateSrpeSeasonSelect() {
+  var sel = document.getElementById('srpeSeasonSelect');
+  if (!sel) return null;
+  var seasonsWithData = SRPE_WEEKS_ALL.map(function(w){ return seasonKeyOf(w); }).filter(function(s, i, arr){ return s && arr.indexOf(s) === i; });
+  seasonsWithData.sort(function(a,b){ return parseInt(b,10) - parseInt(a,10); });
+  var prevVal = sel.value;
+  sel.innerHTML = seasonsWithData.map(function(s){ return '<option value="'+s+'">'+seasonLabel(s)+'</option>'; }).join('');
+  sel.value = seasonsWithData.indexOf(prevVal) !== -1 ? prevVal : (seasonsWithData[0] || '');
+  return sel.value;
+}
+
 function renderSrpeChart() {
+  var srpeSelectedSeason = populateSrpeSeasonSelect();
+  SRPE_WEEKS = srpeSelectedSeason ? SRPE_WEEKS_ALL.filter(function(w){ return seasonKeyOf(w) === srpeSelectedSeason; }) : SRPE_WEEKS_ALL.slice();
+
   if (!SRPE_WEEKS.length) {
     document.getElementById('srpe-current-week').textContent = '-';
     document.getElementById('srpe-avg-week').textContent = '-';
