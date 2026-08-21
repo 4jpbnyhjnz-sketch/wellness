@@ -4760,66 +4760,106 @@ function renderGroupTable(groupName, stats, opts) {
   return wrapper;
 }
 
-function renderAssignmentBox(unclassifiedStats) {
+function renderAssignmentBox(unclassifiedStats, aliasedStats) {
+  aliasedStats = aliasedStats || [];
   const box = document.getElementById("assignmentBox");
   box.innerHTML = "";
 
-  if (!unclassifiedStats.length) {
+  if (!unclassifiedStats.length && !aliasedStats.length) {
     box.classList.add("hidden");
     return;
   }
 
   box.classList.remove("hidden");
 
-  const title = document.createElement("h3");
-  title.textContent = "⚠️ Joueurs non reconnus — associez-les au listing pro";
-  box.appendChild(title);
-
   const officialNames = Object.keys(roster).sort((a, b) => a.localeCompare(b));
 
-  unclassifiedStats.forEach((s) => {
-    const row = document.createElement("div");
-    row.className = "assignment-row";
+  if (unclassifiedStats.length) {
+    const title = document.createElement("h3");
+    title.textContent = "⚠️ Joueurs non reconnus — associez-les au listing pro";
+    box.appendChild(title);
 
-    const nameSpan = document.createElement("span");
-    nameSpan.className = "csv-name";
-    nameSpan.textContent = `${s.player} (${fmt(s.distance, 0)} m)`;
-    row.appendChild(nameSpan);
+    unclassifiedStats.forEach((s) => {
+      const row = document.createElement("div");
+      row.className = "assignment-row";
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.placeholder = "Tapez le nom du joueur…";
-    input.autocomplete = "off";
-    input.style.cssText = "flex:1;padding:6px;border:1px solid #ccc;border-radius:var(--radius);";
-    const listId = "roster-names-" + s.player.replace(/[^a-zA-Z0-9]/g, "_");
-    input.setAttribute("list", listId);
-    const datalist = document.createElement("datalist");
-    datalist.id = listId;
-    officialNames.forEach((name) => {
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = `${name} (${roster[name]})`;
-      datalist.appendChild(opt);
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "csv-name";
+      nameSpan.textContent = `${s.player} (${fmt(s.distance, 0)} m)`;
+      row.appendChild(nameSpan);
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "Tapez le nom du joueur…";
+      input.autocomplete = "off";
+      input.style.cssText = "flex:1;padding:6px;border:1px solid #ccc;border-radius:var(--radius);";
+      const listId = "roster-names-" + s.player.replace(/[^a-zA-Z0-9]/g, "_");
+      input.setAttribute("list", listId);
+      const datalist = document.createElement("datalist");
+      datalist.id = listId;
+      officialNames.forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = `${name} (${roster[name]})`;
+        datalist.appendChild(opt);
+      });
+      input.addEventListener("input", () => {
+        if (roster[input.value]) {
+          setAlias(s.player, input.value);
+          rerenderIfLoaded();
+        }
+      });
+      row.appendChild(input);
+      row.appendChild(datalist);
+
+      box.appendChild(row);
     });
-    input.addEventListener("input", () => {
-      if (roster[input.value]) {
-        setAlias(s.player, input.value);
+
+    if (!officialNames.length) {
+      const hint = document.createElement("p");
+      hint.style.margin = "10px 0 0";
+      hint.style.fontSize = "13px";
+      hint.style.color = "#777";
+      hint.textContent = "Le listing pro est vide pour l'instant — ajoutez vos joueurs dans l'onglet « Réglages ».";
+      box.appendChild(hint);
+    }
+  }
+
+  // Associations déjà faites pour cette séance : on les laisse toujours
+  // modifiables (pas de disparition définitive), pour corriger une erreur
+  // de frappe sans devoir réimporter tout le CSV.
+  if (aliasedStats.length) {
+    const title2 = document.createElement("h3");
+    title2.style.marginTop = unclassifiedStats.length ? "16px" : "0";
+    title2.textContent = "✎ Associations de cette séance — modifiable en cas d'erreur";
+    box.appendChild(title2);
+
+    aliasedStats.forEach((s) => {
+      const row = document.createElement("div");
+      row.className = "assignment-row";
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "csv-name";
+      nameSpan.textContent = `${s.player} (${fmt(s.distance, 0)} m)`;
+      row.appendChild(nameSpan);
+
+      const select = document.createElement("select");
+      select.style.cssText = "flex:1;padding:6px;border:1px solid #ccc;border-radius:var(--radius);";
+      officialNames.forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = `${name} (${roster[name]})`;
+        if (name === aliasMap[s.player]) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", () => {
+        setAlias(s.player, select.value);
         rerenderIfLoaded();
-      }
+      });
+      row.appendChild(select);
+
+      box.appendChild(row);
     });
-    row.appendChild(input);
-    row.appendChild(datalist);
-
-    box.appendChild(row);
-  });
-
-  if (!officialNames.length) {
-    const hint = document.createElement("p");
-    hint.style.margin = "10px 0 0";
-    hint.style.fontSize = "13px";
-    hint.style.color = "#777";
-    hint.textContent = "Le listing pro est vide pour l'instant — ajoutez vos joueurs dans l'onglet « Réglages ».";
-    box.appendChild(hint);
   }
 }
 
@@ -4915,7 +4955,8 @@ function renderReport(rows, meta) {
   // Pages supplémentaires pour les périodes actives
   renderPeriodPages(rows, grouped);
 
-  renderAssignmentBox(grouped["Non classé"]);
+  const aliasedStats = stats.filter((s) => aliasMap[s.player]);
+  renderAssignmentBox(grouped["Non classé"], aliasedStats);
 
   document.getElementById("reportRoot").classList.remove("hidden");
 }
@@ -6137,6 +6178,26 @@ function deletePdfBlob(id) {
    ------------------------------------------------------------------------- */
 const PDF_METRIC_KEYS = ["pctMarche", "pctHi", "dist18", "dist24", "vmax", "accelMax", "contacts", "rhie", "accel23"];
 
+// Les rapports imprimés par l'app peuvent avoir une colonne "M/MIN" en plus
+// (ajoutée après coup au gabarit) selon la version qui a généré le PDF. On
+// lit donc la ligne d'en-tête JOUEUR du PDF importé pour reconstruire la
+// liste réelle des colonnes plutôt que de supposer un nombre fixe de 9.
+const PDF_COLUMN_LABEL_MAP = {
+  "%MARC.": "pctMarche",
+  "%HI": "pctHi",
+  "+18KM/H": "dist18",
+  "+24KM/H": "dist24",
+  "VMAX": "vmax",
+  "M/MIN": "meterPerMin",
+  "ACCEL": "accelMax",
+  "CONTACT": "contacts",
+  "RHIE": "rhie",
+  "ACC.2-3": "accel23",
+};
+function normalizePdfColLabel(s) {
+  return String(s || "").replace(/\s+/g, "").toUpperCase();
+}
+
 function parseFrNumPdf(s) {
   if (s == null) return null;
   s = String(s).replace(/[\s ]/g, "").replace(",", ".").replace("—", "");
@@ -6163,13 +6224,15 @@ function mergeSplitThousands(tokens) {
   return out;
 }
 
-function parsePdfPlayerRow(tokens) {
-  // On part de la DROITE : les 9 dernières valeurs sont toujours les métriques,
-  // précédées de la distance, et tout ce qui reste avant est le nom du joueur
-  // — même s'il est coupé en plusieurs tokens par l'extraction PDF (nom
-  // composé, particule détachée type "Van Der Berg").
+function parsePdfPlayerRow(tokens, metricKeys) {
+  // On part de la DROITE : les dernières valeurs sont toujours les métriques
+  // (9 ou 10 selon la version du gabarit qui a généré le PDF — voir
+  // PDF_COLUMN_LABEL_MAP), précédées de la distance, et tout ce qui reste
+  // avant est le nom du joueur — même s'il est coupé en plusieurs tokens par
+  // l'extraction PDF (nom composé, particule détachée type "Van Der Berg").
+  const keys = metricKeys && metricKeys.length ? metricKeys : PDF_METRIC_KEYS;
   const merged = mergeSplitThousands(tokens);
-  const metricsCount = PDF_METRIC_KEYS.length;
+  const metricsCount = keys.length;
   if (merged.length < metricsCount + 2) return null; // il faut au moins 1 token de nom + 1 de distance
   const metricsTokens = merged.slice(merged.length - metricsCount);
   const before = merged.slice(0, merged.length - metricsCount);
@@ -6179,7 +6242,7 @@ function parsePdfPlayerRow(tokens) {
   if (!nameTokens.length) return null;
   const name = nameTokens.join(" ");
   const obj = { player: name, displayName: name, distance: parseFrNumPdf(distanceStr) };
-  PDF_METRIC_KEYS.forEach((k, i) => { obj[k] = parseFrNumPdf(metricsTokens[i]); });
+  keys.forEach((k, i) => { obj[k] = parseFrNumPdf(metricsTokens[i]); });
   return obj;
 }
 
@@ -6223,13 +6286,20 @@ async function parseGpsReportPdfFile(file) {
       if (startIdx === -1) return [];
       let i = startIdx + 1;
       while (i < lines.length && lines[i][0] !== "JOUEUR") i++;
+      if (i >= lines.length) return [];
+      const headerLine = lines[i];
+      const detectedKeys = headerLine
+        .slice(1)
+        .map((lbl) => PDF_COLUMN_LABEL_MAP[normalizePdfColLabel(lbl)])
+        .filter(Boolean);
+      const effectiveKeys = detectedKeys.length ? detectedKeys : PDF_METRIC_KEYS;
       i++; // passe l'entête
       const out = [];
       while (i < lines.length) {
         const first = lines[i][0] || "";
         if (first.indexOf("OBJECTIF") === 0) break;
-        if (lines[i].length >= 10) {
-          const p = parsePdfPlayerRow(lines[i]);
+        if (lines[i].length >= effectiveKeys.length + 2) {
+          const p = parsePdfPlayerRow(lines[i], effectiveKeys);
           if (p) out.push(p);
         }
         i++;
