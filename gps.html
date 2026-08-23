@@ -7852,7 +7852,7 @@ function initHeaderFields() {
 var SHEET_ID = '1mCZoixP13DpIE1kMbkH0tZpTrPwfOIaF3tuPaZhIfIU';
 var GID = '219874091';
 var CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + GID;
-var WD = {}, ALLDAYS = [], chartInst = null;
+var WD = {}, ALLDAYS = [], ALLDAYS_UNION = [], chartInst = null;
 var PAVG21 = {}, PAVG3 = {}, PPERS = {};
 var RPE = {}, RPEDAYS = [];
 var SRPE_WEEK = {}, SRPE_WEEKS = [], SRPE_WEEKS_ALL = [], SRPE_DAY = {};
@@ -8118,7 +8118,7 @@ function weekNumberOf(mondayStr, seasonKey) {
 }
 function buildSeasons() {
   var set = {};
-  ALLDAYS.forEach(function(d){ var k = seasonKeyOf(d); if (k) set[k] = true; });
+  ALLDAYS_UNION.forEach(function(d){ var k = seasonKeyOf(d); if (k) set[k] = true; });
   SEASONS = Object.keys(set).sort(function(a,b){ return parseInt(b,10) - parseInt(a,10); });
 }
 function populateSeasonSelect(preferred) {
@@ -8131,7 +8131,7 @@ function populateSeasonSelect(preferred) {
 }
 function populateDateSelectForSeason() {
   var season = document.getElementById('seasonSelect').value;
-  CUR_SEASON_DAYS = ALLDAYS.filter(function(d){ return seasonKeyOf(d) === season; });
+  CUR_SEASON_DAYS = ALLDAYS_UNION.filter(function(d){ return seasonKeyOf(d) === season; });
   var sel = document.getElementById('dateSelect');
   var prevVal = sel.value;
   sel.innerHTML = '';
@@ -8159,6 +8159,7 @@ async function loadData() {
     SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_WEEKS_ALL=res.srpeWeeks.slice();SRPE_DAY=res.srpeByDate;
     buildRpeRoster();
     ALLDAYS=Object.keys(WD).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
+    ALLDAYS_UNION=Array.from(new Set(ALLDAYS.concat(RPEDAYS))).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
     setProgress(100,'Pret !');
     document.getElementById('stats-badge').textContent=res.total+' entrees · '+ALLDAYS.length+' jours · '+res.roster.length+' joueurs';
     document.getElementById('last-updated').textContent='Mis a jour le '+new Date().toLocaleString('fr-FR');
@@ -8266,6 +8267,7 @@ function buildComment(r,statut) {
 function render() {
   var d=document.getElementById('dateSelect').value;
   var agg=WD[d];
+  if (!agg) agg={n:0,aS:0,as:0,aH:0,aB:0,aF:0,aT:0,r:null,ab:SEASON_ROSTER.slice().sort()};
   var a21=PAVG21[d]||{},a3=PAVG3[d]||{},pp=PPERS[d]||{};
 
   document.getElementById('dateInfo').innerHTML='<strong>'+d+'</strong> &middot; '+agg.n+' r&eacute;ponse'+(agg.n>1?'s':'');
@@ -8373,6 +8375,9 @@ function render() {
         +'<td class="comment-cell">'+buildComment(r,statut)+(r.rem?'<div style="margin-top:4px;font-style:italic;color:var(--text)">&#128172; '+escapeHtml(r.rem)+'</div>':'')+'</td>'
         +'</tr>';
     }).join('');
+  } else {
+    document.getElementById('players-grid').innerHTML='<div style="color:var(--text2);font-size:13px;padding:14px">Aucune réponse au questionnaire forme pour cette date.</div>';
+    document.getElementById('dash-tbody').innerHTML='<tr><td colspan="7" style="color:var(--text2)">Aucune réponse au questionnaire forme pour cette date.</td></tr>';
   }
 
   var tItems=[
