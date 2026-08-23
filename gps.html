@@ -1714,6 +1714,13 @@ table.roster-table select { padding: 4px; }
 .gps-record-card .gr-label { font-size:9px; font-weight:700; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
 .gps-record-card .gr-val { font-size:16px; font-weight:800; color:#c9a84c; font-family:'JetBrains Mono',monospace; }
 .gps-record-card .gr-date { font-size:9px; color:rgba(255,255,255,.2); margin-top:2px; }
+.gps-records-charts { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; padding:0 20px 16px; }
+.gps-chart-card {
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+  border-radius:8px; padding:10px 12px;
+}
+.gps-chart-card .gr-label { font-size:9px; font-weight:700; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+.gps-chart-empty { font-size:11px; color:rgba(255,255,255,.25); padding:8px 0; }
 
 
   /* Texte blanc dans les nouvelles sections profil joueur */
@@ -1723,6 +1730,8 @@ table.roster-table select { padding: 4px; }
   #hub-joueur .test-card-v2 *,
   #hub-joueur .gps-record-card,
   #hub-joueur .gps-record-card *,
+  #hub-joueur .gps-chart-card,
+  #hub-joueur .gps-chart-card *,
   #hub-joueur .joueur-profile-info-v2,
   #hub-joueur .joueur-profile-info-v2 * { color: #f0f0f0; }
   #hub-joueur .tc-trend.up   { color: #2ecc8a !important; }
@@ -2946,6 +2955,18 @@ Petit Enzo ; 9</pre>
     <!-- Records GPS -->
     <div class="joueur-section-title">📊 Records GPS</div>
     <div class="gps-records-grid" id="profileGpsRecords"></div>
+
+    <div class="joueur-section-title" style="margin-top:8px">📈 Évolution VMAX &amp; Accel Max</div>
+    <div class="gps-records-charts" id="profileGpsCharts">
+      <div class="gps-chart-card">
+        <div class="gr-label">VMAX (km/h) — par séance</div>
+        <div style="height:170px"><canvas id="profileVmaxChart"></canvas></div>
+      </div>
+      <div class="gps-chart-card">
+        <div class="gr-label">Accel Max — par séance</div>
+        <div style="height:170px"><canvas id="profileAccelChart"></canvas></div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal détail wellness -->
@@ -9842,6 +9863,23 @@ function deletePerfTest(id) {
 }
 
 /* ── Import Excel ── */
+// Certaines versions de SheetJS (cellDates:true) renvoient un instant juste
+// avant minuit (ex: 23:59:39 la veille) au lieu de minuit pile pour une
+// cellule "date seule" Excel — ce qui décale l'import d'un jour une fois
+// converti en date locale (Y/M/D). On arrondit donc au jour le plus proche
+// (UTC) pour retrouver la vraie date, quel que soit le fuseau horaire.
+function excelDateCellToParts(dateRaw) {
+  if (dateRaw instanceof Date) {
+    var rounded = new Date(Math.round(dateRaw.getTime() / 86400000) * 86400000);
+    return { y: rounded.getUTCFullYear(), m: rounded.getUTCMonth() + 1, d: rounded.getUTCDate() };
+  }
+  if (typeof dateRaw === "number") {
+    var d2 = new Date(Math.round((dateRaw - 25569) * 86400000));
+    return { y: d2.getUTCFullYear(), m: d2.getUTCMonth() + 1, d: d2.getUTCDate() };
+  }
+  return null;
+}
+
 function handleXlsxDrop(e) {
   e.preventDefault();
   document.getElementById('xlsxDrop').classList.remove('drag');
@@ -9950,17 +9988,11 @@ function handleXlsxFile(file) {
 
         // Date
         var dateStr = '';
-        if (dateRaw instanceof Date) {
-          // Date JS (cellDates:true)
-          dateStr = dateRaw.getFullYear() + '-' +
-            String(dateRaw.getMonth()+1).padStart(2,'0') + '-' +
-            String(dateRaw.getDate()).padStart(2,'0');
-        } else if (typeof dateRaw === 'number') {
-          // Serial Excel
-          var d = new Date(Math.round((dateRaw - 25569) * 86400000));
-          dateStr = d.getFullYear() + '-' +
-            String(d.getMonth()+1).padStart(2,'0') + '-' +
-            String(d.getDate()).padStart(2,'0');
+        var dateParts = excelDateCellToParts(dateRaw);
+        if (dateParts) {
+          dateStr = dateParts.y + '-' +
+            String(dateParts.m).padStart(2,'0') + '-' +
+            String(dateParts.d).padStart(2,'0');
         } else if (typeof dateRaw === 'string' && dateRaw) {
           dateStr = dateRaw;
         }
@@ -10392,18 +10424,38 @@ function renderProfileAccr(name) {
 }
 
 // Records GPS dans le profil
+// Retourne, triées chronologiquement, les entrées {date, vmax, accelMax}
+// d'un joueur à travers toutes les séances GPS sauvegardées.
+function profileGpsSessionSeries(name) {
+  var out = [];
+  if (typeof savedSessions === 'undefined') return out;
+  savedSessions.forEach(function(session) {
+    if (!session.groups) return;
+    var allPlayers = (session.groups["3/4"] || []).concat(session.groups.Avant || []);
+    var p = allPlayers.find(function(pl){
+      var pname = pl.displayName || pl.player || '';
+      return pname && pname.toLowerCase() === name.toLowerCase();
+    });
+    if (!p) return;
+    out.push({ date: session.date || '', vmax: p.vmax != null ? p.vmax : null, accelMax: p.accelMax != null ? p.accelMax : null });
+  });
+  out.sort(function(a, b) {
+    var da = p1SafeParseDate ? p1SafeParseDate(a.date) : null;
+    var db = p1SafeParseDate ? p1SafeParseDate(b.date) : null;
+    if (da && db) return da - db;
+    return 0;
+  });
+  return out;
+}
+
 function renderProfileGpsRecords(name) {
   var el = document.getElementById('profileGpsRecords');
   if (!el) return;
 
-  // Chercher les records dans les séances sauvegardées
+  // Chercher les records (meilleures valeurs) dans les séances sauvegardées
   var records = {
-    distance: { val: null, date: null },
-    vmax:     { val: null, date: null },
-    hiDist:   { val: null, date: null },
-    accel:    { val: null, date: null },
-    contact:  { val: null, date: null },
-    rhie:     { val: null, date: null },
+    vmax:  { val: null, date: null },
+    accel: { val: null, date: null },
   };
 
   if (typeof savedSessions !== 'undefined') {
@@ -10416,40 +10468,97 @@ function renderProfileGpsRecords(name) {
       });
       if (!p) return;
       var d = session.date || '';
-      if (p.distance != null && (records.distance.val == null || p.distance > records.distance.val)) records.distance = { val: p.distance, date: d };
-      if (p.vmax     != null && (records.vmax.val     == null || p.vmax     > records.vmax.val))     records.vmax     = { val: p.vmax,     date: d };
-      if (p.dist18   != null && (records.hiDist.val   == null || p.dist18   > records.hiDist.val))   records.hiDist   = { val: p.dist18,   date: d };
-      if (p.accelMax != null && (records.accel.val    == null || p.accelMax > records.accel.val))    records.accel    = { val: p.accelMax, date: d };
-      if (p.contacts != null && (records.contact.val  == null || p.contacts > records.contact.val))  records.contact  = { val: p.contacts, date: d };
-      if (p.rhie     != null && (records.rhie.val     == null || p.rhie     > records.rhie.val))     records.rhie     = { val: p.rhie,     date: d };
+      if (p.vmax     != null && (records.vmax.val  == null || p.vmax     > records.vmax.val))  records.vmax  = { val: p.vmax,     date: d };
+      if (p.accelMax != null && (records.accel.val == null || p.accelMax > records.accel.val)) records.accel = { val: p.accelMax, date: d };
     });
   }
 
   var defs = [
-    { key:'distance', label:'Distance',    unit:'m'    },
-    { key:'vmax',     label:'Vmax',        unit:'km/h' },
-    { key:'hiDist',   label:'Dist. +18',   unit:'m'    },
-    { key:'accel',    label:'Accel max',   unit:''     },
-    { key:'contact',  label:'Contacts',    unit:''     },
-    { key:'rhie',     label:'RHIE',        unit:''     },
+    { key:'vmax',  label:'Vmax',      unit:'km/h' },
+    { key:'accel', label:'Accel max', unit:''     },
   ];
 
   var hasAny = defs.some(function(d){ return records[d.key].val != null; });
   if (!hasAny) {
     el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px;padding:0 0 8px">Aucune séance GPS sauvegardée pour ce joueur.</p>';
-    return;
+  } else {
+    el.innerHTML = defs.map(function(d) {
+      var r = records[d.key];
+      if (r.val == null) return '<div class="gps-record-card"><div class="gr-label">' + d.label + '</div><div class="gr-val" style="color:rgba(255,255,255,.2)">—</div></div>';
+      var val = typeof r.val === 'number' ? (Number.isInteger(r.val) ? r.val : r.val.toFixed(2)) : r.val;
+      return '<div class="gps-record-card">'
+        + '<div class="gr-label">' + d.label + '</div>'
+        + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
+        + (r.date ? '<div class="gr-date">' + r.date + '</div>' : '')
+        + '</div>';
+    }).join('');
   }
 
-  el.innerHTML = defs.map(function(d) {
-    var r = records[d.key];
-    if (r.val == null) return '<div class="gps-record-card"><div class="gr-label">' + d.label + '</div><div class="gr-val" style="color:rgba(255,255,255,.2)">—</div></div>';
-    var val = typeof r.val === 'number' ? (Number.isInteger(r.val) ? r.val : r.val.toFixed(2)) : r.val;
-    return '<div class="gps-record-card">'
-      + '<div class="gr-label">' + d.label + '</div>'
-      + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
-      + (r.date ? '<div class="gr-date">' + r.date + '</div>' : '')
-      + '</div>';
-  }).join('');
+  renderProfileGpsCharts(name);
+}
+
+var profileGpsChartInsts = [];
+function renderProfileGpsCharts(name) {
+  profileGpsChartInsts.forEach(function(c){ try { c.destroy(); } catch(e){} });
+  profileGpsChartInsts = [];
+
+  var series = profileGpsSessionSeries(name);
+  var vmaxWrap = document.getElementById('profileVmaxChart');
+  var accelWrap = document.getElementById('profileAccelChart');
+  if (!vmaxWrap || !accelWrap) return;
+
+  var seriesWithVmax = series.filter(function(s){ return s.vmax != null; });
+  var seriesWithAccel = series.filter(function(s){ return s.accelMax != null; });
+
+  function drawChart(canvas, entries, key, color) {
+    var card = canvas.closest('.gps-chart-card');
+    if (entries.length < 2) {
+      canvas.style.display = 'none';
+      if (card && !card.querySelector('.gps-chart-empty')) {
+        var p = document.createElement('div');
+        p.className = 'gps-chart-empty';
+        p.textContent = 'Pas assez de séances pour un graphique.';
+        card.appendChild(p);
+      }
+      return null;
+    }
+    canvas.style.display = '';
+    if (card) {
+      var existingEmpty = card.querySelector('.gps-chart-empty');
+      if (existingEmpty) existingEmpty.remove();
+    }
+    if (typeof Chart === 'undefined') return null;
+    return new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: entries.map(function(e){ return e.date; }),
+        datasets: [{
+          data: entries.map(function(e){ return e[key]; }),
+          borderColor: color,
+          backgroundColor: color + '22',
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: color,
+          fill: true,
+          spanGaps: true,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        scales: {
+          x: { ticks: { color: 'rgba(255,255,255,.35)', font: { size: 9 }, maxTicksLimit: 5 }, grid: { display: false } },
+          y: { ticks: { color: 'rgba(255,255,255,.35)', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,.06)' } },
+        },
+      },
+    });
+  }
+
+  var c1 = drawChart(vmaxWrap, seriesWithVmax, 'vmax', '#c9a84c');
+  var c2 = drawChart(accelWrap, seriesWithAccel, 'accelMax', '#D6001C');
+  if (c1) profileGpsChartInsts.push(c1);
+  if (c2) profileGpsChartInsts.push(c2);
 }
 
 // Badges poste + statut
@@ -10537,14 +10646,10 @@ function handleRpeXlsxFile(file) {
 
         // Formater la date
         var dateStr = '';
-        if (dateRaw instanceof Date) {
-          dateStr = String(dateRaw.getDate()).padStart(2,'0') + '/' +
-                    String(dateRaw.getMonth()+1).padStart(2,'0') + '/' +
-                    dateRaw.getFullYear();
-        } else if (typeof dateRaw === 'number') {
-          var d = new Date(Math.round((dateRaw - 25569) * 86400000));
-          dateStr = String(d.getDate()).padStart(2,'0') + '/' +
-                    String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+        var dateParts = excelDateCellToParts(dateRaw);
+        if (dateParts) {
+          dateStr = String(dateParts.d).padStart(2,'0') + '/' +
+                    String(dateParts.m).padStart(2,'0') + '/' + dateParts.y;
         } else {
           dateStr = String(dateRaw).trim();
         }
