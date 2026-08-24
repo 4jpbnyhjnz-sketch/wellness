@@ -7,7 +7,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
 <style>
 /* ══ CSS INDEX2 (Wellness/RPE) ══ */
 
@@ -1459,10 +1458,16 @@ table.roster-table select { padding: 4px; }
 .medical-form-grid { display:grid; grid-template-columns:260px 1fr; gap:20px; }
 @media (max-width:640px) { .medical-form-grid { grid-template-columns:1fr; } }
 .medical-3d-container {
-  width:100%; height:300px; background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.1); border-radius:10px; overflow:hidden; touch-action:none; cursor:grab;
+  width:100%; background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1); border-radius:10px; overflow:hidden; padding:10px 4px;
 }
-.medical-3d-container:active { cursor:grabbing; }
+.medical-body-views { display:flex; justify-content:center; gap:18px; flex-wrap:wrap; }
+.medical-body-view { display:flex; flex-direction:column; align-items:center; width:120px; }
+.medical-body-svg { width:100%; height:auto; max-height:280px; }
+.medical-view-label { font-size:10px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
+.medical-region { fill:#d9b48c; stroke:#3a2a1c; stroke-width:0.4; cursor:pointer; transition:fill .12s; }
+.medical-region:hover { fill:#e8b979; }
+.medical-region.selected { fill:#D6001C; stroke:#7a0009; }
 .medical-fields-col { display:flex; flex-direction:column; gap:12px; }
 .medical-injury-table-wrap { overflow-x:auto; }
 .medical-injury-table { width:100%; border-collapse:collapse; font-size:12px; }
@@ -10996,191 +11001,158 @@ let medicalRecords = loadMedicalRecords();
 // fait face à la caméra = côté GAUCHE du joueur (comme quand on regarde
 // quelqu'un en face). x négatif = côté DROIT du joueur.
 // type 'sphere' -> geo:[radius] · type 'cyl' -> geo:[radiusTop,radiusBottom,height] · type 'box' (défaut) -> geo:[w,h,d]
-const MEDICAL_BODY_PARTS_RAW = [
-  { k:'tete',        l:'Tête',                    type:'sphere',  geo:[0.13],             p:[0,1.63,0] },
-  { k:'visage',      l:'Visage',                  type:'box',     geo:[0.15,0.12,0.05],   p:[0,1.60,0.135] },
-  { k:'cou',         l:'Cou',                     type:'capsule', geo:[0.058,0.04],       p:[0,1.475,0] },
-  { k:'thorax',      l:'Thorax / Côtes',          type:'cyl',     geo:[0.12,0.12,0.24],   p:[0,1.33,0.09] },
-  { k:'dos_haut',    l:'Dos haut',                type:'cyl',     geo:[0.12,0.12,0.24],   p:[0,1.33,-0.09] },
-  { k:'abdomen',     l:'Abdomen',                 type:'cyl',     geo:[0.10,0.11,0.14],   p:[0,1.13,0.075] },
-  { k:'lombaires',   l:'Lombaires (dos bas)',     type:'cyl',     geo:[0.10,0.11,0.14],   p:[0,1.13,-0.075] },
-  { k:'aine',        l:'Aine / Pubis',            type:'box',     geo:[0.14,0.06,0.10],   p:[0,1.00,0.06] },
-  { k:'epaule',      l:'Épaule',                  type:'sphere',  geo:[0.095],            p:[0.32,1.42,0],      mirror:true },
-  { k:'bras',        l:'Bras',                    type:'capsule', geo:[0.075,0.14],       p:[0.32,1.27,0],      mirror:true },
-  { k:'coude',       l:'Coude',                   type:'sphere',  geo:[0.065],            p:[0.32,1.13,0],      mirror:true },
-  { k:'avant_bras',  l:'Avant-bras',              type:'capsule', geo:[0.06,0.11],        p:[0.32,1.00,0],      mirror:true },
-  { k:'poignet',     l:'Poignet',                 type:'sphere',  geo:[0.052],            p:[0.32,0.885,0],     mirror:true },
-  { k:'main',        l:'Main',                    type:'capsule', geo:[0.045,0.06],       p:[0.32,0.80,0.01],   mirror:true },
-  { k:'hanche',      l:'Hanche',                  type:'sphere',  geo:[0.095],            p:[0.22,0.98,0],      mirror:true },
-  { k:'fessier',     l:'Fessier',                 type:'box',     geo:[0.13,0.11,0.08],   p:[0.12,0.95,-0.06],  mirror:true },
-  { k:'cuisse',      l:'Cuisse (quadriceps)',     type:'cyl',     geo:[0.115,0.11,0.32],  p:[0.14,0.76,0.06],   mirror:true },
-  { k:'ischio',      l:'Ischio-jambiers',         type:'cyl',     geo:[0.115,0.11,0.32],  p:[0.14,0.76,-0.06],  mirror:true },
-  { k:'genou',       l:'Genou',                   type:'sphere',  geo:[0.085],            p:[0.14,0.565,0],     mirror:true },
-  { k:'tibia',       l:'Tibia',                   type:'cyl',     geo:[0.095,0.085,0.30], p:[0.14,0.375,0.05],  mirror:true },
-  { k:'mollet',      l:'Mollet',                  type:'cyl',     geo:[0.095,0.085,0.30], p:[0.14,0.375,-0.05], mirror:true },
-  { k:'cheville',    l:'Cheville',                type:'sphere',  geo:[0.062],            p:[0.14,0.185,0],     mirror:true },
-  { k:'pied',        l:'Pied',                    type:'box',     geo:[0.10,0.06,0.15],   p:[0.14,0.075,0.10],  mirror:true },
-  { k:'talon',       l:'Talon',                   type:'box',     geo:[0.10,0.06,0.08],   p:[0.14,0.075,-0.05], mirror:true },
-];
-
-function buildMedicalBodyPartsList() {
-  const out = [];
-  MEDICAL_BODY_PARTS_RAW.forEach(function(part) {
-    if (!part.mirror) {
-      out.push({ key: part.k, label: part.l, type: part.type, geo: part.geo, pos: part.p });
-      return;
-    }
-    const x = part.p[0];
-    out.push({ key: part.k + '_g', label: part.l + ' (G)', type: part.type, geo: part.geo, pos: [x, part.p[1], part.p[2]] });
-    out.push({ key: part.k + '_d', label: part.l + ' (D)', type: part.type, geo: part.geo, pos: [-x, part.p[1], part.p[2]] });
-  });
-  return out;
-}
-const MEDICAL_BODY_PARTS = buildMedicalBodyPartsList();
+const MEDICAL_SHAPES = {
+  front: [
+    {key:'tete',polys:['42.4,2.9 40.0,11.8 42.0,19.6 46.1,23.3 49.8,25.3 54.7,22.4 57.6,19.2 59.2,10.2 57.1,2.4 49.8,0.0']},
+    {key:'visage',ellipse:[50,14,8,9]},
+    {key:'cou',polys:['55.5,23.7 50.6,33.5 50.6,39.2 61.6,40.0 70.6,44.9 69.4,36.7 63.3,35.1 58.4,30.6','29.0,44.9 30.2,37.1 36.3,35.1 41.2,30.2 44.5,24.5 49.0,33.9 48.6,39.2 38.0,39.6']},
+    {key:'thorax',polys:['51.8,41.6 51.0,55.1 58.0,58.0 67.8,55.5 70.6,47.3 62.0,41.6','29.8,46.5 31.4,55.5 40.8,58.0 48.2,55.1 47.8,42.0 37.6,42.0']},
+    {key:'abdomen',polys:['56.3,59.2 58.0,64.1 58.4,78.0 58.4,92.7 56.3,98.4 55.1,104.1 51.4,107.8 51.0,84.5 50.6,67.3 51.0,57.1','43.7,58.8 48.6,57.1 49.0,67.3 48.6,84.5 48.2,107.3 44.5,103.7 40.8,91.4 40.8,78.4 41.2,64.5']},
+    {key:'aine',ellipse:[50,97,6,6]},
+    {key:'epaule_d',polys:['28.2,47.3 21.2,53.1 20.0,47.8 20.4,40.8 24.5,37.1 28.6,37.1 26.9,43.3']},
+    {key:'epaule_g',polys:['78.4,53.1 79.6,47.8 79.2,41.2 75.9,38.0 71.0,36.3 72.2,42.9 71.4,47.3']},
+    {key:'bras_d',polys:['16.7,68.2 18.0,71.4 22.9,66.1 29.0,53.9 27.8,49.4 20.4,55.9']},
+    {key:'bras_g',polys:['71.4,49.4 70.2,54.7 76.3,66.1 81.6,71.8 82.9,69.0 78.8,55.5']},
+    {key:'avant_bras_d',polys:['6.1,88.6 10.2,75.1 14.7,70.2 16.3,74.3 19.2,73.5 4.5,97.6 0.0,100.0','6.9,101.2 13.5,90.6 18.8,84.1 21.6,77.1 21.2,71.8 4.9,98.8']},
+    {key:'avant_bras_g',polys:['84.5,69.8 83.3,73.5 80.0,73.1 95.1,98.4 100.0,100.4 93.5,89.4 89.8,76.3','77.6,72.2 77.6,77.6 80.4,84.1 85.3,89.8 92.2,101.2 94.7,99.6']},
+    {key:'hanche_d',ellipse:[24,92,7,7]},
+    {key:'hanche_g',ellipse:[76,92,7,7]},
+    {key:'cuisse_d',polys:['34.7,98.8 37.1,108.2 37.1,127.8 34.3,137.1 31.0,132.7 29.4,120.0 28.2,111.4 29.4,100.8 32.2,94.7','38.8,129.4 38.4,112.2 41.2,118.4 44.5,129.4 42.9,135.1 40.0,146.1 36.3,146.5 35.5,140.0','32.7,138.4 26.5,145.7 25.7,136.7 25.7,127.3 26.9,114.3 29.4,133.5']},
+    {key:'cuisse_g',polys:['63.3,105.7 64.5,100.0 66.9,94.7 70.2,101.2 71.0,111.8 68.2,133.1 65.3,137.6 62.4,128.6 62.0,111.4','59.6,145.7 55.5,129.0 60.8,113.9 61.2,130.2 64.1,139.6 62.9,146.5','71.8,113.1 73.9,124.1 73.9,140.4 72.7,145.7 66.5,138.4 70.2,133.5']},
+    {key:'genou_d',polys:['33.9,140.0 34.7,143.3 35.5,147.3 36.3,151.0 35.1,156.7 29.8,156.7 27.3,152.7 27.3,147.3 30.2,144.1']},
+    {key:'genou_g',polys:['65.7,140.0 72.2,147.8 72.2,152.2 69.8,157.1 64.9,156.7 62.9,151.0']},
+    {key:'tibia_d',polys:['24.9,194.7 27.8,164.9 28.2,160.4 26.1,154.3 24.9,157.6 22.4,161.6 20.8,167.8 22.0,188.2 20.8,195.5','35.5,158.4 35.9,162.4 35.9,166.9 35.1,172.2 35.1,176.7 32.2,182.0 30.6,187.3 26.9,194.7 27.3,187.8 28.2,180.4 28.6,175.5 29.0,169.8 29.8,164.1 30.2,158.8']},
+    {key:'tibia_g',polys:['71.4,160.4 73.5,153.5 76.7,161.2 79.6,167.8 78.4,187.8 79.6,195.5 74.7,195.5','72.7,195.1 69.8,159.2 65.3,158.4 64.1,162.4 64.1,165.3 65.7,177.1']},
+    {key:'coude_d',ellipse:[20,71,6,7]},
+    {key:'coude_g',ellipse:[80,71,6,7]},
+    {key:'poignet_d',ellipse:[8,99,5,5]},
+    {key:'poignet_g',ellipse:[92,99,5,5]},
+    {key:'main_d',ellipse:[4,107,6,8]},
+    {key:'main_g',ellipse:[96,107,6,8]},
+    {key:'cheville_d',ellipse:[22,199,5,5]},
+    {key:'cheville_g',ellipse:[78,199,5,5]},
+    {key:'pied_d',ellipse:[16,209,8,6]},
+    {key:'pied_g',ellipse:[84,209,8,6]},
+  ],
+  back: [
+    {key:'tete',polys:['50.6,0.0 46.0,0.9 40.9,5.5 40.4,12.8 45.1,20.0 55.7,20.0 59.1,13.6 59.6,4.7 55.7,1.3']},
+    {key:'dos_haut',polys:['31.1,38.7 28.1,48.9 28.5,55.3 34.0,75.3 47.2,71.1 47.2,66.4 36.6,54.0 33.6,41.3','68.9,38.7 71.9,49.4 71.5,56.2 66.0,75.3 52.8,71.1 52.8,66.4 63.4,54.5 66.4,41.7']},
+    {key:'lombaires',polys:['47.7,72.8 34.5,77.0 35.3,83.4 49.4,102.1 46.8,83.0','52.3,72.8 65.5,77.0 64.7,83.4 50.6,102.1 53.2,83.8']},
+    {key:'epaule_d',polys:['29.4,37.0 23.0,39.1 17.4,44.3 18.3,53.6 24.3,49.4 27.2,46.4']},
+    {key:'epaule_g',polys:['71.1,37.0 78.3,39.6 82.6,44.7 81.7,53.6 74.9,48.9 72.3,45.1']},
+    {key:'bras_d',polys:['26.8,49.8 17.9,55.7 14.5,72.3 16.6,81.7 21.7,63.8 26.8,55.7','26.8,58.3 26.8,68.5 23.0,75.3 19.1,77.4 22.6,65.5']},
+    {key:'bras_g',polys:['73.6,50.2 82.1,55.7 86.0,73.2 83.4,82.1 77.9,63.0 73.2,55.7','72.8,58.3 77.0,64.7 80.4,77.4 76.6,75.3 72.8,68.9']},
+    {key:'avant_bras_d',polys:['13.6,75.7 8.9,83.8 6.8,93.6 0.0,106.4 3.8,104.3 12.3,88.5 15.7,83.0','18.7,79.6 22.1,77.9 20.9,84.3 9.4,103.0 6.8,108.5 5.1,104.7']},
+    {key:'avant_bras_g',polys:['86.4,75.7 91.1,83.4 93.2,94.0 100.0,106.4 96.2,104.3 88.1,89.4 84.3,83.8','81.3,79.6 77.4,77.9 79.1,84.7 91.1,103.8 93.2,108.9 94.5,104.7']},
+    {key:'fessier_d',polys:['44.7,99.6 30.2,108.5 29.8,118.7 31.5,126.0 47.2,121.3 49.4,114.9']},
+    {key:'fessier_g',polys:['55.3,99.1 51.1,114.5 52.3,120.9 68.1,126.0 69.8,119.1 69.4,108.5']},
+    {key:'ischio_d',polys:['28.9,122.1 31.1,129.4 36.6,126.0 35.3,135.3 34.5,150.2 29.4,158.3 28.9,146.8 27.7,141.3 27.2,131.5','38.7,125.5 44.3,146.0 40.4,166.8 36.2,152.8 37.0,135.3']},
+    {key:'ischio_g',polys:['71.5,121.7 69.4,128.9 63.8,126.0 65.5,136.6 66.4,150.2 71.1,158.3 71.5,147.7 72.8,142.1 73.6,131.9','61.7,125.5 63.4,136.2 64.3,153.2 60.0,166.8 56.2,146.4']},
+    {key:'genou_d',polys:['34.5,153.2 31.1,159.1 33.6,166.4 37.4,162.6']},
+    {key:'genou_g',polys:['66.4,153.6 63.0,163.0 66.8,166.4 69.4,159.1']},
+    {key:'mollet_d',polys:['29.4,160.4 28.5,167.2 24.7,179.6 23.8,192.8 25.5,197.0 28.5,193.2 29.8,180.0 31.9,171.1 31.9,166.8','37.4,165.1 35.3,167.7 33.2,171.9 31.1,180.4 30.2,191.9 34.0,200.0 38.7,190.6 39.1,168.9']},
+    {key:'mollet_g',polys:['63.0,165.1 61.3,168.5 61.7,190.6 66.4,199.6 70.6,191.9 68.9,179.6','70.6,160.4 72.3,168.5 75.7,179.1 76.6,192.8 74.5,196.6 72.3,193.6 70.6,179.6 68.1,168.1']},
+    {key:'coude_d',ellipse:[20,75,6,7]},
+    {key:'coude_g',ellipse:[80,75,6,7]},
+    {key:'poignet_d',ellipse:[9,108,5,5]},
+    {key:'poignet_g',ellipse:[91,108,5,5]},
+    {key:'main_d',ellipse:[5,116,6,8]},
+    {key:'main_g',ellipse:[95,116,6,8]},
+    {key:'cheville_d',ellipse:[27,199,5,5]},
+    {key:'cheville_g',ellipse:[73,199,5,5]},
+    {key:'pied_d',ellipse:[18,224,8,6]},
+    {key:'pied_g',ellipse:[82,224,8,6]},
+    {key:'talon_d',ellipse:[30,220,6,5]},
+    {key:'talon_g',ellipse:[70,220,6,5]},
+  ],
+};
+const MEDICAL_PART_LABELS = {
+  tete:'Tête', visage:'Visage', cou:'Cou', thorax:'Thorax / Côtes', dos_haut:'Dos haut',
+  abdomen:'Abdomen', lombaires:'Lombaires (dos bas)', aine:'Aine / Pubis',
+  epaule_g:'Épaule (G)', epaule_d:'Épaule (D)',
+  bras_g:'Bras (G)', bras_d:'Bras (D)',
+  coude_g:'Coude (G)', coude_d:'Coude (D)',
+  avant_bras_g:'Avant-bras (G)', avant_bras_d:'Avant-bras (D)',
+  poignet_g:'Poignet (G)', poignet_d:'Poignet (D)',
+  main_g:'Main (G)', main_d:'Main (D)',
+  hanche_g:'Hanche (G)', hanche_d:'Hanche (D)',
+  fessier_g:'Fessier (G)', fessier_d:'Fessier (D)',
+  cuisse_g:'Cuisse (quadriceps) (G)', cuisse_d:'Cuisse (quadriceps) (D)',
+  ischio_g:'Ischio-jambiers (G)', ischio_d:'Ischio-jambiers (D)',
+  genou_g:'Genou (G)', genou_d:'Genou (D)',
+  tibia_g:'Tibia (G)', tibia_d:'Tibia (D)',
+  mollet_g:'Mollet (G)', mollet_d:'Mollet (D)',
+  cheville_g:'Cheville (G)', cheville_d:'Cheville (D)',
+  pied_g:'Pied (G)', pied_d:'Pied (D)',
+  talon_g:'Talon (G)', talon_d:'Talon (D)',
+};
+const MEDICAL_BODY_PARTS = Object.keys(MEDICAL_PART_LABELS).map(function(k){ return {key:k, label:MEDICAL_PART_LABELS[k]}; });
 const MEDICAL_BODY_PARTS_BY_KEY = {};
 MEDICAL_BODY_PARTS.forEach(function(p){ MEDICAL_BODY_PARTS_BY_KEY[p.key] = p; });
 
-// ── État de la scène 3D (une seule instance réutilisée) ────────────
-let medicalScene = null, medicalCamera = null, medicalRenderer = null;
-let medicalBodyGroup = null, medicalRaycaster = null, medicalMeshByKey = {};
+// ── Corps 2D cliquable (avant / arrière) ─────────────────────────
+// Silhouette adaptée de react-body-highlighter (MIT © GV79 / github.com/giavinh79/react-body-highlighter),
+// complétée par des zones supplémentaires (mains, pieds, poignets, chevilles, coudes...).
 let medicalSelectedKey = null;
-let medicalRotY = 0.5, medicalRotX = -0.05;
-let medicalDragging = false, medicalDragMoved = false, medicalLastX = 0, medicalLastY = 0;
-let medicalSceneReady = false;
 
-const MEDICAL_COLOR_DEFAULT = 0xd9b48c;
-const MEDICAL_COLOR_SELECTED = 0xD6001C;
-
-function medicalMakeGeometry(part) {
-  if (part.type === 'sphere') return new THREE.SphereGeometry(part.geo[0], 20, 16);
-  if (part.type === 'capsule' && typeof THREE.CapsuleGeometry === 'function') return new THREE.CapsuleGeometry(part.geo[0], part.geo[1], 6, 16);
-  if (part.type === 'capsule') return new THREE.CylinderGeometry(part.geo[0], part.geo[0], part.geo[1] + part.geo[0] * 1.6, 16); // repli si CapsuleGeometry indisponible
-  if (part.type === 'cyl') return new THREE.CylinderGeometry(part.geo[0], part.geo[1], part.geo[2], 20);
-  return new THREE.BoxGeometry(part.geo[0], part.geo[1], part.geo[2]);
+function medicalShapeMarkup(s) {
+  var attrs = 'data-key="' + s.key + '" class="medical-region"';
+  var out = '';
+  if (s.polys && s.polys.length) {
+    s.polys.forEach(function(p) { out += '<polygon points="' + p + '" ' + attrs + '></polygon>'; });
+  }
+  if (s.ellipse) {
+    var e = s.ellipse;
+    out += '<ellipse cx="' + e[0] + '" cy="' + e[1] + '" rx="' + e[2] + '" ry="' + e[3] + '" ' + attrs + '></ellipse>';
+  }
+  return out;
 }
-
-function initMedicalBodyScene() {
-  const container = document.getElementById('medicalBodyContainer');
-  if (!container || typeof THREE === 'undefined') return;
-  container.innerHTML = '';
-
-  const w = container.clientWidth || 260, h = container.clientHeight || 300;
-  medicalScene = new THREE.Scene();
-  medicalCamera = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
-  medicalCamera.position.set(0, 0.9, 3.0);
-  medicalCamera.lookAt(0, 0.9, 0);
-
-  medicalRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  medicalRenderer.setSize(w, h);
-  medicalRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  container.appendChild(medicalRenderer.domElement);
-
-  medicalScene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dir = new THREE.DirectionalLight(0xffffff, 0.65);
-  dir.position.set(2, 4, 3);
-  medicalScene.add(dir);
-  const dir2 = new THREE.DirectionalLight(0xffffff, 0.35);
-  dir2.position.set(-2, 1, -3);
-  medicalScene.add(dir2);
-
-  medicalBodyGroup = new THREE.Group();
-  medicalMeshByKey = {};
-  MEDICAL_BODY_PARTS.forEach(function(part) {
-    const geo = medicalMakeGeometry(part);
-    const mat = new THREE.MeshStandardMaterial({ color: MEDICAL_COLOR_DEFAULT, roughness: 0.75, metalness: 0.05 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
-    mesh.userData.partKey = part.key;
-    mesh.userData.partLabel = part.label;
-    medicalBodyGroup.add(mesh);
-    medicalMeshByKey[part.key] = mesh;
-  });
-  medicalBodyGroup.rotation.x = medicalRotX;
-  medicalBodyGroup.rotation.y = medicalRotY;
-  medicalScene.add(medicalBodyGroup);
-
-  medicalRaycaster = new THREE.Raycaster();
-
-  wireMedicalBodyControls(container);
+function buildMedicalBodySvg(view) {
+  var shapes = MEDICAL_SHAPES[view] || [];
+  var body = shapes.map(medicalShapeMarkup).join('');
+  return '<svg viewBox="0 0 100 232" class="medical-body-svg" data-view="' + view + '">' + body + '</svg>';
+}
+function initMedicalBodySvg() {
+  var container = document.getElementById('medicalBodyContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="medical-body-views">'
+    + '<div class="medical-body-view">' + buildMedicalBodySvg('front') + '<div class="medical-view-label">Avant</div></div>'
+    + '<div class="medical-body-view">' + buildMedicalBodySvg('back') + '<div class="medical-view-label">Arrière</div></div>'
+    + '</div>';
+  var svgs = container.querySelectorAll('svg');
+  for (var i = 0; i < svgs.length; i++) {
+    svgs[i].addEventListener('click', function(e) {
+      var el = e.target.closest ? e.target.closest('[data-key]') : null;
+      if (!el) return;
+      selectMedicalBodyPartByKey(el.getAttribute('data-key'));
+    });
+  }
   if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey);
-  medicalSceneReady = true;
-  medicalRenderLoop();
-}
-
-function medicalRenderLoop() {
-  if (!medicalRenderer || !medicalScene || !medicalCamera) return;
-  medicalRenderer.render(medicalScene, medicalCamera);
-  requestAnimationFrame(medicalRenderLoop);
-}
-
-function wireMedicalBodyControls(container) {
-  const dom = medicalRenderer.domElement;
-
-  function onDown(clientX, clientY) {
-    medicalDragging = true; medicalDragMoved = false;
-    medicalLastX = clientX; medicalLastY = clientY;
-  }
-  function onMove(clientX, clientY) {
-    if (!medicalDragging) return;
-    const dx = clientX - medicalLastX, dy = clientY - medicalLastY;
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) medicalDragMoved = true;
-    medicalRotY += dx * 0.008;
-    medicalRotX = Math.max(-0.6, Math.min(0.6, medicalRotX + dy * 0.006));
-    if (medicalBodyGroup) { medicalBodyGroup.rotation.y = medicalRotY; medicalBodyGroup.rotation.x = medicalRotX; }
-    medicalLastX = clientX; medicalLastY = clientY;
-  }
-  function onUp(clientX, clientY) {
-    if (medicalDragging && !medicalDragMoved) medicalHandleClick(clientX, clientY);
-    medicalDragging = false;
-  }
-
-  dom.addEventListener('mousedown', function(e){ onDown(e.clientX, e.clientY); });
-  window.addEventListener('mousemove', function(e){ onMove(e.clientX, e.clientY); });
-  window.addEventListener('mouseup', function(e){ onUp(e.clientX, e.clientY); });
-
-  dom.addEventListener('touchstart', function(e){ const t=e.touches[0]; onDown(t.clientX, t.clientY); }, {passive:true});
-  dom.addEventListener('touchmove', function(e){ const t=e.touches[0]; onMove(t.clientX, t.clientY); }, {passive:true});
-  dom.addEventListener('touchend', function(e){ const t=e.changedTouches[0]; onUp(t.clientX, t.clientY); });
-
-  dom.addEventListener('wheel', function(e){
-    e.preventDefault();
-    medicalCamera.position.z = Math.max(1.8, Math.min(5, medicalCamera.position.z + e.deltaY * 0.002));
-  }, { passive: false });
-}
-
-function medicalHandleClick(clientX, clientY) {
-  const rect = medicalRenderer.domElement.getBoundingClientRect();
-  const mouse = new THREE.Vector2(
-    ((clientX - rect.left) / rect.width) * 2 - 1,
-    -((clientY - rect.top) / rect.height) * 2 + 1
-  );
-  medicalRaycaster.setFromCamera(mouse, medicalCamera);
-  const intersects = medicalRaycaster.intersectObjects(medicalBodyGroup.children);
-  if (intersects.length) {
-    const key = intersects[0].object.userData.partKey;
-    selectMedicalBodyPartByKey(key);
-  }
 }
 
 function highlightMedicalPart(key) {
-  Object.keys(medicalMeshByKey).forEach(function(k) {
-    medicalMeshByKey[k].material.color.setHex(k === key ? MEDICAL_COLOR_SELECTED : MEDICAL_COLOR_DEFAULT);
-  });
+  var container = document.getElementById('medicalBodyContainer');
+  if (!container) return;
+  var prev = container.querySelectorAll('.medical-region.selected');
+  for (var i = 0; i < prev.length; i++) prev[i].classList.remove('selected');
+  if (!key) return;
+  var current = container.querySelectorAll('[data-key="' + key + '"]');
+  for (var j = 0; j < current.length; j++) current[j].classList.add('selected');
 }
 
 function selectMedicalBodyPartByKey(key) {
   if (!key || !MEDICAL_BODY_PARTS_BY_KEY[key]) return;
   medicalSelectedKey = key;
-  const label = MEDICAL_BODY_PARTS_BY_KEY[key].label;
-  const lbl = document.getElementById('medicalLieuLabel');
+  var label = MEDICAL_BODY_PARTS_BY_KEY[key].label;
+  var lbl = document.getElementById('medicalLieuLabel');
   if (lbl) { lbl.textContent = label; lbl.style.color = '#D6001C'; }
-  const sel = document.getElementById('medicalLieuSelect');
+  var sel = document.getElementById('medicalLieuSelect');
   if (sel) sel.value = key;
-  if (medicalMeshByKey[key]) highlightMedicalPart(key);
+  highlightMedicalPart(key);
 }
 
 function populateMedicalLieuSelect() {
-  const sel = document.getElementById('medicalLieuSelect');
+  var sel = document.getElementById('medicalLieuSelect');
   if (!sel) return;
   sel.innerHTML = '<option value="">— Choisir —</option>' + MEDICAL_BODY_PARTS.map(function(p) {
     return '<option value="' + p.key + '">' + p.label + '</option>';
@@ -11258,7 +11230,7 @@ function resetMedicalForm() {
   if (lbl) { lbl.textContent = 'Aucune zone sélectionnée'; lbl.style.color = '#D6001C'; }
   const lieuSel = document.getElementById('medicalLieuSelect');
   if (lieuSel) lieuSel.value = '';
-  if (medicalSceneReady) highlightMedicalPart(null);
+  highlightMedicalPart(null);
 }
 
 function openMedicalInjuryForm(injuryId) {
@@ -11405,7 +11377,7 @@ switchHub = function(name) {
   if (name === 'medical') {
     populateMedicalPlayerSelect();
     renderMedicalDashboardTable();
-    setTimeout(function(){ initMedicalBodyScene(); }, 30);
+    setTimeout(function(){ initMedicalBodySvg(); }, 30);
   }
 };
 document.addEventListener('DOMContentLoaded', function() {
