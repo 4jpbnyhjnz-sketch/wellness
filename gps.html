@@ -1442,6 +1442,11 @@ table.roster-table select { padding: 4px; }
 .joueur-card-status { font-size:9px; color:rgba(255,255,255,.4); }
 
 /* ══ MEDICAL ══ */
+.medical-quickform-card {
+  margin:0 20px 8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
+  border-radius:14px; padding:18px;
+}
+.medical-quickform-title { font-size:15px; font-weight:800; color:#fff; margin-bottom:14px; }
 .medical-form-overlay {
   position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:500;
   display:flex; align-items:center; justify-content:center; padding:16px;
@@ -2995,6 +3000,10 @@ Petit Enzo ; 9</pre>
     </div>
     <div class="tests-grid-v2" id="profileTests"></div>
 
+    <!-- Blessures (Médical) -->
+    <div class="joueur-section-title">🏥 Blessures</div>
+    <div id="profileMedicalWrap" style="padding:0 20px 12px"></div>
+
     <!-- Records GPS -->
     <div class="joueur-section-title">📊 Records GPS</div>
     <div class="gps-records-grid" id="profileGpsRecords"></div>
@@ -3141,47 +3150,29 @@ Petit Enzo ; 9</pre>
 
 <!-- SECTION MEDICAL -->
 <div id="hub-medical" class="hub-section">
-  <div id="medical-list-view">
-    <div style="padding:16px 20px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div style="font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.05em">🏥 Médical</div>
-      <input id="medicalSearch" type="text" placeholder="🔍 Rechercher un joueur..." class="perf-input" style="max-width:220px;padding:7px 12px;font-size:12px" oninput="renderMedicalPlayerGrid()">
-    </div>
-    <div class="joueur-grid" id="medicalPlayerGrid"></div>
+  <div style="padding:16px 20px 8px">
+    <div style="font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.05em">🏥 Médical</div>
   </div>
 
-  <div class="joueur-profile" id="medicalPlayerView">
-    <div style="padding:12px 20px;background:#1a0003;border-bottom:2px solid #D6001C;display:flex;align-items:center;gap:12px">
-      <button onclick="closeMedicalPlayer()" style="display:inline-flex;align-items:center;gap:8px;background:#D6001C;border:none;border-radius:8px;padding:10px 20px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">← Retour</button>
-      <span style="color:rgba(255,255,255,.4);font-size:12px" id="medicalBreadcrumb"></span>
-    </div>
-    <div style="padding:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-        <div style="font-size:22px;font-weight:800;color:#fff" id="medicalPlayerName"></div>
-        <button class="hub-refresh-pill" style="width:auto;padding:9px 18px;font-size:13px;background:rgba(214,0,28,.25);border-color:#D6001C" onclick="openMedicalInjuryForm()">➕ Nouvelle blessure</button>
+  <!-- Formulaire : déclarer une blessure -->
+  <div class="medical-quickform-card">
+    <div class="medical-quickform-title" id="medicalFormTitle">➕ Déclarer une blessure</div>
+    <div class="medical-form-grid">
+      <div class="medical-3d-col">
+        <div id="medicalBodyContainer" class="medical-3d-container"></div>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center;margin-top:6px">Glissez pour tourner le corps · cliquez une zone pour choisir le lieu</div>
+        <div id="medicalLieuLabel" style="text-align:center;margin-top:8px;font-size:13px;font-weight:700;color:#D6001C">Aucune zone sélectionnée</div>
       </div>
-      <div id="medicalInjuriesTableWrap"></div>
-    </div>
-  </div>
-
-  <!-- Formulaire blessure (overlay) -->
-  <div id="medicalInjuryForm" class="medical-form-overlay hidden">
-    <div class="medical-form-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:16px;font-weight:800;color:#fff" id="medicalFormTitle">Nouvelle blessure</div>
-        <button onclick="closeMedicalInjuryForm()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:22px;cursor:pointer;line-height:1">✕</button>
-      </div>
-
-      <div class="medical-form-grid">
-        <div class="medical-3d-col">
-          <div id="medicalBodyContainer" class="medical-3d-container"></div>
-          <div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center;margin-top:6px">Glissez pour tourner le corps · cliquez une zone pour choisir le lieu</div>
-          <div id="medicalLieuLabel" style="text-align:center;margin-top:8px;font-size:13px;font-weight:700;color:#D6001C">Aucune zone sélectionnée</div>
+      <div class="medical-fields-col">
+        <div class="perf-field">
+          <label>Joueur</label>
+          <select id="medicalPlayerSelect" class="perf-input"></select>
         </div>
-        <div class="medical-fields-col">
-          <div class="perf-field">
-            <label>Lieu (ou choisir dans la liste)</label>
-            <select id="medicalLieuSelect" class="perf-input" onchange="selectMedicalBodyPartByKey(this.value)"></select>
-          </div>
+        <div class="perf-field">
+          <label>Lieu (ou choisir dans la liste)</label>
+          <select id="medicalLieuSelect" class="perf-input" onchange="selectMedicalBodyPartByKey(this.value)"></select>
+        </div>
+        <div class="perf-form-row">
           <div class="perf-field">
             <label>Typologie</label>
             <select id="medicalTypologie" class="perf-input">
@@ -3205,46 +3196,65 @@ Petit Enzo ; 9</pre>
               <option value="Inflammation">Inflammation</option>
             </select>
           </div>
-          <div class="perf-form-row">
-            <div class="perf-field">
-              <label>Gravité</label>
-              <select id="medicalGravite" class="perf-input">
-                <option value="Légère">Légère</option>
-                <option value="Modérée">Modérée</option>
-                <option value="Sévère">Sévère</option>
-              </select>
-            </div>
-            <div class="perf-field">
-              <label>Statut</label>
-              <select id="medicalStatut" class="perf-input" onchange="toggleMedicalRetourReelle()">
-                <option value="En cours">En cours</option>
-                <option value="Guéri">Guéri</option>
-              </select>
-            </div>
-          </div>
-          <div class="perf-form-row">
-            <div class="perf-field">
-              <label>Date de la blessure</label>
-              <input type="date" id="medicalDateBlessure" class="perf-input">
-            </div>
-            <div class="perf-field">
-              <label>Retour prévu</label>
-              <input type="date" id="medicalDateRetourPrevue" class="perf-input">
-            </div>
-          </div>
-          <div class="perf-field hidden" id="medicalRetourReelleField">
-            <label>Retour réel</label>
-            <input type="date" id="medicalDateRetourReelle" class="perf-input">
+        </div>
+        <div class="perf-form-row">
+          <div class="perf-field">
+            <label>Gravité</label>
+            <select id="medicalGravite" class="perf-input">
+              <option value="Légère">Légère</option>
+              <option value="Modérée">Modérée</option>
+              <option value="Sévère">Sévère</option>
+            </select>
           </div>
           <div class="perf-field">
-            <label>Notes</label>
-            <textarea id="medicalNotes" class="perf-input" rows="3" style="resize:vertical"></textarea>
+            <label>Statut</label>
+            <select id="medicalStatut" class="perf-input" onchange="toggleMedicalRetourReelle()">
+              <option value="En cours">En cours</option>
+              <option value="Guéri">Guéri</option>
+            </select>
           </div>
-          <button class="hub-refresh-pill" style="width:100%;padding:10px;font-size:13px;background:rgba(214,0,28,.25);border-color:#D6001C;margin-top:6px" onclick="saveMedicalInjury()">💾 Enregistrer la blessure</button>
-          <div id="medicalFormError" style="color:#ff6b6b;font-size:12px;text-align:center"></div>
         </div>
+        <div class="perf-form-row">
+          <div class="perf-field">
+            <label>Date de la blessure</label>
+            <input type="date" id="medicalDateBlessure" class="perf-input">
+          </div>
+          <div class="perf-field">
+            <label>Retour prévu</label>
+            <input type="date" id="medicalDateRetourPrevue" class="perf-input">
+          </div>
+        </div>
+        <div class="perf-field hidden" id="medicalRetourReelleField">
+          <label>Retour réel</label>
+          <input type="date" id="medicalDateRetourReelle" class="perf-input">
+        </div>
+        <div class="perf-field">
+          <label>Notes</label>
+          <textarea id="medicalNotes" class="perf-input" rows="2" style="resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="hub-refresh-pill" style="flex:1;padding:10px;font-size:13px;background:rgba(214,0,28,.25);border-color:#D6001C" onclick="saveMedicalInjury()">💾 Enregistrer la blessure</button>
+          <button class="hub-refresh-pill" id="medicalCancelEditBtn" style="flex:0 0 auto;padding:10px 16px;font-size:13px;display:none" onclick="resetMedicalForm()">Annuler</button>
+        </div>
+        <div id="medicalFormError" style="color:#ff6b6b;font-size:12px;text-align:center"></div>
       </div>
     </div>
+  </div>
+
+  <!-- Tableau de bord : toutes les blessures, tous joueurs -->
+  <div style="padding:4px 20px 24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:18px 0 10px">
+      <div style="font-size:16px;font-weight:800;color:#fff">📋 Toutes les blessures</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="medicalFilterStatut" class="perf-input" onchange="renderMedicalDashboardTable()" style="width:auto;padding:7px 12px;font-size:12px">
+          <option value="">Tous statuts</option>
+          <option value="En cours">En cours</option>
+          <option value="Guéri">Guéri</option>
+        </select>
+        <input id="medicalFilterPlayer" type="text" class="perf-input" placeholder="🔍 Filtrer par joueur..." oninput="renderMedicalDashboardTable()" style="width:auto;max-width:200px;padding:7px 12px;font-size:12px">
+      </div>
+    </div>
+    <div id="medicalDashboardTableWrap"></div>
   </div>
 </div>
 
@@ -9681,6 +9691,7 @@ function openJoueurProfile(name) {
   renderProfileWellness5(name);
   renderProfileTestsV2(name);
   renderProfileGpsRecords(name);
+  if (typeof renderProfileMedical === 'function') renderProfileMedical(name);
 }
 
 function closeJoueurProfile() {
@@ -10984,43 +10995,44 @@ let medicalRecords = loadMedicalRecords();
 // Convention : x positif = côté visible à DROITE de l'écran quand le corps
 // fait face à la caméra = côté GAUCHE du joueur (comme quand on regarde
 // quelqu'un en face). x négatif = côté DROIT du joueur.
+// type 'sphere' -> geo:[radius] · type 'cyl' -> geo:[radiusTop,radiusBottom,height] · type 'box' (défaut) -> geo:[w,h,d]
 const MEDICAL_BODY_PARTS_RAW = [
-  { k:'tete',        l:'Tête',                    s:[0.24,0.22,0.22], p:[0,1.64,0] },
-  { k:'visage',       l:'Visage',                  s:[0.16,0.13,0.07], p:[0,1.58,0.145] },
-  { k:'cou',          l:'Cou',                     s:[0.11,0.08,0.11], p:[0,1.49,0] },
-  { k:'thorax',       l:'Thorax / Côtes',          s:[0.30,0.24,0.09], p:[0,1.33,0.05] },
-  { k:'dos_haut',     l:'Dos haut',                s:[0.30,0.24,0.09], p:[0,1.33,-0.05] },
-  { k:'abdomen',      l:'Abdomen',                 s:[0.28,0.14,0.09], p:[0,1.13,0.05] },
-  { k:'lombaires',    l:'Lombaires (dos bas)',     s:[0.28,0.14,0.09], p:[0,1.13,-0.05] },
-  { k:'aine',         l:'Aine / Pubis',            s:[0.14,0.06,0.10], p:[0,1.00,0.06] },
-  { k:'epaule',       l:'Épaule',                  s:[0.12,0.10,0.14], p:[0.34,1.44,0],    mirror:true },
-  { k:'bras',         l:'Bras',                    s:[0.11,0.24,0.11], p:[0.34,1.28,0],    mirror:true },
-  { k:'coude',        l:'Coude',                   s:[0.10,0.07,0.10], p:[0.34,1.14,0],    mirror:true },
-  { k:'avant_bras',   l:'Avant-bras',              s:[0.10,0.20,0.10], p:[0.34,1.02,0],    mirror:true },
-  { k:'poignet',      l:'Poignet',                 s:[0.09,0.05,0.09], p:[0.34,0.90,0],    mirror:true },
-  { k:'main',         l:'Main',                    s:[0.10,0.13,0.06], p:[0.34,0.80,0.01], mirror:true },
-  { k:'hanche',       l:'Hanche',                  s:[0.10,0.12,0.16], p:[0.22,0.99,0],    mirror:true },
-  { k:'fessier',      l:'Fessier',                 s:[0.14,0.12,0.09], p:[0.12,0.96,-0.06],mirror:true },
-  { k:'cuisse',       l:'Cuisse (quadriceps)',     s:[0.16,0.36,0.09], p:[0.12,0.78,0.05], mirror:true },
-  { k:'ischio',       l:'Ischio-jambiers',         s:[0.16,0.36,0.09], p:[0.12,0.78,-0.05],mirror:true },
-  { k:'genou',        l:'Genou',                   s:[0.14,0.09,0.14], p:[0.12,0.56,0.01], mirror:true },
-  { k:'tibia',        l:'Tibia',                   s:[0.12,0.34,0.08], p:[0.12,0.36,0.045],mirror:true },
-  { k:'mollet',       l:'Mollet',                  s:[0.12,0.34,0.08], p:[0.12,0.36,-0.045],mirror:true },
-  { k:'cheville',     l:'Cheville',                s:[0.10,0.07,0.10], p:[0.12,0.15,0.01], mirror:true },
-  { k:'pied',         l:'Pied',                    s:[0.10,0.06,0.16], p:[0.12,0.06,0.12], mirror:true },
-  { k:'talon',        l:'Talon',                   s:[0.10,0.06,0.08], p:[0.12,0.06,-0.03],mirror:true },
+  { k:'tete',        l:'Tête',                    type:'sphere', geo:[0.13],              p:[0,1.63,0] },
+  { k:'visage',      l:'Visage',                  type:'box',    geo:[0.15,0.12,0.05],    p:[0,1.60,0.135] },
+  { k:'cou',         l:'Cou',                     type:'cyl',    geo:[0.055,0.065,0.09],  p:[0,1.475,0] },
+  { k:'thorax',      l:'Thorax / Côtes',          type:'box',    geo:[0.30,0.24,0.09],    p:[0,1.33,0.05] },
+  { k:'dos_haut',    l:'Dos haut',                type:'box',    geo:[0.30,0.24,0.09],    p:[0,1.33,-0.05] },
+  { k:'abdomen',     l:'Abdomen',                 type:'box',    geo:[0.28,0.14,0.09],    p:[0,1.13,0.05] },
+  { k:'lombaires',   l:'Lombaires (dos bas)',     type:'box',    geo:[0.28,0.14,0.09],    p:[0,1.13,-0.05] },
+  { k:'aine',        l:'Aine / Pubis',            type:'box',    geo:[0.14,0.06,0.10],    p:[0,1.00,0.06] },
+  { k:'epaule',      l:'Épaule',                  type:'sphere', geo:[0.09],              p:[0.32,1.42,0],     mirror:true },
+  { k:'bras',        l:'Bras',                    type:'cyl',    geo:[0.075,0.065,0.26],  p:[0.32,1.27,0],     mirror:true },
+  { k:'coude',       l:'Coude',                   type:'sphere', geo:[0.06],              p:[0.32,1.13,0],     mirror:true },
+  { k:'avant_bras',  l:'Avant-bras',               type:'cyl',    geo:[0.06,0.05,0.22],    p:[0.32,1.00,0],     mirror:true },
+  { k:'poignet',     l:'Poignet',                 type:'sphere', geo:[0.05],              p:[0.32,0.885,0],    mirror:true },
+  { k:'main',        l:'Main',                    type:'box',    geo:[0.09,0.12,0.05],    p:[0.32,0.80,0.01],  mirror:true },
+  { k:'hanche',      l:'Hanche',                  type:'sphere', geo:[0.09],              p:[0.22,0.98,0],     mirror:true },
+  { k:'fessier',     l:'Fessier',                 type:'box',    geo:[0.13,0.11,0.08],    p:[0.12,0.95,-0.06], mirror:true },
+  { k:'cuisse',      l:'Cuisse (quadriceps)',     type:'box',    geo:[0.15,0.34,0.085],   p:[0.14,0.76,0.05],  mirror:true },
+  { k:'ischio',      l:'Ischio-jambiers',         type:'box',    geo:[0.15,0.34,0.085],   p:[0.14,0.76,-0.05], mirror:true },
+  { k:'genou',       l:'Genou',                   type:'sphere', geo:[0.08],              p:[0.14,0.565,0],    mirror:true },
+  { k:'tibia',       l:'Tibia',                   type:'box',    geo:[0.115,0.32,0.075],  p:[0.14,0.375,0.045],mirror:true },
+  { k:'mollet',      l:'Mollet',                  type:'box',    geo:[0.115,0.32,0.075],  p:[0.14,0.375,-0.045],mirror:true },
+  { k:'cheville',    l:'Cheville',                type:'sphere', geo:[0.06],              p:[0.14,0.185,0],    mirror:true },
+  { k:'pied',        l:'Pied',                    type:'box',    geo:[0.10,0.06,0.15],    p:[0.14,0.075,0.10], mirror:true },
+  { k:'talon',       l:'Talon',                   type:'box',    geo:[0.10,0.06,0.08],    p:[0.14,0.075,-0.05],mirror:true },
 ];
 
 function buildMedicalBodyPartsList() {
   const out = [];
   MEDICAL_BODY_PARTS_RAW.forEach(function(part) {
     if (!part.mirror) {
-      out.push({ key: part.k, label: part.l, size: part.s, pos: part.p });
+      out.push({ key: part.k, label: part.l, type: part.type, geo: part.geo, pos: part.p });
       return;
     }
     const x = part.p[0];
-    out.push({ key: part.k + '_g', label: part.l + ' (G)', size: part.s, pos: [x, part.p[1], part.p[2]] });
-    out.push({ key: part.k + '_d', label: part.l + ' (D)', size: part.s, pos: [-x, part.p[1], part.p[2]] });
+    out.push({ key: part.k + '_g', label: part.l + ' (G)', type: part.type, geo: part.geo, pos: [x, part.p[1], part.p[2]] });
+    out.push({ key: part.k + '_d', label: part.l + ' (D)', type: part.type, geo: part.geo, pos: [-x, part.p[1], part.p[2]] });
   });
   return out;
 }
@@ -11034,10 +11046,16 @@ let medicalBodyGroup = null, medicalRaycaster = null, medicalMeshByKey = {};
 let medicalSelectedKey = null;
 let medicalRotY = 0.5, medicalRotX = -0.05;
 let medicalDragging = false, medicalDragMoved = false, medicalLastX = 0, medicalLastY = 0;
+let medicalSceneReady = false;
 
 const MEDICAL_COLOR_DEFAULT = 0xd9b48c;
 const MEDICAL_COLOR_SELECTED = 0xD6001C;
-const MEDICAL_COLOR_HOVER = 0xf5a623;
+
+function medicalMakeGeometry(part) {
+  if (part.type === 'sphere') return new THREE.SphereGeometry(part.geo[0], 16, 12);
+  if (part.type === 'cyl') return new THREE.CylinderGeometry(part.geo[0], part.geo[1], part.geo[2], 14);
+  return new THREE.BoxGeometry(part.geo[0], part.geo[1], part.geo[2]);
+}
 
 function initMedicalBodyScene() {
   const container = document.getElementById('medicalBodyContainer');
@@ -11046,17 +11064,17 @@ function initMedicalBodyScene() {
 
   const w = container.clientWidth || 260, h = container.clientHeight || 300;
   medicalScene = new THREE.Scene();
-  medicalCamera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
-  medicalCamera.position.set(0, 1.05, 3.1);
-  medicalCamera.lookAt(0, 1.0, 0);
+  medicalCamera = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
+  medicalCamera.position.set(0, 0.9, 3.0);
+  medicalCamera.lookAt(0, 0.9, 0);
 
   medicalRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   medicalRenderer.setSize(w, h);
   medicalRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   container.appendChild(medicalRenderer.domElement);
 
-  medicalScene.add(new THREE.AmbientLight(0xffffff, 0.65));
-  const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+  medicalScene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.65);
   dir.position.set(2, 4, 3);
   medicalScene.add(dir);
   const dir2 = new THREE.DirectionalLight(0xffffff, 0.35);
@@ -11066,8 +11084,8 @@ function initMedicalBodyScene() {
   medicalBodyGroup = new THREE.Group();
   medicalMeshByKey = {};
   MEDICAL_BODY_PARTS.forEach(function(part) {
-    const geo = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
-    const mat = new THREE.MeshStandardMaterial({ color: MEDICAL_COLOR_DEFAULT, roughness: 0.8, metalness: 0.05 });
+    const geo = medicalMakeGeometry(part);
+    const mat = new THREE.MeshStandardMaterial({ color: MEDICAL_COLOR_DEFAULT, roughness: 0.75, metalness: 0.05 });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
     mesh.userData.partKey = part.key;
@@ -11075,7 +11093,6 @@ function initMedicalBodyScene() {
     medicalBodyGroup.add(mesh);
     medicalMeshByKey[part.key] = mesh;
   });
-  medicalBodyGroup.position.y = -0.9;
   medicalBodyGroup.rotation.x = medicalRotX;
   medicalBodyGroup.rotation.y = medicalRotY;
   medicalScene.add(medicalBodyGroup);
@@ -11084,6 +11101,7 @@ function initMedicalBodyScene() {
 
   wireMedicalBodyControls(container);
   if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey);
+  medicalSceneReady = true;
   medicalRenderLoop();
 }
 
@@ -11110,7 +11128,7 @@ function wireMedicalBodyControls(container) {
     medicalLastX = clientX; medicalLastY = clientY;
   }
   function onUp(clientX, clientY) {
-    if (medicalDragging && !medicalDragMoved) medicalHandleClick(clientX, clientY, container);
+    if (medicalDragging && !medicalDragMoved) medicalHandleClick(clientX, clientY);
     medicalDragging = false;
   }
 
@@ -11128,7 +11146,7 @@ function wireMedicalBodyControls(container) {
   }, { passive: false });
 }
 
-function medicalHandleClick(clientX, clientY, container) {
+function medicalHandleClick(clientX, clientY) {
   const rect = medicalRenderer.domElement.getBoundingClientRect();
   const mouse = new THREE.Vector2(
     ((clientX - rect.left) / rect.width) * 2 - 1,
@@ -11173,7 +11191,7 @@ function toggleMedicalRetourReelle() {
   if (field) field.classList.toggle('hidden', statut !== 'Guéri');
 }
 
-// ── Joueurs & liste ─────────────────────────────────────────────
+// ── Joueurs ─────────────────────────────────────────────────────
 function getMedicalPlayerList() {
   const names = new Set();
   if (typeof getAllWellnessPlayers === 'function') {
@@ -11187,151 +11205,109 @@ function getMedicalPlayerList() {
   return Array.from(names).sort(function(a,b){ return a.localeCompare(b); });
 }
 
+function populateMedicalPlayerSelect() {
+  const sel = document.getElementById('medicalPlayerSelect');
+  if (!sel) return;
+  const prevVal = sel.value;
+  const players = getMedicalPlayerList();
+  sel.innerHTML = players.map(function(n) { return '<option value="' + n.replace(/"/g,'&quot;') + '">' + n + '</option>'; }).join('');
+  if (players.indexOf(prevVal) !== -1) sel.value = prevVal;
+}
+
 function medicalActiveCount(name) {
   const list = medicalRecords[name] || [];
   return list.filter(function(inj){ return inj.statut !== 'Guéri'; }).length;
 }
 
-function renderMedicalPlayerGrid() {
-  const grid = document.getElementById('medicalPlayerGrid');
-  if (!grid) return;
-  let players = getMedicalPlayerList();
-  const search = (document.getElementById('medicalSearch') || {}).value || '';
-  if (search) players = players.filter(function(n){ return n.toLowerCase().includes(search.toLowerCase()); });
-
-  if (!players.length) {
-    grid.innerHTML = '<p style="color:rgba(255,255,255,.3);text-align:center;padding:40px;grid-column:1/-1">Aucun joueur trouvé.</p>';
-    return;
+function findMedicalInjuryById(injuryId) {
+  const players = Object.keys(medicalRecords);
+  for (let i = 0; i < players.length; i++) {
+    const list = medicalRecords[players[i]] || [];
+    const idx = list.findIndex(function(inj){ return inj.id === injuryId; });
+    if (idx !== -1) return { player: players[i], injury: list[idx], index: idx };
   }
-
-  grid.innerHTML = players.map(function(name) {
-    const activeCount = medicalActiveCount(name);
-    const shortName = name.length > 12 ? name.slice(0,12)+'…' : name;
-    const photoHtml = (typeof PLAYER_PHOTOS !== 'undefined' && PLAYER_PHOTOS[name])
-      ? '<img src="' + PLAYER_PHOTOS[name] + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-      : '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="28" r="16" fill="rgba(255,255,255,.3)"/><path d="M8 80 Q8 50 40 50 Q72 50 72 80Z" fill="rgba(255,255,255,.3)"/></svg>';
-    const pill = activeCount ? '<span class="medical-count-pill">' + activeCount + '</span>' : '';
-    return '<div class="joueur-card' + (activeCount ? ' medical-active' : '') + '" onclick="openMedicalPlayer(\'' + name.replace(/'/g,"\\'") + '\')">'
-      + pill
-      + '<div class="joueur-avatar">' + photoHtml + '</div>'
-      + '<div class="joueur-card-name">' + shortName + '</div>'
-      + '</div>';
-  }).join('');
+  return null;
 }
 
-let currentMedicalPlayer = '';
-
-function openMedicalPlayer(name) {
-  currentMedicalPlayer = name;
-  const listView = document.getElementById('medical-list-view');
-  const playerView = document.getElementById('medicalPlayerView');
-  if (listView) listView.style.display = 'none';
-  if (playerView) { playerView.classList.add('active'); playerView.style.display = 'block'; }
-  const nameEl = document.getElementById('medicalPlayerName');
-  if (nameEl) nameEl.textContent = name;
-  const bc = document.getElementById('medicalBreadcrumb');
-  if (bc) bc.textContent = '› ' + name;
-  renderMedicalInjuriesTable();
-}
-
-function closeMedicalPlayer() {
-  const listView = document.getElementById('medical-list-view');
-  const playerView = document.getElementById('medicalPlayerView');
-  if (listView) listView.style.display = 'block';
-  if (playerView) { playerView.classList.remove('active'); playerView.style.display = 'none'; }
-  currentMedicalPlayer = '';
-  renderMedicalPlayerGrid();
-}
-
-function renderMedicalInjuriesTable() {
-  const wrap = document.getElementById('medicalInjuriesTableWrap');
-  if (!wrap) return;
-  const list = (medicalRecords[currentMedicalPlayer] || []).slice().sort(function(a,b) {
-    return (b.date || '').localeCompare(a.date || '');
-  });
-  if (!list.length) {
-    wrap.innerHTML = '<p style="color:rgba(255,255,255,.3);padding:20px 0">Aucune blessure enregistrée pour ce joueur.</p>';
-    return;
-  }
-  wrap.innerHTML = '<div class="medical-injury-table-wrap"><table class="medical-injury-table"><thead><tr>'
-    + '<th>Date</th><th>Typologie</th><th>Blessure</th><th>Lieu</th><th>Gravité</th><th>Statut</th><th>Retour prévu</th><th></th>'
-    + '</tr></thead><tbody>'
-    + list.map(function(inj) {
-        const statutCls = inj.statut === 'Guéri' ? 'gueri' : 'en-cours';
-        return '<tr>'
-          + '<td>' + (inj.date || '—') + '</td>'
-          + '<td>' + (inj.typologie || '—') + '</td>'
-          + '<td>' + (inj.blessure || '—') + '</td>'
-          + '<td>' + (inj.lieuLabel || '—') + '</td>'
-          + '<td>' + (inj.gravite || '—') + '</td>'
-          + '<td><span class="medical-badge ' + statutCls + '">' + (inj.statut || '—') + '</span></td>'
-          + '<td>' + (inj.dateRetourPrevue || '—') + '</td>'
-          + '<td>'
-          +   '<button class="medical-action-btn" onclick="openMedicalInjuryForm(\'' + inj.id + '\')" title="Modifier">✏️</button>'
-          +   '<button class="medical-action-btn" onclick="deleteMedicalInjury(\'' + inj.id + '\')" title="Supprimer">🗑️</button>'
-          + '</td>'
-          + '</tr>';
-      }).join('')
-    + '</tbody></table></div>';
-}
-
+// ── Formulaire (déclarer / modifier une blessure) ────────────────
 let medicalEditingId = null;
+
+function resetMedicalForm() {
+  medicalEditingId = null;
+  medicalSelectedKey = null;
+  const titleEl = document.getElementById('medicalFormTitle');
+  if (titleEl) titleEl.textContent = '➕ Déclarer une blessure';
+  const cancelBtn = document.getElementById('medicalCancelEditBtn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  const errEl = document.getElementById('medicalFormError');
+  if (errEl) errEl.textContent = '';
+
+  document.getElementById('medicalTypologie').value = 'Articulaire/Ligamentaire';
+  document.getElementById('medicalBlessure').value = 'Entorse';
+  document.getElementById('medicalGravite').value = 'Légère';
+  document.getElementById('medicalStatut').value = 'En cours';
+  document.getElementById('medicalDateBlessure').value = '';
+  document.getElementById('medicalDateRetourPrevue').value = '';
+  document.getElementById('medicalDateRetourReelle').value = '';
+  document.getElementById('medicalNotes').value = '';
+  toggleMedicalRetourReelle();
+
+  const lbl = document.getElementById('medicalLieuLabel');
+  if (lbl) { lbl.textContent = 'Aucune zone sélectionnée'; lbl.style.color = '#D6001C'; }
+  const lieuSel = document.getElementById('medicalLieuSelect');
+  if (lieuSel) lieuSel.value = '';
+  if (medicalSceneReady) highlightMedicalPart(null);
+}
 
 function openMedicalInjuryForm(injuryId) {
   medicalEditingId = injuryId || null;
-  medicalSelectedKey = null;
-  const form = document.getElementById('medicalInjuryForm');
-  const title = document.getElementById('medicalFormTitle');
-  const errEl = document.getElementById('medicalFormError');
-  if (errEl) errEl.textContent = '';
   populateMedicalLieuSelect();
+  populateMedicalPlayerSelect();
 
-  let injury = null;
-  if (medicalEditingId) {
-    injury = (medicalRecords[currentMedicalPlayer] || []).find(function(i){ return i.id === medicalEditingId; });
-  }
+  if (!medicalEditingId) { resetMedicalForm(); return; }
 
-  if (title) title.textContent = injury ? 'Modifier la blessure' : 'Nouvelle blessure';
-  document.getElementById('medicalTypologie').value = injury ? injury.typologie : 'Articulaire/Ligamentaire';
-  document.getElementById('medicalBlessure').value = injury ? injury.blessure : 'Entorse';
-  document.getElementById('medicalGravite').value = injury ? injury.gravite : 'Légère';
-  document.getElementById('medicalStatut').value = injury ? injury.statut : 'En cours';
-  document.getElementById('medicalDateBlessure').value = injury ? (injury.date || '') : '';
-  document.getElementById('medicalDateRetourPrevue').value = injury ? (injury.dateRetourPrevue || '') : '';
-  document.getElementById('medicalDateRetourReelle').value = injury ? (injury.dateRetourReelle || '') : '';
-  document.getElementById('medicalNotes').value = injury ? (injury.notes || '') : '';
+  const found = findMedicalInjuryById(medicalEditingId);
+  if (!found) { resetMedicalForm(); return; }
+  const injury = found.injury;
+
+  const titleEl = document.getElementById('medicalFormTitle');
+  if (titleEl) titleEl.textContent = '✏️ Modifier la blessure';
+  const cancelBtn = document.getElementById('medicalCancelEditBtn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
+
+  document.getElementById('medicalPlayerSelect').value = found.player;
+  document.getElementById('medicalTypologie').value = injury.typologie;
+  document.getElementById('medicalBlessure').value = injury.blessure;
+  document.getElementById('medicalGravite').value = injury.gravite;
+  document.getElementById('medicalStatut').value = injury.statut;
+  document.getElementById('medicalDateBlessure').value = injury.date || '';
+  document.getElementById('medicalDateRetourPrevue').value = injury.dateRetourPrevue || '';
+  document.getElementById('medicalDateRetourReelle').value = injury.dateRetourReelle || '';
+  document.getElementById('medicalNotes').value = injury.notes || '';
   toggleMedicalRetourReelle();
 
-  if (form) form.classList.remove('hidden');
+  if (injury.lieuKey) selectMedicalBodyPartByKey(injury.lieuKey);
 
-  if (injury && injury.lieuKey) {
-    selectMedicalBodyPartByKey(injury.lieuKey);
-  } else {
-    const lbl = document.getElementById('medicalLieuLabel');
-    if (lbl) { lbl.textContent = 'Aucune zone sélectionnée'; lbl.style.color = '#D6001C'; }
-    const sel = document.getElementById('medicalLieuSelect');
-    if (sel) sel.value = '';
-  }
-
-  setTimeout(function(){
-    initMedicalBodyScene();
-    if (injury && injury.lieuKey) selectMedicalBodyPartByKey(injury.lieuKey);
-  }, 30);
-}
-
-function closeMedicalInjuryForm() {
-  const form = document.getElementById('medicalInjuryForm');
-  if (form) form.classList.add('hidden');
-  medicalEditingId = null;
-  medicalSelectedKey = null;
+  const card = document.querySelector('.medical-quickform-card');
+  if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function saveMedicalInjury() {
   const errEl = document.getElementById('medicalFormError');
-  if (!currentMedicalPlayer) { if (errEl) errEl.textContent = 'Aucun joueur sélectionné.'; return; }
+  if (errEl) errEl.textContent = '';
+  const player = (document.getElementById('medicalPlayerSelect') || {}).value;
+  if (!player) { if (errEl) errEl.textContent = 'Choisissez un joueur.'; return; }
   if (!medicalSelectedKey) { if (errEl) errEl.textContent = 'Choisissez un lieu de blessure.'; return; }
   const date = document.getElementById('medicalDateBlessure').value;
   if (!date) { if (errEl) errEl.textContent = 'Indiquez la date de la blessure.'; return; }
+
+  // Si on modifie une blessure et qu'on a changé le joueur, on la déplace.
+  if (medicalEditingId) {
+    const found = findMedicalInjuryById(medicalEditingId);
+    if (found && found.player !== player) {
+      medicalRecords[found.player].splice(found.index, 1);
+    }
+  }
 
   const injury = {
     id: medicalEditingId || ('med_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)),
@@ -11348,46 +11324,109 @@ function saveMedicalInjury() {
     updatedAt: new Date().toISOString(),
   };
 
-  if (!medicalRecords[currentMedicalPlayer]) medicalRecords[currentMedicalPlayer] = [];
-  const list = medicalRecords[currentMedicalPlayer];
+  if (!medicalRecords[player]) medicalRecords[player] = [];
+  const list = medicalRecords[player];
   const idx = list.findIndex(function(i){ return i.id === injury.id; });
   if (idx !== -1) list[idx] = injury; else list.push(injury);
 
   saveMedicalRecords(medicalRecords);
-  closeMedicalInjuryForm();
-  renderMedicalInjuriesTable();
-  renderMedicalPlayerGrid();
+  resetMedicalForm();
+  renderMedicalDashboardTable();
+  if (typeof renderProfileMedical === 'function' && typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer === player) {
+    renderProfileMedical(player);
+  }
 }
 
 function deleteMedicalInjury(injuryId) {
-  if (!currentMedicalPlayer || !medicalRecords[currentMedicalPlayer]) return;
-  if (!confirm('Supprimer cette blessure ?')) return;
-  medicalRecords[currentMedicalPlayer] = medicalRecords[currentMedicalPlayer].filter(function(i){ return i.id !== injuryId; });
+  const found = findMedicalInjuryById(injuryId);
+  if (!found) return;
+  if (!confirm('Supprimer cette blessure (' + found.player + ') ?')) return;
+  medicalRecords[found.player].splice(found.index, 1);
   saveMedicalRecords(medicalRecords);
-  renderMedicalInjuriesTable();
-  renderMedicalPlayerGrid();
+  if (medicalEditingId === injuryId) resetMedicalForm();
+  renderMedicalDashboardTable();
+}
+
+// ── Tableau de bord (toutes les blessures) ───────────────────────
+function renderMedicalDashboardTable() {
+  const wrap = document.getElementById('medicalDashboardTableWrap');
+  if (!wrap) return;
+  const statutFilter = (document.getElementById('medicalFilterStatut') || {}).value || '';
+  const playerFilter = ((document.getElementById('medicalFilterPlayer') || {}).value || '').toLowerCase();
+
+  let rows = [];
+  Object.keys(medicalRecords).forEach(function(player) {
+    (medicalRecords[player] || []).forEach(function(inj) {
+      rows.push(Object.assign({ player: player }, inj));
+    });
+  });
+  if (statutFilter) rows = rows.filter(function(r){ return r.statut === statutFilter; });
+  if (playerFilter) rows = rows.filter(function(r){ return r.player.toLowerCase().includes(playerFilter); });
+  rows.sort(function(a,b){ return (b.date || '').localeCompare(a.date || ''); });
+
+  if (!rows.length) {
+    wrap.innerHTML = '<p style="color:rgba(255,255,255,.3);padding:20px 0">Aucune blessure enregistrée.</p>';
+    return;
+  }
+
+  wrap.innerHTML = '<div class="medical-injury-table-wrap"><table class="medical-injury-table"><thead><tr>'
+    + '<th>Joueur</th><th>Date</th><th>Typologie</th><th>Blessure</th><th>Lieu</th><th>Gravité</th><th>Statut</th><th>Retour prévu</th><th></th>'
+    + '</tr></thead><tbody>'
+    + rows.map(function(inj) {
+        const statutCls = inj.statut === 'Guéri' ? 'gueri' : 'en-cours';
+        return '<tr>'
+          + '<td style="font-weight:700">' + inj.player + '</td>'
+          + '<td>' + (inj.date || '—') + '</td>'
+          + '<td>' + (inj.typologie || '—') + '</td>'
+          + '<td>' + (inj.blessure || '—') + '</td>'
+          + '<td>' + (inj.lieuLabel || '—') + '</td>'
+          + '<td>' + (inj.gravite || '—') + '</td>'
+          + '<td><span class="medical-badge ' + statutCls + '">' + (inj.statut || '—') + '</span></td>'
+          + '<td>' + (inj.dateRetourPrevue || '—') + '</td>'
+          + '<td>'
+          +   '<button class="medical-action-btn" onclick="openMedicalInjuryForm(\'' + inj.id + '\')" title="Modifier">✏️</button>'
+          +   '<button class="medical-action-btn" onclick="deleteMedicalInjury(\'' + inj.id + '\')" title="Supprimer">🗑️</button>'
+          + '</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>';
 }
 
 function renderMedicalHub() {
-  renderMedicalPlayerGrid();
+  populateMedicalPlayerSelect();
+  renderMedicalDashboardTable();
 }
 
 var _origSwitchHubMedical = switchHub;
 switchHub = function(name) {
   _origSwitchHubMedical(name);
   if (name === 'medical') {
-    var listView = document.getElementById('medical-list-view');
-    var playerView = document.getElementById('medicalPlayerView');
-    if (listView) listView.style.display = 'block';
-    if (playerView) { playerView.classList.remove('active'); playerView.style.display = 'none'; }
-    currentMedicalPlayer = '';
-    setTimeout(function(){ renderMedicalPlayerGrid(); }, 50);
+    populateMedicalPlayerSelect();
+    renderMedicalDashboardTable();
+    setTimeout(function(){ initMedicalBodyScene(); }, 30);
   }
 };
 document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function(){ renderMedicalPlayerGrid(); }, 60);
+  setTimeout(function(){ populateMedicalPlayerSelect(); renderMedicalDashboardTable(); }, 60);
 });
 
+// ── Intégration dans la fiche joueur ("Joueur") ──────────────────
+function renderProfileMedical(name) {
+  const wrap = document.getElementById('profileMedicalWrap');
+  if (!wrap) return;
+  const list = (medicalRecords[name] || []).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  if (!list.length) {
+    wrap.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px;padding:8px 0">Aucune blessure enregistrée.</p>';
+    return;
+  }
+  wrap.innerHTML = list.map(function(inj) {
+    const statutCls = inj.statut === 'Guéri' ? 'gueri' : 'en-cours';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px">'
+      + '<div><span style="font-weight:700;color:#fff">' + (inj.date||'—') + '</span> · ' + (inj.blessure||'') + ' — ' + (inj.lieuLabel||'') + '</div>'
+      + '<span class="medical-badge ' + statutCls + '">' + (inj.statut||'—') + '</span>'
+      + '</div>';
+  }).join('');
+}
 </script>
 </body>
 </html>
