@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
 <style>
 /* ══ CSS INDEX2 (Wellness/RPE) ══ */
 
@@ -10997,30 +10997,30 @@ let medicalRecords = loadMedicalRecords();
 // quelqu'un en face). x négatif = côté DROIT du joueur.
 // type 'sphere' -> geo:[radius] · type 'cyl' -> geo:[radiusTop,radiusBottom,height] · type 'box' (défaut) -> geo:[w,h,d]
 const MEDICAL_BODY_PARTS_RAW = [
-  { k:'tete',        l:'Tête',                    type:'sphere', geo:[0.13],              p:[0,1.63,0] },
-  { k:'visage',      l:'Visage',                  type:'box',    geo:[0.15,0.12,0.05],    p:[0,1.60,0.135] },
-  { k:'cou',         l:'Cou',                     type:'cyl',    geo:[0.055,0.065,0.09],  p:[0,1.475,0] },
-  { k:'thorax',      l:'Thorax / Côtes',          type:'box',    geo:[0.30,0.24,0.09],    p:[0,1.33,0.05] },
-  { k:'dos_haut',    l:'Dos haut',                type:'box',    geo:[0.30,0.24,0.09],    p:[0,1.33,-0.05] },
-  { k:'abdomen',     l:'Abdomen',                 type:'box',    geo:[0.28,0.14,0.09],    p:[0,1.13,0.05] },
-  { k:'lombaires',   l:'Lombaires (dos bas)',     type:'box',    geo:[0.28,0.14,0.09],    p:[0,1.13,-0.05] },
-  { k:'aine',        l:'Aine / Pubis',            type:'box',    geo:[0.14,0.06,0.10],    p:[0,1.00,0.06] },
-  { k:'epaule',      l:'Épaule',                  type:'sphere', geo:[0.09],              p:[0.32,1.42,0],     mirror:true },
-  { k:'bras',        l:'Bras',                    type:'cyl',    geo:[0.075,0.065,0.26],  p:[0.32,1.27,0],     mirror:true },
-  { k:'coude',       l:'Coude',                   type:'sphere', geo:[0.06],              p:[0.32,1.13,0],     mirror:true },
-  { k:'avant_bras',  l:'Avant-bras',               type:'cyl',    geo:[0.06,0.05,0.22],    p:[0.32,1.00,0],     mirror:true },
-  { k:'poignet',     l:'Poignet',                 type:'sphere', geo:[0.05],              p:[0.32,0.885,0],    mirror:true },
-  { k:'main',        l:'Main',                    type:'box',    geo:[0.09,0.12,0.05],    p:[0.32,0.80,0.01],  mirror:true },
-  { k:'hanche',      l:'Hanche',                  type:'sphere', geo:[0.09],              p:[0.22,0.98,0],     mirror:true },
-  { k:'fessier',     l:'Fessier',                 type:'box',    geo:[0.13,0.11,0.08],    p:[0.12,0.95,-0.06], mirror:true },
-  { k:'cuisse',      l:'Cuisse (quadriceps)',     type:'box',    geo:[0.15,0.34,0.085],   p:[0.14,0.76,0.05],  mirror:true },
-  { k:'ischio',      l:'Ischio-jambiers',         type:'box',    geo:[0.15,0.34,0.085],   p:[0.14,0.76,-0.05], mirror:true },
-  { k:'genou',       l:'Genou',                   type:'sphere', geo:[0.08],              p:[0.14,0.565,0],    mirror:true },
-  { k:'tibia',       l:'Tibia',                   type:'box',    geo:[0.115,0.32,0.075],  p:[0.14,0.375,0.045],mirror:true },
-  { k:'mollet',      l:'Mollet',                  type:'box',    geo:[0.115,0.32,0.075],  p:[0.14,0.375,-0.045],mirror:true },
-  { k:'cheville',    l:'Cheville',                type:'sphere', geo:[0.06],              p:[0.14,0.185,0],    mirror:true },
-  { k:'pied',        l:'Pied',                    type:'box',    geo:[0.10,0.06,0.15],    p:[0.14,0.075,0.10], mirror:true },
-  { k:'talon',       l:'Talon',                   type:'box',    geo:[0.10,0.06,0.08],    p:[0.14,0.075,-0.05],mirror:true },
+  { k:'tete',        l:'Tête',                    type:'sphere',  geo:[0.13],             p:[0,1.63,0] },
+  { k:'visage',      l:'Visage',                  type:'box',     geo:[0.15,0.12,0.05],   p:[0,1.60,0.135] },
+  { k:'cou',         l:'Cou',                     type:'capsule', geo:[0.058,0.04],       p:[0,1.475,0] },
+  { k:'thorax',      l:'Thorax / Côtes',          type:'cyl',     geo:[0.12,0.12,0.24],   p:[0,1.33,0.09] },
+  { k:'dos_haut',    l:'Dos haut',                type:'cyl',     geo:[0.12,0.12,0.24],   p:[0,1.33,-0.09] },
+  { k:'abdomen',     l:'Abdomen',                 type:'cyl',     geo:[0.10,0.11,0.14],   p:[0,1.13,0.075] },
+  { k:'lombaires',   l:'Lombaires (dos bas)',     type:'cyl',     geo:[0.10,0.11,0.14],   p:[0,1.13,-0.075] },
+  { k:'aine',        l:'Aine / Pubis',            type:'box',     geo:[0.14,0.06,0.10],   p:[0,1.00,0.06] },
+  { k:'epaule',      l:'Épaule',                  type:'sphere',  geo:[0.095],            p:[0.32,1.42,0],      mirror:true },
+  { k:'bras',        l:'Bras',                    type:'capsule', geo:[0.075,0.14],       p:[0.32,1.27,0],      mirror:true },
+  { k:'coude',       l:'Coude',                   type:'sphere',  geo:[0.065],            p:[0.32,1.13,0],      mirror:true },
+  { k:'avant_bras',  l:'Avant-bras',              type:'capsule', geo:[0.06,0.11],        p:[0.32,1.00,0],      mirror:true },
+  { k:'poignet',     l:'Poignet',                 type:'sphere',  geo:[0.052],            p:[0.32,0.885,0],     mirror:true },
+  { k:'main',        l:'Main',                    type:'capsule', geo:[0.045,0.06],       p:[0.32,0.80,0.01],   mirror:true },
+  { k:'hanche',      l:'Hanche',                  type:'sphere',  geo:[0.095],            p:[0.22,0.98,0],      mirror:true },
+  { k:'fessier',     l:'Fessier',                 type:'box',     geo:[0.13,0.11,0.08],   p:[0.12,0.95,-0.06],  mirror:true },
+  { k:'cuisse',      l:'Cuisse (quadriceps)',     type:'cyl',     geo:[0.115,0.11,0.32],  p:[0.14,0.76,0.06],   mirror:true },
+  { k:'ischio',      l:'Ischio-jambiers',         type:'cyl',     geo:[0.115,0.11,0.32],  p:[0.14,0.76,-0.06],  mirror:true },
+  { k:'genou',       l:'Genou',                   type:'sphere',  geo:[0.085],            p:[0.14,0.565,0],     mirror:true },
+  { k:'tibia',       l:'Tibia',                   type:'cyl',     geo:[0.095,0.085,0.30], p:[0.14,0.375,0.05],  mirror:true },
+  { k:'mollet',      l:'Mollet',                  type:'cyl',     geo:[0.095,0.085,0.30], p:[0.14,0.375,-0.05], mirror:true },
+  { k:'cheville',    l:'Cheville',                type:'sphere',  geo:[0.062],            p:[0.14,0.185,0],     mirror:true },
+  { k:'pied',        l:'Pied',                    type:'box',     geo:[0.10,0.06,0.15],   p:[0.14,0.075,0.10],  mirror:true },
+  { k:'talon',       l:'Talon',                   type:'box',     geo:[0.10,0.06,0.08],   p:[0.14,0.075,-0.05], mirror:true },
 ];
 
 function buildMedicalBodyPartsList() {
@@ -11052,8 +11052,10 @@ const MEDICAL_COLOR_DEFAULT = 0xd9b48c;
 const MEDICAL_COLOR_SELECTED = 0xD6001C;
 
 function medicalMakeGeometry(part) {
-  if (part.type === 'sphere') return new THREE.SphereGeometry(part.geo[0], 16, 12);
-  if (part.type === 'cyl') return new THREE.CylinderGeometry(part.geo[0], part.geo[1], part.geo[2], 14);
+  if (part.type === 'sphere') return new THREE.SphereGeometry(part.geo[0], 20, 16);
+  if (part.type === 'capsule' && typeof THREE.CapsuleGeometry === 'function') return new THREE.CapsuleGeometry(part.geo[0], part.geo[1], 6, 16);
+  if (part.type === 'capsule') return new THREE.CylinderGeometry(part.geo[0], part.geo[0], part.geo[1] + part.geo[0] * 1.6, 16); // repli si CapsuleGeometry indisponible
+  if (part.type === 'cyl') return new THREE.CylinderGeometry(part.geo[0], part.geo[1], part.geo[2], 20);
   return new THREE.BoxGeometry(part.geo[0], part.geo[1], part.geo[2]);
 }
 
