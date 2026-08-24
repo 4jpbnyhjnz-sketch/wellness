@@ -10196,14 +10196,16 @@ async function syncLoad(silent) {
     var data = rows[0].data;
     if (!data || !data._version) return;
 
-    // Ne jamais écraser silencieusement des données locales plus récentes
-    // que la sauvegarde cloud (ex : une séance enregistrée ici mais pas
-    // encore synchronisée).
+    // Ne protège que la toute petite fenêtre de l'anti-rebond de l'auto-save
+    // (quelques secondes juste après une modification locale) : au-delà, on
+    // synchronise toujours avec le cloud, pour que tous les ordinateurs
+    // restent connectés en permanence sans action manuelle.
     var lastLocalChange = parseInt(localStorage.getItem('nissaLastLocalChange_v1') || '0', 10);
     var cloudTime = data._date ? new Date(data._date).getTime() : 0;
-    if (lastLocalChange && lastLocalChange > cloudTime) {
+    var justChangedLocally = lastLocalChange && (Date.now() - lastLocalChange) < 15000;
+    if (justChangedLocally && lastLocalChange > cloudTime) {
       if (!silent) {
-        syncSetStatus('⚠ Vos données locales sont plus récentes que la sauvegarde cloud — rien n\'a été écrasé. Cliquez sur « Sauvegarder » si vous voulez les pousser.', '#f5a623');
+        syncSetStatus('⚠ Modification locale en cours de sauvegarde — réessayez dans quelques secondes.', '#f5a623');
       }
       return;
     }
@@ -10245,6 +10247,10 @@ function syncSetStatus(msg, color) {
 document.addEventListener('DOMContentLoaded', function() {
   // Auto-chargement des données au démarrage
   setTimeout(function(){ syncLoad(true); }, 2000);
+  // Puis vérification automatique et silencieuse toutes les 20s, pour que
+  // les changements faits sur un autre ordinateur arrivent sans avoir à
+  // cliquer sur "Recharger" ou recharger la page.
+  setInterval(function(){ syncLoad(true); }, 20000);
 });
 
 // Auto-save après chaque modification (avec anti-rebond)
