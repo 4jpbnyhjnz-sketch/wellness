@@ -10118,6 +10118,8 @@ var SYNC_DATA_KEYS = [
   'gpsReportRoster_v1',
   'gpsReportObjectives_v1',
   'gpsReportColumnVisibility_v1',
+  'gpsRosterPositions_v1',
+  'gpsMatchObjectives_v1',
 ];
 
 function collectAllData() {
@@ -10133,7 +10135,25 @@ function restoreAllData(data) {
   SYNC_DATA_KEYS.forEach(function(k) {
     if (data[k]!==undefined) localStorage.setItem(k, JSON.stringify(data[k]));
   });
-  // Recharger les variables GPS depuis localStorage
+  // Recharger TOUTES les variables GPS en mémoire depuis localStorage
+  // (indispensable : sinon les données arrivent bien dans localStorage
+  // mais l'app continue d'utiliser les variables chargées au démarrage,
+  // ce qui donne l'impression que "rien n'est arrivé" sur un autre ordinateur)
+  if (typeof loadRoster === 'function') {
+    try { roster = loadRoster(); } catch(e) {}
+  }
+  if (typeof loadRosterPositions === 'function') {
+    try { rosterPositions = loadRosterPositions(); } catch(e) {}
+  }
+  if (typeof loadMatchObjectives === 'function') {
+    try { matchObjectives = loadMatchObjectives(); } catch(e) {}
+  }
+  if (typeof loadColumnVisibility === 'function') {
+    try { columnVisibility = loadColumnVisibility(); } catch(e) {}
+  }
+  if (typeof loadObjectives === 'function') {
+    try { objectives = loadObjectives(); } catch(e) {}
+  }
   if (typeof loadSavedSessions === 'function') {
     try { savedSessions = loadSavedSessions(); } catch(e) {}
   }
@@ -10149,6 +10169,12 @@ function restoreAllData(data) {
   }
   if (typeof renderRecordsTab === 'function') {
     try { renderRecordsTab(); } catch(e) {}
+  }
+  if (typeof renderMatchesTab === 'function') {
+    try { renderMatchesTab(); } catch(e) {}
+  }
+  if (typeof renderRosterTable === 'function') {
+    try { renderRosterTable(); } catch(e) {}
   }
   // Recharger les variables joueur
   if (typeof physicalTests !== 'undefined' && typeof loadPhysicalTests === 'function')
