@@ -4289,6 +4289,24 @@ function renderRecordsTab() {
     const body = document.createElement("div");
     body.className = "player-record-body";
 
+    // Auto-correction : si l'historique contient une valeur supérieure au record
+    // enregistré (import manquant, session corrigée après coup, etc.), on aligne
+    // le record affiché sur le vrai maximum avant de construire les cartes.
+    const history = getPlayerHistory(name);
+    if (!seasonRecords[name]) seasonRecords[name] = { vmax: 0, accel: 0 };
+    let recordFixed = false;
+    history.forEach((h) => {
+      if (h.vmax > seasonRecords[name].vmax) {
+        seasonRecords[name].vmax = Math.round(h.vmax * 100) / 100;
+        recordFixed = true;
+      }
+      if (h.accelMax > seasonRecords[name].accel) {
+        seasonRecords[name].accel = Math.round(h.accelMax * 100) / 100;
+        recordFixed = true;
+      }
+    });
+    if (recordFixed) saveSeasonRecords(seasonRecords);
+
     const podiumRow = document.createElement("div");
     podiumRow.className = "podium-row";
 
@@ -4324,7 +4342,6 @@ function renderRecordsTab() {
     podiumRow.appendChild(buildEditableCard("Accel max record", "accel", ""));
     body.appendChild(podiumRow);
 
-    const history = getPlayerHistory(name);
     if (history.length) {
       const histTitle = document.createElement("p");
       histTitle.style.margin = "14px 0 6px";
