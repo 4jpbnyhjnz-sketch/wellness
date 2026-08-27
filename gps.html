@@ -1459,9 +1459,10 @@ table.roster-table select { padding: 4px; }
 @media (max-width:640px) { .medical-stats-row { grid-template-columns:1fr; } }
 .medical-stat-card {
   background:var(--bg2); border:1px solid var(--border); border-radius:12px;
-  padding:18px 20px; display:flex; align-items:center; gap:14px; position:relative; overflow:hidden;
+  padding:18px 20px; display:flex; flex-direction:column; gap:12px; position:relative; overflow:hidden;
 }
 .medical-stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:var(--s-color,#D6001C); }
+.medical-stat-top { display:flex; align-items:center; gap:14px; }
 .medical-stat-icon {
   width:42px; height:42px; border-radius:10px; flex-shrink:0; font-size:20px;
   display:flex; align-items:center; justify-content:center;
@@ -1469,6 +1470,10 @@ table.roster-table select { padding: 4px; }
 }
 .medical-stat-value { font-size:28px; font-weight:800; font-family:'JetBrains Mono',monospace; color:#fff; line-height:1; }
 .medical-stat-label { font-size:11px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; margin-top:4px; }
+.medical-stat-bar-row { display:flex; align-items:center; gap:10px; }
+.medical-stat-bar-track { flex:1; height:6px; border-radius:4px; background:rgba(255,255,255,.08); overflow:hidden; }
+.medical-stat-bar-fill { height:100%; border-radius:4px; background:var(--s-color,#D6001C); transition:width .3s ease; }
+.medical-stat-pct { font-size:12px; font-weight:700; color:var(--s-color,#D6001C); font-family:'JetBrains Mono',monospace; flex-shrink:0; min-width:36px; text-align:right; }
 .medical-quickform-card {
   margin:0 20px 8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
   border-radius:14px; padding:18px;
@@ -3198,24 +3203,42 @@ Petit Enzo ; 9</pre>
   <!-- Dashboard : compteurs joueurs -->
   <div class="medical-stats-row">
     <div class="medical-stat-card" style="--s-color:#ff4d4d">
-      <div class="medical-stat-icon">🤕</div>
-      <div>
-        <div class="medical-stat-value" id="medicalCountBlesse">0</div>
-        <div class="medical-stat-label">Blessés</div>
+      <div class="medical-stat-top">
+        <div class="medical-stat-icon">🤕</div>
+        <div>
+          <div class="medical-stat-value" id="medicalCountBlesse">0</div>
+          <div class="medical-stat-label">Blessés</div>
+        </div>
+      </div>
+      <div class="medical-stat-bar-row">
+        <div class="medical-stat-bar-track"><div class="medical-stat-bar-fill" id="medicalBarBlesse" style="width:0%"></div></div>
+        <div class="medical-stat-pct" id="medicalPctBlesse">0%</div>
       </div>
     </div>
     <div class="medical-stat-card" style="--s-color:#e0b341">
-      <div class="medical-stat-icon">🔄</div>
-      <div>
-        <div class="medical-stat-value" id="medicalCountReathletisation">0</div>
-        <div class="medical-stat-label">Réathlétisation</div>
+      <div class="medical-stat-top">
+        <div class="medical-stat-icon">🔄</div>
+        <div>
+          <div class="medical-stat-value" id="medicalCountReathletisation">0</div>
+          <div class="medical-stat-label">Réathlétisation</div>
+        </div>
+      </div>
+      <div class="medical-stat-bar-row">
+        <div class="medical-stat-bar-track"><div class="medical-stat-bar-fill" id="medicalBarReathletisation" style="width:0%"></div></div>
+        <div class="medical-stat-pct" id="medicalPctReathletisation">0%</div>
       </div>
     </div>
     <div class="medical-stat-card" style="--s-color:#2ecc8a">
-      <div class="medical-stat-icon">✅</div>
-      <div>
-        <div class="medical-stat-value" id="medicalCountApte">0</div>
-        <div class="medical-stat-label">Aptes</div>
+      <div class="medical-stat-top">
+        <div class="medical-stat-icon">✅</div>
+        <div>
+          <div class="medical-stat-value" id="medicalCountApte">0</div>
+          <div class="medical-stat-label">Aptes</div>
+        </div>
+      </div>
+      <div class="medical-stat-bar-row">
+        <div class="medical-stat-bar-track"><div class="medical-stat-bar-fill" id="medicalBarApte" style="width:0%"></div></div>
+        <div class="medical-stat-pct" id="medicalPctApte">0%</div>
       </div>
     </div>
   </div>
@@ -11511,12 +11534,31 @@ function renderMedicalStatsCards() {
     else if (s === 'reathletisation') reath++;
     else apte++;
   });
+  const total = players.length || 1;
+  const pctBlesse = Math.round((blesse / total) * 100);
+  const pctReath = Math.round((reath / total) * 100);
+  const pctApte = Math.round((apte / total) * 100);
+
   const elB = document.getElementById('medicalCountBlesse');
   const elR = document.getElementById('medicalCountReathletisation');
   const elA = document.getElementById('medicalCountApte');
   if (elB) elB.textContent = blesse;
   if (elR) elR.textContent = reath;
   if (elA) elA.textContent = apte;
+
+  const barB = document.getElementById('medicalBarBlesse');
+  const barR = document.getElementById('medicalBarReathletisation');
+  const barA = document.getElementById('medicalBarApte');
+  if (barB) barB.style.width = pctBlesse + '%';
+  if (barR) barR.style.width = pctReath + '%';
+  if (barA) barA.style.width = pctApte + '%';
+
+  const pB = document.getElementById('medicalPctBlesse');
+  const pR = document.getElementById('medicalPctReathletisation');
+  const pA = document.getElementById('medicalPctApte');
+  if (pB) pB.textContent = pctBlesse + '%';
+  if (pR) pR.textContent = pctReath + '%';
+  if (pA) pA.textContent = pctApte + '%';
 }
 
 // ── Tableau de bord (toutes les blessures) ───────────────────────
