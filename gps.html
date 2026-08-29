@@ -1474,6 +1474,23 @@ table.roster-table select { padding: 4px; }
 .medical-stat-bar-track { flex:1; height:6px; border-radius:4px; background:rgba(255,255,255,.08); overflow:hidden; }
 .medical-stat-bar-fill { height:100%; border-radius:4px; background:var(--s-color,#D6001C); transition:width .3s ease; }
 .medical-stat-pct { font-size:12px; font-weight:700; color:var(--s-color,#D6001C); font-family:'JetBrains Mono',monospace; flex-shrink:0; min-width:36px; text-align:right; }
+.medical-stat-clickable { cursor:pointer; transition:background .15s; }
+.medical-stat-clickable:hover { background:rgba(255,255,255,.03); }
+.medical-stat-list { display:flex; flex-wrap:wrap; gap:6px; padding-top:4px; border-top:1px dashed rgba(255,255,255,.1); margin-top:2px; }
+.medical-stat-list.hidden { display:none; }
+.medical-stat-list-chip { font-size:11px; padding:3px 9px; border-radius:20px; background:rgba(255,255,255,.06); color:rgba(255,255,255,.8); }
+.medical-stat-list-empty { font-size:11px; color:rgba(255,255,255,.3); padding-top:4px; }
+.medical-link-btn { background:none; border:none; color:rgba(255,255,255,.45); font-size:12px; cursor:pointer; font-family:inherit; text-decoration:underline; text-underline-offset:2px; }
+.medical-link-btn:hover { color:#fff; }
+.medical-full-roster { margin:0 20px 20px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px 18px; display:flex; flex-wrap:wrap; gap:6px; }
+.medical-full-roster.hidden { display:none; }
+.medical-full-roster-chip { font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(255,255,255,.06); color:#fff; }
+.medical-full-roster-chip.st-blesse { background:rgba(255,77,77,.18); color:#ff8080; }
+.medical-full-roster-chip.st-reathletisation { background:rgba(224,179,65,.18); color:#e0b341; }
+.medical-full-roster-chip.st-apte { background:rgba(46,204,138,.14); color:#2ecc8a; }
+.medical-full-roster-chip.st-excluded { background:rgba(255,255,255,.04); color:rgba(255,255,255,.35); text-decoration:line-through; }
+.medical-chip-x, .medical-chip-plus { cursor:pointer; opacity:.6; margin-left:2px; }
+.medical-chip-x:hover, .medical-chip-plus:hover { opacity:1; }
 .medical-quickform-card {
   margin:0 20px 8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
   border-radius:14px; padding:18px;
@@ -3050,10 +3067,10 @@ Petit Enzo ; 9</pre>
     <div id="profileMedicalWrap" style="padding:0 20px 12px"></div>
 
     <!-- Records GPS -->
-    <div class="joueur-section-title">📊 Records GPS</div>
+    <div class="joueur-section-title">📊 Records GPS <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.35)">(séances + matchs)</span></div>
     <div class="gps-records-grid" id="profileGpsRecords"></div>
 
-    <div class="joueur-section-title" style="margin-top:8px">📈 Évolution VMAX &amp; Accel Max</div>
+    <div class="joueur-section-title" style="margin-top:8px">📈 Évolution VMAX &amp; Accel Max <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.35)">(🏉 = match)</span></div>
     <div class="gps-records-charts" id="profileGpsCharts">
       <div class="gps-chart-card">
         <div class="gr-label">VMAX (km/h) — par séance</div>
@@ -3064,6 +3081,10 @@ Petit Enzo ; 9</pre>
         <div style="height:170px"><canvas id="profileAccelChart"></canvas></div>
       </div>
     </div>
+
+    <!-- Matchs joués -->
+    <div class="joueur-section-title" style="margin-top:8px">🏉 Matchs joués</div>
+    <div id="profileMatchesList" style="padding:0 20px 20px"></div>
   </div>
 
   <!-- Modal détail wellness -->
@@ -3202,7 +3223,7 @@ Petit Enzo ; 9</pre>
 
   <!-- Dashboard : compteurs joueurs -->
   <div class="medical-stats-row">
-    <div class="medical-stat-card" style="--s-color:#ff4d4d">
+    <div class="medical-stat-card medical-stat-clickable" style="--s-color:#ff4d4d" onclick="toggleMedicalStatList('blesse')">
       <div class="medical-stat-top">
         <div class="medical-stat-icon">🤕</div>
         <div>
@@ -3214,8 +3235,9 @@ Petit Enzo ; 9</pre>
         <div class="medical-stat-bar-track"><div class="medical-stat-bar-fill" id="medicalBarBlesse" style="width:0%"></div></div>
         <div class="medical-stat-pct" id="medicalPctBlesse">0%</div>
       </div>
+      <div class="medical-stat-list hidden" id="medicalListBlesse"></div>
     </div>
-    <div class="medical-stat-card" style="--s-color:#e0b341">
+    <div class="medical-stat-card medical-stat-clickable" style="--s-color:#e0b341" onclick="toggleMedicalStatList('reathletisation')">
       <div class="medical-stat-top">
         <div class="medical-stat-icon">🔄</div>
         <div>
@@ -3227,8 +3249,9 @@ Petit Enzo ; 9</pre>
         <div class="medical-stat-bar-track"><div class="medical-stat-bar-fill" id="medicalBarReathletisation" style="width:0%"></div></div>
         <div class="medical-stat-pct" id="medicalPctReathletisation">0%</div>
       </div>
+      <div class="medical-stat-list hidden" id="medicalListReathletisation"></div>
     </div>
-    <div class="medical-stat-card" style="--s-color:#2ecc8a">
+    <div class="medical-stat-card medical-stat-clickable" style="--s-color:#2ecc8a" onclick="toggleMedicalStatList('apte')">
       <div class="medical-stat-top">
         <div class="medical-stat-icon">✅</div>
         <div>
@@ -3240,8 +3263,13 @@ Petit Enzo ; 9</pre>
         <div class="medical-stat-bar-track"><div class="medical-stat-bar-fill" id="medicalBarApte" style="width:0%"></div></div>
         <div class="medical-stat-pct" id="medicalPctApte">0%</div>
       </div>
+      <div class="medical-stat-list hidden" id="medicalListApte"></div>
     </div>
   </div>
+  <div style="margin:-10px 20px 20px;text-align:right">
+    <button class="medical-link-btn" onclick="toggleMedicalFullRoster()">👥 Voir l'effectif complet comptabilisé (<span id="medicalTotalRoster">0</span>)</button>
+  </div>
+  <div class="medical-full-roster hidden" id="medicalFullRosterWrap"></div>
 
   <!-- Modal : déclarer / modifier une blessure -->
   <div class="medical-form-overlay hidden" id="medicalFormOverlay">
@@ -5993,10 +6021,16 @@ function saveCurrentMatch() {
   }
   savedMatches.push(snapshot);
   saveSavedMatchesList(savedMatches);
+
+  const allMatchPlayers = [...(snapshot.groups["3/4"] || []), ...(snapshot.groups.Avant || [])];
+  const brokenInMatch = updateSeasonRecordsWithSession(allMatchPlayers);
+
   renderMatchesTab();
   renderAnalyseTab();
   renderJoueurTab();
-  alert(`✓ Match enregistré : ${snapshot.club} vs ${snapshot.opponent} — ${snapshot.journee}`);
+  renderRecordsTab();
+  alert(`✓ Match enregistré : ${snapshot.club} vs ${snapshot.opponent} — ${snapshot.journee}`
+    + (brokenInMatch.length ? "\n🌟 Nouveau record en match pour : " + brokenInMatch.join(", ") : ""));
 }
 
 function deleteMatch(id) {
@@ -10747,17 +10781,31 @@ function renderProfileAccr(name) {
 // d'un joueur à travers toutes les séances GPS sauvegardées.
 function profileGpsSessionSeries(name) {
   var out = [];
-  if (typeof savedSessions === 'undefined') return out;
-  savedSessions.forEach(function(session) {
-    if (!session.groups) return;
-    var allPlayers = (session.groups["3/4"] || []).concat(session.groups.Avant || []);
-    var p = allPlayers.find(function(pl){
-      var pname = pl.displayName || pl.player || '';
-      return pname && pname.toLowerCase() === name.toLowerCase();
+  if (typeof savedSessions !== 'undefined') {
+    savedSessions.forEach(function(session) {
+      if (!session.groups) return;
+      var allPlayers = (session.groups["3/4"] || []).concat(session.groups.Avant || []);
+      var p = allPlayers.find(function(pl){
+        var pname = pl.displayName || pl.player || '';
+        return pname && pname.toLowerCase() === name.toLowerCase();
+      });
+      if (!p) return;
+      out.push({ date: session.date || '', vmax: p.vmax != null ? p.vmax : null, accelMax: p.accelMax != null ? p.accelMax : null, type: 'session' });
     });
-    if (!p) return;
-    out.push({ date: session.date || '', vmax: p.vmax != null ? p.vmax : null, accelMax: p.accelMax != null ? p.accelMax : null });
-  });
+  }
+  if (typeof savedMatches !== 'undefined') {
+    savedMatches.forEach(function(match) {
+      if (!match.groups) return;
+      var allPlayers = (match.groups["3/4"] || []).concat(match.groups.Avant || []);
+      var p = allPlayers.find(function(pl){
+        var pname = pl.displayName || pl.player || '';
+        return pname && pname.toLowerCase() === name.toLowerCase();
+      });
+      if (!p) return;
+      var label = (match.date || '') + (match.opponent ? ' vs ' + match.opponent : '');
+      out.push({ date: match.date || '', label: label, vmax: p.vmax != null ? p.vmax : null, accelMax: p.accelMax != null ? p.accelMax : null, type: 'match' });
+    });
+  }
   out.sort(function(a, b) {
     var da = p1SafeParseDate ? p1SafeParseDate(a.date) : null;
     var db = p1SafeParseDate ? p1SafeParseDate(b.date) : null;
@@ -10771,26 +10819,30 @@ function renderProfileGpsRecords(name) {
   var el = document.getElementById('profileGpsRecords');
   if (!el) return;
 
-  // Chercher les records (meilleures valeurs) dans les séances sauvegardées
+  // Chercher les records (meilleures valeurs) dans les séances ET les matchs sauvegardés
   var records = {
-    vmax:  { val: null, date: null },
-    accel: { val: null, date: null },
+    vmax:  { val: null, date: null, type: null },
+    accel: { val: null, date: null, type: null },
   };
 
-  if (typeof savedSessions !== 'undefined') {
-    savedSessions.forEach(function(session) {
-      if (!session.groups) return;
-      var allPlayers = (session.groups["3/4"] || []).concat(session.groups.Avant || []);
+  function scan(list, type, labelBuilder) {
+    if (typeof list === 'undefined') return;
+    list.forEach(function(item) {
+      if (!item.groups) return;
+      var allPlayers = (item.groups["3/4"] || []).concat(item.groups.Avant || []);
       var p = allPlayers.find(function(pl){
         var pname = pl.displayName || pl.player || '';
         return pname && pname.toLowerCase() === name.toLowerCase();
       });
       if (!p) return;
-      var d = session.date || '';
-      if (p.vmax     != null && (records.vmax.val  == null || p.vmax     > records.vmax.val))  records.vmax  = { val: p.vmax,     date: d };
-      if (p.accelMax != null && (records.accel.val == null || p.accelMax > records.accel.val)) records.accel = { val: p.accelMax, date: d };
+      var d = labelBuilder(item);
+      if (p.vmax     != null && (records.vmax.val  == null || p.vmax     > records.vmax.val))  records.vmax  = { val: p.vmax,     date: d, type: type };
+      if (p.accelMax != null && (records.accel.val == null || p.accelMax > records.accel.val)) records.accel = { val: p.accelMax, date: d, type: type };
     });
   }
+
+  scan(savedSessions, 'session', function(s){ return s.date || ''; });
+  scan(savedMatches, 'match', function(m){ return (m.date || '') + (m.opponent ? ' vs ' + m.opponent : ''); });
 
   var defs = [
     { key:'vmax',  label:'Vmax',      unit:'km/h' },
@@ -10799,7 +10851,7 @@ function renderProfileGpsRecords(name) {
 
   var hasAny = defs.some(function(d){ return records[d.key].val != null; });
   if (!hasAny) {
-    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px;padding:0 0 8px">Aucune séance GPS sauvegardée pour ce joueur.</p>';
+    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px;padding:0 0 8px">Aucune séance ou match GPS sauvegardé pour ce joueur.</p>';
   } else {
     el.innerHTML = defs.map(function(d) {
       var r = records[d.key];
@@ -10808,12 +10860,58 @@ function renderProfileGpsRecords(name) {
       return '<div class="gps-record-card">'
         + '<div class="gr-label">' + d.label + '</div>'
         + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
-        + (r.date ? '<div class="gr-date">' + r.date + '</div>' : '')
+        + (r.date ? '<div class="gr-date">' + (r.type === 'match' ? '🏉 ' : '') + r.date + '</div>' : '')
         + '</div>';
     }).join('');
   }
 
   renderProfileGpsCharts(name);
+  renderProfileMatchesList(name);
+}
+
+function renderProfileMatchesList(name) {
+  var el = document.getElementById('profileMatchesList');
+  if (!el) return;
+  if (typeof savedMatches === 'undefined' || !savedMatches.length) {
+    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px;padding:0 0 8px">Aucun match enregistré pour ce joueur.</p>';
+    return;
+  }
+  var rows = [];
+  savedMatches.forEach(function(match) {
+    if (!match.groups) return;
+    var allPlayers = (match.groups["3/4"] || []).concat(match.groups.Avant || []);
+    var p = allPlayers.find(function(pl){
+      var pname = pl.displayName || pl.player || '';
+      return pname && pname.toLowerCase() === name.toLowerCase();
+    });
+    if (!p) return;
+    rows.push({ match: match, p: p });
+  });
+  if (!rows.length) {
+    el.innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:12px;padding:0 0 8px">Aucun match enregistré pour ce joueur.</p>';
+    return;
+  }
+  rows.sort(function(a, b) {
+    var da = p1SafeParseDate ? p1SafeParseDate(a.match.date) : null;
+    var db = p1SafeParseDate ? p1SafeParseDate(b.match.date) : null;
+    if (da && db) return db - da;
+    return 0;
+  });
+  el.innerHTML = '<div class="medical-injury-table-wrap"><table class="medical-injury-table"><thead><tr>'
+    + '<th>Date</th><th>Adversaire</th><th>Journée</th><th>Distance</th><th>Vmax</th><th>Accel max</th>'
+    + '</tr></thead><tbody>'
+    + rows.map(function(r) {
+        var m = r.match, p = r.p;
+        return '<tr>'
+          + '<td>' + (m.date || '—') + '</td>'
+          + '<td>' + (m.opponent || '—') + '</td>'
+          + '<td>' + (m.journee || '—') + '</td>'
+          + '<td>' + (p.distance != null ? Math.round(p.distance) + ' m' : '—') + '</td>'
+          + '<td>' + (p.vmax != null ? p.vmax.toFixed(1) + ' km/h' : '—') + '</td>'
+          + '<td>' + (p.accelMax != null ? p.accelMax : '—') + '</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>';
 }
 
 var profileGpsChartInsts = [];
@@ -10850,7 +10948,7 @@ function renderProfileGpsCharts(name) {
     return new Chart(canvas, {
       type: 'line',
       data: {
-        labels: entries.map(function(e){ return e.date; }),
+        labels: entries.map(function(e){ return (e.type === 'match' ? '🏉 ' : '') + (e.label || e.date); }),
         datasets: [{
           data: entries.map(function(e){ return e[key]; }),
           borderColor: color,
@@ -11103,6 +11201,40 @@ function saveMedicalRecords(records) {
 }
 let medicalRecords = loadMedicalRecords();
 
+const MEDICAL_EXCLUDED_KEY = 'gpsMedicalExcludedPlayers_v1';
+function loadMedicalExcluded() {
+  try {
+    const raw = localStorage.getItem(MEDICAL_EXCLUDED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveMedicalExcluded(list) {
+  localStorage.setItem(MEDICAL_EXCLUDED_KEY, JSON.stringify(list));
+  if (typeof markLocalDataChanged === 'function') markLocalDataChanged();
+}
+let medicalExcludedPlayers = loadMedicalExcluded(); // noms normalisés (lowercase, trim)
+
+function medicalIsExcluded(name) {
+  const key = String(name).trim().toLowerCase();
+  return medicalExcludedPlayers.indexOf(key) !== -1;
+}
+function medicalExcludePlayer(name) {
+  const key = String(name).trim().toLowerCase();
+  if (medicalExcludedPlayers.indexOf(key) === -1) {
+    medicalExcludedPlayers.push(key);
+    saveMedicalExcluded(medicalExcludedPlayers);
+  }
+  renderMedicalStatsCards();
+  populateMedicalPlayerSelect();
+}
+function medicalIncludePlayer(name) {
+  const key = String(name).trim().toLowerCase();
+  medicalExcludedPlayers = medicalExcludedPlayers.filter(function(k){ return k !== key; });
+  saveMedicalExcluded(medicalExcludedPlayers);
+  renderMedicalStatsCards();
+  populateMedicalPlayerSelect();
+}
+
 // Convention : x positif = côté visible à DROITE de l'écran quand le corps
 // fait face à la caméra = côté GAUCHE du joueur (comme quand on regarde
 // quelqu'un en face). x négatif = côté DROIT du joueur.
@@ -11333,17 +11465,32 @@ function toggleMedicalRetourReelle() {
 }
 
 // ── Joueurs ─────────────────────────────────────────────────────
-function getMedicalPlayerList() {
-  const names = new Set();
+function getMedicalPlayerListRaw() {
+  const seen = new Map(); // clé normalisée -> nom d'affichage (premier rencontré)
+  function addName(n) {
+    if (!n) return;
+    const trimmed = String(n).trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key)) seen.set(key, trimmed);
+  }
   if (typeof getAllWellnessPlayers === 'function') {
-    try { (getAllWellnessPlayers() || []).forEach(function(n){ names.add(n); }); } catch(e) {}
+    try { (getAllWellnessPlayers() || []).forEach(addName); } catch(e) {}
   }
-  if (typeof roster !== 'undefined' && roster) Object.keys(roster).forEach(function(n){ names.add(n); });
+  if (typeof roster !== 'undefined' && roster) Object.keys(roster).forEach(addName);
   if (typeof getAllPlayerNames === 'function') {
-    try { getAllPlayerNames().forEach(function(n){ names.add(n); }); } catch(e) {}
+    try { getAllPlayerNames().forEach(addName); } catch(e) {}
   }
-  Object.keys(medicalRecords).forEach(function(n){ names.add(n); });
-  return Array.from(names).sort(function(a,b){ return a.localeCompare(b); });
+  Object.keys(medicalRecords).forEach(addName);
+  return Array.from(seen.values()).sort(function(a,b){ return a.localeCompare(b); });
+}
+
+function getMedicalPlayerList() {
+  return getMedicalPlayerListRaw().filter(function(n){ return !medicalIsExcluded(n); });
+}
+
+function getMedicalPlayersByStatus(status) {
+  return getMedicalPlayerList().filter(function(n){ return medicalPlayerStatus(n) === status; });
 }
 
 function populateMedicalPlayerSelect() {
@@ -11528,8 +11675,10 @@ function medicalPlayerStatus(name) {
 function renderMedicalStatsCards() {
   const players = getMedicalPlayerList();
   let blesse = 0, reath = 0, apte = 0;
+  const byStatus = { blesse: [], reathletisation: [], apte: [] };
   players.forEach(function(name) {
     const s = medicalPlayerStatus(name);
+    byStatus[s].push(name);
     if (s === 'blesse') blesse++;
     else if (s === 'reathletisation') reath++;
     else apte++;
@@ -11559,6 +11708,77 @@ function renderMedicalStatsCards() {
   if (pB) pB.textContent = pctBlesse + '%';
   if (pR) pR.textContent = pctReath + '%';
   if (pA) pA.textContent = pctApte + '%';
+
+  const totalEl = document.getElementById('medicalTotalRoster');
+  if (totalEl) totalEl.textContent = players.length;
+
+  medicalStatGroups = byStatus;
+  renderMedicalStatListPanel('blesse');
+  renderMedicalStatListPanel('reathletisation');
+  renderMedicalStatListPanel('apte');
+  renderMedicalFullRosterPanel();
+}
+
+var medicalStatGroups = { blesse: [], reathletisation: [], apte: [] };
+
+function medicalStatListElId(status) {
+  return status === 'blesse' ? 'medicalListBlesse' : status === 'reathletisation' ? 'medicalListReathletisation' : 'medicalListApte';
+}
+
+function renderMedicalStatListPanel(status) {
+  const el = document.getElementById(medicalStatListElId(status));
+  if (!el) return;
+  const names = medicalStatGroups[status] || [];
+  el.innerHTML = names.length
+    ? names.map(function(n){
+        return '<span class="medical-stat-list-chip">' + n
+          + ' <span class="medical-chip-x" onclick="event.stopPropagation();medicalExcludePlayer(\'' + n.replace(/'/g,"\\'") + '\')" title="Ne plus comptabiliser">✕</span></span>';
+      }).join('')
+    : '<span class="medical-stat-list-empty">Aucun joueur dans cette catégorie.</span>';
+}
+
+function toggleMedicalStatList(status) {
+  const id = medicalStatListElId(status);
+  const el = document.getElementById(id);
+  if (!el) return;
+  const opening = el.classList.contains('hidden');
+  // Referme les autres listes pour rester lisible
+  ['blesse','reathletisation','apte'].forEach(function(s){
+    const other = document.getElementById(medicalStatListElId(s));
+    if (other && s !== status) other.classList.add('hidden');
+  });
+  el.classList.toggle('hidden', !opening);
+}
+
+function renderMedicalFullRosterPanel() {
+  const wrap = document.getElementById('medicalFullRosterWrap');
+  if (!wrap) return;
+  const allPlayers = getMedicalPlayerListRaw();
+  const included = allPlayers.filter(function(n){ return !medicalIsExcluded(n); });
+  const excluded = allPlayers.filter(function(n){ return medicalIsExcluded(n); });
+
+  let html = '<div style="width:100%;font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Comptabilisés — cliquez ✕ pour exclure</div>';
+  html += included.map(function(n) {
+    const s = medicalPlayerStatus(n);
+    return '<span class="medical-full-roster-chip st-' + s + '">' + n
+      + ' <span class="medical-chip-x" onclick="medicalExcludePlayer(\'' + n.replace(/'/g,"\\'") + '\')" title="Ne plus comptabiliser">✕</span></span>';
+  }).join('');
+
+  if (excluded.length) {
+    html += '<div style="width:100%;font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 2px">Exclus — non comptabilisés</div>';
+    html += excluded.map(function(n) {
+      return '<span class="medical-full-roster-chip st-excluded">' + n
+        + ' <span class="medical-chip-plus" onclick="medicalIncludePlayer(\'' + n.replace(/'/g,"\\'") + '\')" title="Recomptabiliser">↺</span></span>';
+    }).join('');
+  }
+
+  wrap.innerHTML = html;
+}
+
+function toggleMedicalFullRoster() {
+  const wrap = document.getElementById('medicalFullRosterWrap');
+  if (!wrap) return;
+  wrap.classList.toggle('hidden');
 }
 
 // ── Tableau de bord (toutes les blessures) ───────────────────────
