@@ -10500,10 +10500,10 @@ function handleXlsxFile(file) {
       var ignoredTests = {};
 
       rows.forEach(function(row) {
-        var playerRaw = String(findVal(row,['NOMS','Joueur','joueur','NOM','nom','Player'])||'').trim();
-        var dateRaw   = findVal(row,['DATES','Date','date','DATE']);
-        var testRaw   = String(findVal(row,['TEST','Test','test','TYPE','Type'])||'').trim().toLowerCase();
-        var valRaw    = findVal(row,['VALEURS','Valeur','valeur','VALEUR','Value']);
+        var playerRaw = String(findVal(row,['NOMS','Joueur','joueur','NOM','nom','Player','Nom','Noms'])||'').trim();
+        var dateRaw   = findVal(row,['DATES','Date','date','DATE','Dates']);
+        var testRaw   = String(findVal(row,['TEST','Test','test','TYPE','Type','TYPES','Types','types'])||'').trim().toLowerCase();
+        var valRaw    = findVal(row,['VALEURS','Valeur','valeur','VALEUR','Value','SCORE','Score','score','Valeurs']);
         var ctx       = String(findVal(row,['Contexte','contexte'])||'').trim();
 
         if (!playerRaw || !testRaw || valRaw === undefined || valRaw === '') { errors++; return; }
