@@ -1527,7 +1527,7 @@ table.roster-table select { padding: 4px; }
 .ac-side-label { font-size:11.5px; font-weight:800; color:#1a0003; text-transform:uppercase; letter-spacing:.02em; flex:1; }
 .ac-side-arrow { color:rgba(0,0,0,.25); font-size:15px; }
 
-.ac-main-wrap { width:100%; max-width:900px; padding:24px 24px 56px; display:flex; flex-direction:column; gap:16px; }
+.ac-main-wrap { width:100%; max-width:900px; padding:24px 24px 56px; display:flex; flex-direction:column; gap:16px; min-width:0; box-sizing:border-box; }
 .ac-main-topbar { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
 .ac-toggle-nav-btn {
   width:40px; height:40px; border-radius:8px; background:rgba(255,255,255,.08);
@@ -1548,6 +1548,7 @@ table.roster-table select { padding: 4px; }
 .recap-card {
   background:#ffffff; opacity:1; isolation:isolate; position:relative; z-index:1;
   border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.2);
+  box-sizing:border-box; min-width:0; max-width:100%;
 }
 .recap-card-title { font-size:14px; font-weight:800; color:#1a0003; margin-bottom:12px; display:flex; align-items:center; gap:8px; width:100%; }
 .recap-week-nav { display:flex; align-items:center; gap:6px; font-weight:400; }
@@ -1573,13 +1574,16 @@ table.roster-table select { padding: 4px; }
 .recap-gps-group { margin-bottom:14px; }
 .recap-gps-group:last-child { margin-bottom:0; }
 .recap-gps-group-title { font-size:12px; font-weight:800; color:#1a0003; margin-bottom:8px; }
-.recap-gps-chart-wrap { height:140px; margin-top:10px; position:relative; }
-.recap-gps-charts-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
-@media (max-width:760px) { .recap-gps-charts-grid { grid-template-columns:repeat(2,1fr); } }
-@media (max-width:520px) { .recap-gps-charts-grid { grid-template-columns:1fr; } }
-.recap-gps-chart-cell { background:#f7f5f1; border-radius:10px; padding:10px 12px; }
+.recap-gps-chart-wrap { height:140px; margin-top:10px; position:relative; min-width:0; }
+.recap-gps-charts-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; min-width:0; }
+@media (max-width:760px) { .recap-gps-charts-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (max-width:520px) { .recap-gps-charts-grid { grid-template-columns:minmax(0,1fr); } }
+.recap-gps-chart-cell { background:#f7f5f1; border-radius:10px; padding:10px 12px; min-width:0; overflow:hidden; }
 .recap-gps-chart-cell-title { font-size:10.5px; font-weight:800; color:#1a0003; text-transform:uppercase; letter-spacing:.03em; text-align:center; margin-bottom:2px; }
-.recap-gps-chart-cell .recap-gps-chart-wrap { height:130px; margin-top:2px; }
+.recap-gps-chart-cell .recap-gps-chart-wrap { height:130px; margin-top:2px; min-width:0; }
+.recap-gps-chart-cell canvas { max-width:100%; }
+.recap-gps-legend { display:flex; align-items:center; gap:18px; margin-bottom:10px; font-size:11px; font-weight:700; color:#555; }
+.recap-gps-legend-dot { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:middle; }
 @media (max-width:640px) { .recap-top-row { flex-direction:column; } .recap-big-stat { width:100%; } }
 .medical-quickform-card {
   margin:0 20px 8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
@@ -2225,6 +2229,10 @@ table.roster-table select { padding: 4px; }
           </div>
         </div>
         <div id="recapGpsEmpty" class="recap-empty">Chargement…</div>
+        <div class="recap-gps-legend" id="recapGpsLegend" style="display:none">
+          <span><span class="recap-gps-legend-dot" style="background:#D6001C"></span>3/4</span>
+          <span><span class="recap-gps-legend-dot" style="background:#c9a84c"></span>Avant</span>
+        </div>
         <div class="recap-gps-charts-grid" id="recapGpsChartsGrid" style="display:none">
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">Distance (m)</div>
@@ -12167,16 +12175,27 @@ function accueilGpsSelectedWeekRef() {
 }
 function computeAccueilGpsRecap() {
   var range = accueilWeekRange(accueilGpsSelectedWeekRef());
-  var byGroup = { '3/4': [], Avant: [] };
-  function collect(list) {
+  var sessionsList = [];
+
+  function avgKey(players, key) {
+    var vals = players.map(function(x){ return x[key]; }).filter(function(v){ return v != null && !isNaN(v); });
+    return vals.length ? (vals.reduce(function(a,b){ return a+b; }, 0) / vals.length) : null;
+  }
+
+  function collect(list, isMatch) {
     (list || []).forEach(function(item) {
       if (!item.date || !item.groups) return;
       var d;
       try { d = parseFR(item.date); } catch(e) { d = null; }
       if (!d || isNaN(d.getTime()) || !(d >= range.monday && d <= range.sunday)) return;
+
+      var shortDate = item.date.slice(0, 5); // dd/mm
+      var label = (isMatch ? '🏉 ' : '') + shortDate + (isMatch && item.opponent ? ' ' + item.opponent : (item.theme ? ' ' + item.theme : ''));
+      var entry = { date: item.date, dateObj: d, label: label, groups: {} };
+
       ['3/4', 'Avant'].forEach(function(g) {
-        (item.groups[g] || []).forEach(function(p) {
-          byGroup[g].push({
+        var players = (item.groups[g] || []).map(function(p) {
+          return {
             distance: p.distance != null ? p.distance : null,
             vmax: p.vmax != null ? p.vmax : null,
             accelMax: p.accelMax != null ? p.accelMax : null,
@@ -12186,35 +12205,30 @@ function computeAccueilGpsRecap() {
             dist18: p.dist18 != null ? p.dist18 : null,
             dist24: p.dist24 != null ? p.dist24 : null,
             rhie: p.rhie != null ? p.rhie : null
-          });
+          };
         });
+        entry.groups[g] = {
+          n: players.length,
+          distance: avgKey(players, 'distance'),
+          vmax: avgKey(players, 'vmax'),
+          accelMax: avgKey(players, 'accelMax'),
+          meterPerMin: avgKey(players, 'meterPerMin'),
+          contacts: avgKey(players, 'contacts'),
+          accel23: avgKey(players, 'accel23'),
+          dist18: avgKey(players, 'dist18'),
+          dist24: avgKey(players, 'dist24'),
+          rhie: avgKey(players, 'rhie')
+        };
       });
+      sessionsList.push(entry);
     });
   }
-  collect(typeof savedSessions !== 'undefined' ? savedSessions : []);
-  collect(typeof savedMatches  !== 'undefined' ? savedMatches  : []);
+  collect(typeof savedSessions !== 'undefined' ? savedSessions : [], false);
+  collect(typeof savedMatches  !== 'undefined' ? savedMatches  : [], true);
+  sessionsList.sort(function(a, b){ return a.dateObj - b.dateObj; });
 
-  function avgKey(arr, key) {
-    var vals = arr.map(function(x){ return x[key]; }).filter(function(v){ return v != null && !isNaN(v); });
-    return vals.length ? (vals.reduce(function(a,b){ return a+b; }, 0) / vals.length) : null;
-  }
-  var out = { range: range };
-  ['3/4', 'Avant'].forEach(function(g) {
-    out[g] = {
-      n: byGroup[g].length,
-      distance: avgKey(byGroup[g], 'distance'),
-      vmax: avgKey(byGroup[g], 'vmax'),
-      accelMax: avgKey(byGroup[g], 'accelMax'),
-      meterPerMin: avgKey(byGroup[g], 'meterPerMin'),
-      contacts: avgKey(byGroup[g], 'contacts'),
-      accel23: avgKey(byGroup[g], 'accel23'),
-      dist18: avgKey(byGroup[g], 'dist18'),
-      dist24: avgKey(byGroup[g], 'dist24'),
-      rhie: avgKey(byGroup[g], 'rhie')
-    };
-  });
-  out.hasAny = (byGroup['3/4'].length + byGroup.Avant.length) > 0;
-  return out;
+  var hasAny = sessionsList.some(function(s){ return s.groups['3/4'].n > 0 || s.groups.Avant.n > 0; });
+  return { range: range, sessions: sessionsList, hasAny: hasAny };
 }
 
 function renderAccueilRecap() {
@@ -12313,6 +12327,7 @@ function renderAccueilRecap() {
   var gps = computeAccueilGpsRecap();
   var gpsEmptyEl = document.getElementById('recapGpsEmpty');
   var gpsGridEl = document.getElementById('recapGpsChartsGrid');
+  var gpsLegendEl = document.getElementById('recapGpsLegend');
   var gpsWeekLabelEl = document.getElementById('recapGpsWeekLabel');
   if (gpsWeekLabelEl) {
     gpsWeekLabelEl.textContent = accueilFmtFR(gps.range.monday) + ' → ' + accueilFmtFR(gps.range.sunday)
@@ -12321,11 +12336,13 @@ function renderAccueilRecap() {
   if (!gps.hasAny) {
     if (gpsEmptyEl) { gpsEmptyEl.style.display = 'block'; gpsEmptyEl.textContent = 'Aucune séance ou match GPS cette semaine-là pour les Espoirs.'; }
     if (gpsGridEl) gpsGridEl.style.display = 'none';
+    if (gpsLegendEl) gpsLegendEl.style.display = 'none';
     accueilGpsChartInsts.forEach(function(c){ if (c) c.destroy(); });
     accueilGpsChartInsts = [];
   } else {
     if (gpsEmptyEl) gpsEmptyEl.style.display = 'none';
     if (gpsGridEl) gpsGridEl.style.display = 'grid';
+    if (gpsLegendEl) gpsLegendEl.style.display = 'flex';
     renderAccueilGpsChart(gps);
   }
 }
@@ -12353,25 +12370,27 @@ function renderAccueilGpsChart(gps) {
     { key:'rhie',        canvasId:'accueilGpsChartRhie',      decimals:1 }
   ];
 
+  var sessions = gps.sessions || [];
+  var labels = sessions.map(function(s){ return s.label; });
+
   metrics.forEach(function(m) {
     var canvas = document.getElementById(m.canvasId);
     if (!canvas) return;
-    var v34 = gps['3/4'][m.key];
-    var vAv = gps['Avant'][m.key];
     var factor = Math.pow(10, m.decimals);
+    function seriesFor(g) {
+      return sessions.map(function(s) {
+        var v = s.groups[g][m.key];
+        return v != null ? Math.round(v * factor) / factor : null;
+      });
+    }
     var chart = new Chart(canvas, {
       type: 'bar',
       data: {
-        labels: ['3/4', 'Avant'],
-        datasets: [{
-          data: [
-            v34 != null ? Math.round(v34 * factor) / factor : 0,
-            vAv != null ? Math.round(vAv * factor) / factor : 0
-          ],
-          backgroundColor: ['#D6001C', '#c9a84c'],
-          borderRadius: 4,
-          maxBarThickness: 46
-        }]
+        labels: labels,
+        datasets: [
+          { label: '3/4',   data: seriesFor('3/4'),   backgroundColor: '#D6001C', borderRadius: 3, maxBarThickness: 26 },
+          { label: 'Avant', data: seriesFor('Avant'), backgroundColor: '#c9a84c', borderRadius: 3, maxBarThickness: 26 }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
@@ -12380,8 +12399,8 @@ function renderAccueilGpsChart(gps) {
           tooltip: { backgroundColor: '#1a0000', titleColor: '#fff', bodyColor: '#ddd', padding: 10 }
         },
         scales: {
-          y: { beginAtZero: true, ticks: { color: '#888', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
-          x: { ticks: { color: '#555', font: { size: 11, weight: '700' } }, grid: { display: false } }
+          y: { beginAtZero: true, ticks: { color: '#888', font: { size: 9 } }, grid: { color: 'rgba(0,0,0,.06)' } },
+          x: { ticks: { color: '#555', font: { size: 9, weight: '700' }, maxRotation: 40, minRotation: sessions.length > 3 ? 40 : 0 }, grid: { display: false } }
         }
       }
     });
