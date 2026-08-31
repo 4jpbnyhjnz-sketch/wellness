@@ -1542,7 +1542,13 @@ table.roster-table select { padding: 4px; }
 /* ══ ACCUEIL — RECAP DE LA SEMAINE ══ */
 .ac-recap-wrap { width:100%; max-width:1000px; padding:0 24px 56px; display:flex; flex-direction:column; gap:16px; }
 .ac-recap-heading { color:#fff; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; opacity:.6; margin:10px 4px 0; }
-.recap-card { background:#ffffff; border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.2); }
+.ac-recap-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.ac-recap-grid .recap-card-full { grid-column:1 / -1; }
+@media (max-width:760px) { .ac-recap-grid { grid-template-columns:1fr; } }
+.recap-card {
+  background:#ffffff; opacity:1; isolation:isolate; position:relative; z-index:1;
+  border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
 .recap-card-title { font-size:14px; font-weight:800; color:#1a0003; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
 .recap-top-row { display:flex; gap:18px; flex-wrap:wrap; align-items:stretch; }
 .recap-big-stat { display:flex; flex-direction:column; justify-content:center; align-items:center; min-width:110px; padding:10px 18px; border-radius:10px; background:color-mix(in srgb, var(--rc,#D6001C) 12%, transparent); }
@@ -1561,6 +1567,12 @@ table.roster-table select { padding: 4px; }
 .recap-gps-group { margin-bottom:14px; }
 .recap-gps-group:last-child { margin-bottom:0; }
 .recap-gps-group-title { font-size:12px; font-weight:800; color:#1a0003; margin-bottom:8px; }
+.recap-gps-chart-wrap { height:140px; margin-top:10px; position:relative; }
+.recap-gps-charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; }
+.recap-gps-chart-cell { background:#f7f5f1; border-radius:10px; padding:10px 12px; }
+.recap-gps-chart-cell-title { font-size:10.5px; font-weight:800; color:#1a0003; text-transform:uppercase; letter-spacing:.03em; text-align:center; margin-bottom:2px; }
+.recap-gps-chart-cell .recap-gps-chart-wrap { height:130px; margin-top:2px; }
+@media (max-width:520px) { .recap-gps-charts-grid { grid-template-columns:1fr; } }
 @media (max-width:640px) { .recap-top-row { flex-direction:column; } .recap-big-stat { width:100%; } }
 .medical-quickform-card {
   margin:0 20px 8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
@@ -2175,29 +2187,49 @@ table.roster-table select { padding: 4px; }
 
     <div class="ac-recap-heading">📋 Récap de la semaine</div>
 
-    <div class="recap-card">
-      <div class="recap-card-title">💚 Wellness — dernière réponse</div>
-      <div id="recapWellnessBody"><div class="recap-empty">Chargement…</div></div>
-    </div>
+    <div class="ac-recap-grid">
+      <div class="recap-card recap-card-full">
+        <div class="recap-card-title">💚 Wellness — dernière réponse</div>
+        <div id="recapWellnessBody"><div class="recap-empty">Chargement…</div></div>
+      </div>
 
-    <div class="recap-card">
-      <div class="recap-card-title">💪 RPE — cette semaine</div>
-      <div id="recapRpeBody"><div class="recap-empty">Chargement…</div></div>
-    </div>
+      <div class="recap-card">
+        <div class="recap-card-title">💪 RPE — cette semaine</div>
+        <div id="recapRpeBody"><div class="recap-empty">Chargement…</div></div>
+      </div>
 
-    <div class="recap-card">
-      <div class="recap-card-title">🏥 Médical</div>
-      <div id="recapMedicalBody"><div class="recap-empty">Chargement…</div></div>
-    </div>
+      <div class="recap-card">
+        <div class="recap-card-title">🏋️ Perf Physique — cette semaine</div>
+        <div id="recapPerfSection"><div class="recap-empty">Chargement…</div></div>
+      </div>
 
-    <div class="recap-card">
-      <div class="recap-card-title">🏋️ Perf Physique — cette semaine</div>
-      <div id="recapPerfSection"><div class="recap-empty">Chargement…</div></div>
-    </div>
+      <div class="recap-card recap-card-full">
+        <div class="recap-card-title">🏥 Médical</div>
+        <div id="recapMedicalBody"><div class="recap-empty">Chargement…</div></div>
+      </div>
 
-    <div class="recap-card">
-      <div class="recap-card-title">📊 GPS — moyennes Avant / 3/4 (Espoirs) cette semaine</div>
-      <div id="recapGpsSection"><div class="recap-empty">Chargement…</div></div>
+      <div class="recap-card recap-card-full">
+        <div class="recap-card-title">📊 GPS — moyennes Avant / 3/4 (Espoirs) cette semaine</div>
+        <div id="recapGpsEmpty" class="recap-empty">Chargement…</div>
+        <div class="recap-gps-charts-grid" id="recapGpsChartsGrid" style="display:none">
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">Distance (m)</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartDistance"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">Vmax (km/h)</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartVmax"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">Accel max</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartAccel"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">m/min</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartMpm"></canvas></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -8215,12 +8247,14 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initHeaderFields() {
-  // Logo centré en grand derrière le contenu — défile avec la page (effet coulisse)
+  // Logo centré en grand derrière le contenu — uniquement dans la section GPS
+  // (scopé à #hub-gps pour ne jamais apparaître derrière les autres pages)
+  var gpsHost = document.getElementById('hub-gps');
   const bgLogo = document.createElement("div");
   bgLogo.id = "bgLogoWatermark";
   bgLogo.style.cssText = [
     "position:absolute",
-    "top:50vh",
+    "top:50%",
     "left:50%",
     "transform:translate(-50%, -50%)",
     "width:600px",
@@ -8230,7 +8264,12 @@ function initHeaderFields() {
     "pointer-events:none",
     "z-index:0",
   ].join(";");
-  document.body.appendChild(bgLogo);
+  if (gpsHost) {
+    if (getComputedStyle(gpsHost).position === 'static') gpsHost.style.position = 'relative';
+    gpsHost.appendChild(bgLogo);
+  } else {
+    document.body.appendChild(bgLogo);
+  }
 
   const CLUB_KEY = "gpsClubName_v1";
   const THEME_KEY = "gpsSessionTheme_v1";
@@ -12018,22 +12057,33 @@ function computeAccueilWellnessRecap() {
   };
 }
 
-// ── RPE : moyenne d'équipe pour la semaine en cours ──
+// ── RPE : moyenne de la veille par item (type de séance) + sRPE de la semaine ──
 function computeAccueilRpeRecap() {
-  if (typeof initRpeSemaineWeek !== 'function') return null;
-  initRpeSemaineWeek();
-  if (typeof CUR_RPE_WEEK === 'undefined' || !CUR_RPE_WEEK) return null;
-  var stats = computeWeekStats(CUR_RPE_WEEK);
-  var withVal = stats.players.filter(function(p){ return p.avgRpe !== null; });
-  var avgTeamRpe = withVal.length ? (withVal.reduce(function(s,p){ return s + p.avgRpe; }, 0) / withVal.length) : null;
-  var totalSrpe = (typeof SRPE_WEEK !== 'undefined' && SRPE_WEEK[CUR_RPE_WEEK]) ? SRPE_WEEK[CUR_RPE_WEEK].total : 0;
-  return {
-    week: CUR_RPE_WEEK,
-    avgRpe: avgTeamRpe,
-    reportedCount: withVal.length,
-    totalPlayers: stats.players.length,
-    totalSrpe: totalSrpe
-  };
+  if (typeof RPEDAYS === 'undefined' || !RPEDAYS.length) return null;
+  var day = RPEDAYS[RPEDAYS.length - 1];
+  var dayData = (typeof RPE !== 'undefined') ? RPE[day] : null;
+  var itemsMap = {};
+  if (dayData && dayData.sessions) {
+    dayData.sessions.forEach(function(s) {
+      if (!itemsMap[s.type]) itemsMap[s.type] = [];
+      itemsMap[s.type].push(s.score);
+    });
+  }
+  var items = Object.keys(itemsMap).sort().map(function(t) {
+    var arr = itemsMap[t];
+    var avg = arr.reduce(function(a,b){ return a+b; }, 0) / arr.length;
+    return { type: t, avg: avg, n: arr.length };
+  });
+
+  var totalSrpe = null;
+  if (typeof initRpeSemaineWeek === 'function') {
+    initRpeSemaineWeek();
+    if (typeof CUR_RPE_WEEK !== 'undefined' && CUR_RPE_WEEK) {
+      totalSrpe = (typeof SRPE_WEEK !== 'undefined' && SRPE_WEEK[CUR_RPE_WEEK]) ? SRPE_WEEK[CUR_RPE_WEEK].total : 0;
+    }
+  }
+
+  return { day: day, items: items, totalSrpe: totalSrpe };
 }
 
 // ── Médical : % par statut + liste des joueurs concernés (sans détail de blessure) ──
@@ -12126,13 +12176,17 @@ function renderAccueilRecap() {
   } else {
     var av = wellness.averages;
     var miniDefs = [
-      ['Score total', fmt1(av.S) + '/35'], ['Sommeil', fmt1(av.s) + '/7'], ['Courb. haut', fmt1(av.H) + '/7'],
-      ['Courb. bas', fmt1(av.B) + '/7'], ['Fatigue', fmt1(av.f) + '/7'], ['Stress', fmt1(av.t) + '/7']
+      ['Score total', fmt1(av.S) + '/35', (typeof scolor === 'function' ? scolor(av.S) : '#1a0003')],
+      ['Sommeil', fmt1(av.s) + '/7', (typeof sc === 'function' ? sc(av.s) : '#1a0003')],
+      ['Courb. haut', fmt1(av.H) + '/7', (typeof sc === 'function' ? sc(av.H) : '#1a0003')],
+      ['Courb. bas', fmt1(av.B) + '/7', (typeof sc === 'function' ? sc(av.B) : '#1a0003')],
+      ['Fatigue', fmt1(av.f) + '/7', (typeof sc === 'function' ? sc(av.f) : '#1a0003')],
+      ['Stress', fmt1(av.t) + '/7', (typeof sc === 'function' ? sc(av.t) : '#1a0003')]
     ];
     wellnessHtml = '<div class="recap-top-row">'
       + '<div class="recap-big-stat" style="--rc:#cc1122"><div class="recap-big-val">' + wellness.rougeCount + '</div><div class="recap-big-lbl">🔴 Joueur(s) en rouge</div></div>'
       + '<div class="recap-mini-grid">' + miniDefs.map(function(p){
-          return '<div class="recap-mini"><div class="recap-mini-val">' + p[1] + '</div><div class="recap-mini-lbl">' + p[0] + '</div></div>';
+          return '<div class="recap-mini" style="--mc:' + p[2] + '"><div class="recap-mini-val">' + p[1] + '</div><div class="recap-mini-lbl">' + p[0] + '</div></div>';
         }).join('') + '</div>'
       + '</div>'
       + (wellness.rougeNames.length
@@ -12147,15 +12201,18 @@ function renderAccueilRecap() {
   var rpeHtml;
   if (!rpe) {
     rpeHtml = '<div class="recap-empty">Chargement des données RPE…</div>';
-  } else if (!rpe.reportedCount) {
-    rpeHtml = '<div class="recap-empty">Aucune donnée RPE cette semaine.</div>';
+  } else if (!rpe.items.length && rpe.totalSrpe == null) {
+    rpeHtml = '<div class="recap-empty">Aucune donnée RPE disponible.</div>';
   } else {
-    rpeHtml = '<div class="recap-top-row">'
-      + '<div class="recap-big-stat" style="--rc:#e0b341"><div class="recap-big-val">' + fmt1(rpe.avgRpe) + '</div><div class="recap-big-lbl">RPE moyen / 10</div></div>'
-      + '<div class="recap-mini-grid">'
-      + '<div class="recap-mini"><div class="recap-mini-val">' + Math.round(rpe.totalSrpe).toLocaleString('fr-FR') + '</div><div class="recap-mini-lbl">Charge sRPE totale</div></div>'
-      + '<div class="recap-mini"><div class="recap-mini-val">' + rpe.reportedCount + '/' + rpe.totalPlayers + '</div><div class="recap-mini-lbl">Joueurs ayant répondu</div></div>'
-      + '</div></div>';
+    var srpeMini = rpe.totalSrpe != null
+      ? '<div class="recap-mini"><div class="recap-mini-val">' + Math.round(rpe.totalSrpe).toLocaleString('fr-FR') + '</div><div class="recap-mini-lbl">sRPE semaine</div></div>'
+      : '';
+    var itemsMini = rpe.items.map(function(it) {
+      var color = (typeof rpeColor === 'function') ? rpeColor(it.avg) : '#1a0003';
+      return '<div class="recap-mini" style="--mc:' + color + '"><div class="recap-mini-val">' + fmt1(it.avg) + '/10</div><div class="recap-mini-lbl">' + it.type + '</div></div>';
+    }).join('');
+    rpeHtml = '<div class="recap-mini-grid">' + srpeMini + itemsMini + '</div>'
+      + (rpe.items.length ? '<div class="recap-date-note">Moyenne de la veille (' + rpe.day + ') par type de séance</div>' : '');
   }
   document.getElementById('recapRpeBody').innerHTML = rpeHtml;
 
@@ -12195,23 +12252,69 @@ function renderAccueilRecap() {
 
   // GPS
   var gps = computeAccueilGpsRecap();
-  var gpsEl = document.getElementById('recapGpsSection');
+  var gpsEmptyEl = document.getElementById('recapGpsEmpty');
+  var gpsGridEl = document.getElementById('recapGpsChartsGrid');
   if (!gps.hasAny) {
-    gpsEl.innerHTML = '<div class="recap-empty">Aucune séance ou match GPS cette semaine pour les Espoirs.</div>';
+    if (gpsEmptyEl) { gpsEmptyEl.style.display = 'block'; gpsEmptyEl.textContent = 'Aucune séance ou match GPS cette semaine pour les Espoirs.'; }
+    if (gpsGridEl) gpsGridEl.style.display = 'none';
+    accueilGpsChartInsts.forEach(function(c){ if (c) c.destroy(); });
+    accueilGpsChartInsts = [];
   } else {
-    gpsEl.innerHTML = ['3/4', 'Avant'].map(function(g) {
-      var s = gps[g];
-      if (!s.n) return '';
-      return '<div class="recap-gps-group">'
-        + '<div class="recap-gps-group-title">' + g + ' <span style="opacity:.5;font-weight:400">(' + s.n + ' relevé' + (s.n>1?'s':'') + ')</span></div>'
-        + '<div class="recap-mini-grid">'
-        + '<div class="recap-mini"><div class="recap-mini-val">' + (s.distance != null ? Math.round(s.distance) + ' m' : '—') + '</div><div class="recap-mini-lbl">Distance moy.</div></div>'
-        + '<div class="recap-mini"><div class="recap-mini-val">' + (s.vmax != null ? s.vmax.toFixed(1) : '—') + '</div><div class="recap-mini-lbl">Vmax moy. (km/h)</div></div>'
-        + '<div class="recap-mini"><div class="recap-mini-val">' + (s.accelMax != null ? s.accelMax.toFixed(1) : '—') + '</div><div class="recap-mini-lbl">Accel max moy.</div></div>'
-        + '<div class="recap-mini"><div class="recap-mini-val">' + (s.meterPerMin != null ? s.meterPerMin.toFixed(1) : '—') + '</div><div class="recap-mini-lbl">m/min moy.</div></div>'
-        + '</div></div>';
-    }).join('');
+    if (gpsEmptyEl) gpsEmptyEl.style.display = 'none';
+    if (gpsGridEl) gpsGridEl.style.display = 'grid';
+    renderAccueilGpsChart(gps);
   }
+}
+
+var accueilGpsChartInsts = [];
+function renderAccueilGpsChart(gps) {
+  if (typeof Chart === 'undefined') return;
+  accueilGpsChartInsts.forEach(function(c){ if (c) c.destroy(); });
+  accueilGpsChartInsts = [];
+
+  var metrics = [
+    { key:'distance',    canvasId:'accueilGpsChartDistance', decimals:0 },
+    { key:'vmax',        canvasId:'accueilGpsChartVmax',      decimals:1 },
+    { key:'accelMax',    canvasId:'accueilGpsChartAccel',     decimals:1 },
+    { key:'meterPerMin', canvasId:'accueilGpsChartMpm',       decimals:1 }
+  ];
+
+  metrics.forEach(function(m) {
+    var canvas = document.getElementById(m.canvasId);
+    if (!canvas) return;
+    var v34 = gps['3/4'][m.key];
+    var vAv = gps['Avant'][m.key];
+    var factor = Math.pow(10, m.decimals);
+    var chart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: ['3/4', 'Avant'],
+        datasets: [{
+          data: [
+            v34 != null ? Math.round(v34 * factor) / factor : 0,
+            vAv != null ? Math.round(vAv * factor) / factor : 0
+          ],
+          backgroundColor: ['#D6001C', '#c9a84c'],
+          borderRadius: 4,
+          maxBarThickness: 46
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#1a0000', titleColor: '#fff', bodyColor: '#ddd', padding: 10 }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { color: '#888', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
+          x: { ticks: { color: '#555', font: { size: 11, weight: '700' } }, grid: { display: false } }
+        }
+      }
+    });
+    accueilGpsChartInsts.push(chart);
+  });
+
+  setTimeout(function(){ accueilGpsChartInsts.forEach(function(c){ if (c) c.resize(); }); }, 50);
 }
 
 var _origSwitchHubAccueilRecap = switchHub;
@@ -12227,9 +12330,6 @@ switchHub = function(name) {
     }
   }
 };
-document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function(){ if (document.getElementById('hub-accueil') && document.getElementById('hub-accueil').classList.contains('active')) renderAccueilRecap(); }, 80);
-});
 </script>
 </body>
 </html>
