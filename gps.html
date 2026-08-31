@@ -1584,6 +1584,9 @@ table.roster-table select { padding: 4px; }
 .recap-gps-chart-cell-title { font-size:10.5px; font-weight:800; color:#1a0003; text-transform:uppercase; letter-spacing:.03em; text-align:center; margin-bottom:2px; }
 .recap-gps-chart-cell .recap-gps-chart-wrap { height:130px; margin-top:2px; min-width:0; }
 .recap-gps-chart-cell canvas { max-width:100%; }
+.recap-gps-chart-avg { display:flex; justify-content:center; gap:12px; margin-top:6px; font-size:10.5px; font-weight:700; }
+.recap-gps-chart-avg span { display:inline-flex; align-items:center; gap:4px; }
+.recap-gps-chart-avg .dot { width:7px; height:7px; border-radius:2px; display:inline-block; }
 .recap-gps-legend { display:flex; align-items:center; gap:18px; margin-bottom:10px; font-size:11px; font-weight:700; color:#555; }
 .recap-gps-legend-dot { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:middle; }
 @media (max-width:640px) { .recap-top-row { flex-direction:column; } .recap-big-stat { width:100%; } }
@@ -2239,38 +2242,47 @@ table.roster-table select { padding: 4px; }
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">Distance (m)</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartDistance"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgDistance"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">Vmax (km/h)</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartVmax"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgVmax"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">Accel max</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartAccel"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgAccel"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">m/min</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartMpm"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgMpm"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">Contact</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartContact"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgContact"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">Nb accel (2-3)</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartAccel23"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgAccel23"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">HSR (+18km/h)</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartHsr"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgHsr"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">THI (+24km/h)</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartThi"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgThi"></div>
           </div>
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">RHIE</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartRhie"></canvas></div>
+            <div class="recap-gps-chart-avg" id="accueilGpsAvgRhie"></div>
           </div>
         </div>
       </div>
@@ -12378,19 +12390,32 @@ function renderAccueilGpsChart(gps) {
   accueilGpsChartInsts = [];
 
   var metrics = [
-    { key:'distance',    canvasId:'accueilGpsChartDistance', decimals:0 },
-    { key:'vmax',        canvasId:'accueilGpsChartVmax',      decimals:1 },
-    { key:'accelMax',    canvasId:'accueilGpsChartAccel',     decimals:1 },
-    { key:'meterPerMin', canvasId:'accueilGpsChartMpm',       decimals:1 },
-    { key:'contacts',    canvasId:'accueilGpsChartContact',   decimals:1 },
-    { key:'accel23',     canvasId:'accueilGpsChartAccel23',   decimals:1 },
-    { key:'dist18',      canvasId:'accueilGpsChartHsr',       decimals:0 },
-    { key:'dist24',      canvasId:'accueilGpsChartThi',       decimals:0 },
-    { key:'rhie',        canvasId:'accueilGpsChartRhie',      decimals:1 }
+    { key:'distance',    canvasId:'accueilGpsChartDistance', avgId:'accueilGpsAvgDistance', decimals:0 },
+    { key:'vmax',        canvasId:'accueilGpsChartVmax',      avgId:'accueilGpsAvgVmax',     decimals:1 },
+    { key:'accelMax',    canvasId:'accueilGpsChartAccel',     avgId:'accueilGpsAvgAccel',    decimals:1 },
+    { key:'meterPerMin', canvasId:'accueilGpsChartMpm',       avgId:'accueilGpsAvgMpm',      decimals:1 },
+    { key:'contacts',    canvasId:'accueilGpsChartContact',   avgId:'accueilGpsAvgContact',  decimals:1 },
+    { key:'accel23',     canvasId:'accueilGpsChartAccel23',   avgId:'accueilGpsAvgAccel23',  decimals:1 },
+    { key:'dist18',      canvasId:'accueilGpsChartHsr',       avgId:'accueilGpsAvgHsr',      decimals:0 },
+    { key:'dist24',      canvasId:'accueilGpsChartThi',       avgId:'accueilGpsAvgThi',      decimals:0 },
+    { key:'rhie',        canvasId:'accueilGpsChartRhie',      avgId:'accueilGpsAvgRhie',     decimals:1 }
   ];
 
   var sessions = gps.sessions || [];
   var labels = sessions.map(function(s){ return s.label; });
+
+  function weekAvg(key) {
+    var out = {};
+    ['3/4', 'Avant'].forEach(function(g) {
+      var vals = sessions.map(function(s){ return s.groups[g][key]; }).filter(function(v){ return v != null && !isNaN(v); });
+      out[g] = vals.length ? (vals.reduce(function(a,b){ return a+b; }, 0) / vals.length) : null;
+    });
+    return out;
+  }
+  function fmtVal(v, decimals) {
+    if (v == null) return '—';
+    return v.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
 
   metrics.forEach(function(m) {
     var canvas = document.getElementById(m.canvasId);
@@ -12424,6 +12449,13 @@ function renderAccueilGpsChart(gps) {
       }
     });
     accueilGpsChartInsts.push(chart);
+
+    var avgEl = document.getElementById(m.avgId);
+    if (avgEl) {
+      var avg = weekAvg(m.key);
+      avgEl.innerHTML = '<span><span class="dot" style="background:#D6001C"></span>' + fmtVal(avg['3/4'], m.decimals) + '</span>'
+        + '<span><span class="dot" style="background:#c9a84c"></span>' + fmtVal(avg['Avant'], m.decimals) + '</span>';
+    }
   });
 
   setTimeout(function(){ accueilGpsChartInsts.forEach(function(c){ if (c) c.resize(); }); }, 50);
