@@ -1567,6 +1567,8 @@ table.roster-table select { padding: 4px; }
 .recap-mini-lbl { font-size:9px; color:#888; text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
 .recap-chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
 .recap-chip { font-size:11px; padding:4px 10px; border-radius:20px; background:#f0eee9; color:#333; }
+.recap-chip-clickable { cursor:pointer; transition:background .15s; }
+.recap-chip-clickable:hover { background:#e2ded4; }
 .recap-chip-red { background:rgba(204,17,34,.12); color:#cc1122; }
 .recap-chip-yellow { background:rgba(224,179,65,.18); color:#a67c00; }
 .recap-empty { font-size:12px; color:#888; font-style:italic; padding:4px 0; }
@@ -10596,7 +10598,7 @@ switchHub = function(name) {
   }
   if (name === 'perf-physique') {
     renderPerfHistory();
-    renderEvoPlayerSelect();
+    if (typeof renderEvoPlayerSelect === 'function') renderEvoPlayerSelect();
   }
 };
 
@@ -12185,6 +12187,7 @@ function computeAccueilGpsRecap() {
   function collect(list, isMatch) {
     (list || []).forEach(function(item) {
       if (!item.date || !item.groups) return;
+      if (item.category && item.category !== 'Espoir') return; // exclut les séances explicitement tagguées d'une autre catégorie (ex. Crabos)
       var d;
       try { d = parseFR(item.date); } catch(e) { d = null; }
       if (!d || isNaN(d.getTime()) || !(d >= range.monday && d <= range.sunday)) return;
@@ -12318,9 +12321,9 @@ function renderAccueilRecap() {
     perf.entries.forEach(function(t) { (byPlayer[t.player] = byPlayer[t.player] || []).push(t); });
     perfEl.innerHTML = '<div class="recap-chip-row" style="margin-top:0">' + Object.keys(byPlayer).sort().map(function(p) {
         var dates = byPlayer[p].map(function(t){ return t.date; }).sort();
-        return '<span class="recap-chip">' + p + ' <span style="opacity:.55">(' + dates.join(', ') + ')</span></span>';
+        return '<span class="recap-chip recap-chip-clickable" onclick="accueilGoToPerfTest(\'' + p.replace(/'/g,"\\'") + '\')" title="Voir / supprimer ce résultat">' + p + ' <span style="opacity:.55">(' + dates.join(', ') + ')</span></span>';
       }).join('') + '</div>'
-      + '<div class="recap-date-note">' + perf.count + ' test(s) enregistré(s) cette semaine (' + accueilPerfWeekLabel() + ').</div>';
+      + '<div class="recap-date-note">' + perf.count + ' test(s) enregistré(s) cette semaine (' + accueilPerfWeekLabel() + ') · clique sur un nom pour vérifier ou supprimer.</div>';
   }
 
   // GPS
@@ -12350,6 +12353,22 @@ function renderAccueilRecap() {
 function accueilGpsShiftWeek(delta) {
   accueilGpsWeekOffset += delta;
   renderAccueilRecap();
+}
+
+function accueilGoToPerfTest(player) {
+  switchHub('perf-physique');
+  setTimeout(function() {
+    var sel = document.getElementById('perfFilterPlayer');
+    if (sel) {
+      if (![].slice.call(sel.options).some(function(o){ return o.value === player; })) {
+        var o = document.createElement('option'); o.value = player; o.textContent = player; sel.appendChild(o);
+      }
+      sel.value = player;
+    }
+    if (typeof renderPerfHistory === 'function') renderPerfHistory();
+    var hist = document.getElementById('perfHistoryContent');
+    if (hist && hist.scrollIntoView) hist.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 80);
 }
 
 var accueilGpsChartInsts = [];
