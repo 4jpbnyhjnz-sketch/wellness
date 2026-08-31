@@ -1455,7 +1455,8 @@ table.roster-table select { padding: 4px; }
 .joueur-card-status { font-size:9px; color:rgba(255,255,255,.4); }
 
 /* ══ MEDICAL ══ */
-.medical-stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:0 20px 20px; }
+.medical-stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:0 20px 20px; }
+@media (max-width:900px) { .medical-stats-row { grid-template-columns:repeat(2,1fr); } }
 @media (max-width:640px) { .medical-stats-row { grid-template-columns:1fr; } }
 .medical-stat-card {
   background:var(--bg2); border:1px solid var(--border); border-radius:12px;
@@ -1487,6 +1488,7 @@ table.roster-table select { padding: 4px; }
 .medical-full-roster-chip { font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(255,255,255,.06); color:#fff; }
 .medical-full-roster-chip.st-blesse { background:rgba(255,77,77,.18); color:#ff8080; }
 .medical-full-roster-chip.st-reathletisation { background:rgba(224,179,65,.18); color:#e0b341; }
+.medical-full-roster-chip.st-adapte { background:rgba(91,196,245,.18); color:#5bc4f5; }
 .medical-full-roster-chip.st-apte { background:rgba(46,204,138,.14); color:#2ecc8a; }
 .medical-full-roster-chip.st-excluded { background:rgba(255,255,255,.04); color:rgba(255,255,255,.35); text-decoration:line-through; }
 .medical-chip-x, .medical-chip-plus { cursor:pointer; opacity:.6; margin-left:2px; }
@@ -1571,6 +1573,7 @@ table.roster-table select { padding: 4px; }
 .recap-chip-clickable:hover { background:#e2ded4; }
 .recap-chip-red { background:rgba(204,17,34,.12); color:#cc1122; }
 .recap-chip-yellow { background:rgba(224,179,65,.18); color:#a67c00; }
+.recap-chip-blue { background:rgba(91,196,245,.18); color:#3aa8dd; }
 .recap-empty { font-size:12px; color:#888; font-style:italic; padding:4px 0; }
 .recap-date-note { font-size:10.5px; color:#999; margin-top:10px; }
 .recap-gps-group { margin-bottom:14px; }
@@ -1630,6 +1633,7 @@ table.roster-table select { padding: 4px; }
 .medical-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
 .medical-badge.en-cours { background:rgba(214,0,28,.2); color:#ff6b6b; }
 .medical-badge.reathletisation { background:rgba(224,179,65,.2); color:#e0b341; }
+.medical-badge.adapte { background:rgba(91,196,245,.2); color:#5bc4f5; }
 .medical-badge.gueri { background:rgba(46,204,138,.2); color:#2ecc8a; }
 .medical-action-btn { background:none; border:none; color:rgba(255,255,255,.4); cursor:pointer; font-size:14px; padding:2px 5px; }
 .medical-action-btn:hover { color:#fff; }
@@ -3433,6 +3437,20 @@ Petit Enzo ; 9</pre>
       </div>
       <div class="medical-stat-list hidden" id="medicalListReathletisation"></div>
     </div>
+    <div class="medical-stat-card medical-stat-clickable" style="--s-color:#5bc4f5" onclick="toggleMedicalStatList('adapte')">
+      <div class="medical-stat-top">
+        <div class="medical-stat-icon">🛠️</div>
+        <div>
+          <div class="medical-stat-value" id="medicalCountAdapte">0</div>
+          <div class="medical-stat-label">Adapté</div>
+        </div>
+      </div>
+      <div class="medical-stat-bar-row">
+        <div class="medical-stat-bar-track"><div class="medical-stat-bar-fill" id="medicalBarAdapte" style="width:0%"></div></div>
+        <div class="medical-stat-pct" id="medicalPctAdapte">0%</div>
+      </div>
+      <div class="medical-stat-list hidden" id="medicalListAdapte"></div>
+    </div>
     <div class="medical-stat-card medical-stat-clickable" style="--s-color:#2ecc8a" onclick="toggleMedicalStatList('apte')">
       <div class="medical-stat-top">
         <div class="medical-stat-icon">✅</div>
@@ -3500,11 +3518,11 @@ Petit Enzo ; 9</pre>
           </div>
           <div class="perf-form-row">
             <div class="perf-field">
-              <label>Gravité</label>
+              <label>Grade</label>
               <select id="medicalGravite" class="perf-input">
-                <option value="Légère">Légère</option>
-                <option value="Modérée">Modérée</option>
-                <option value="Sévère">Sévère</option>
+                <option value="I">Grade I</option>
+                <option value="II">Grade II</option>
+                <option value="III">Grade III</option>
               </select>
             </div>
             <div class="perf-field">
@@ -3512,6 +3530,7 @@ Petit Enzo ; 9</pre>
               <select id="medicalStatut" class="perf-input" onchange="toggleMedicalRetourReelle()">
                 <option value="En cours">Blessé</option>
                 <option value="Réathlétisation">Réathlétisation</option>
+                <option value="Adapté">Adapté</option>
                 <option value="Guéri">Apte</option>
               </select>
             </div>
@@ -3553,6 +3572,7 @@ Petit Enzo ; 9</pre>
           <option value="">Tous statuts</option>
           <option value="En cours">Blessé</option>
           <option value="Réathlétisation">Réathlétisation</option>
+          <option value="Adapté">Adapté</option>
           <option value="Guéri">Apte</option>
         </select>
         <input id="medicalFilterPlayer" type="text" class="perf-input" placeholder="🔍 Filtrer par joueur..." oninput="renderMedicalDashboardTable()" style="width:auto;max-width:200px;padding:7px 12px;font-size:12px">
@@ -11736,7 +11756,7 @@ function resetMedicalForm() {
 
   document.getElementById('medicalTypologie').value = 'Articulaire/Ligamentaire';
   document.getElementById('medicalBlessure').value = 'Entorse';
-  document.getElementById('medicalGravite').value = 'Légère';
+  document.getElementById('medicalGravite').value = 'I';
   document.getElementById('medicalStatut').value = 'En cours';
   document.getElementById('medicalDateBlessure').value = '';
   document.getElementById('medicalDateRetourPrevue').value = '';
@@ -11856,61 +11876,72 @@ function deleteMedicalInjury(injuryId) {
 function medicalBadgeClass(statut) {
   if (statut === 'Guéri') return 'gueri';
   if (statut === 'Réathlétisation') return 'reathletisation';
+  if (statut === 'Adapté') return 'adapte';
   return 'en-cours';
 }
 
 function medicalStatutLabel(statut) {
   if (statut === 'Guéri') return 'Apte';
   if (statut === 'Réathlétisation') return 'Réathlétisation';
+  if (statut === 'Adapté') return 'Adapté';
   if (statut === 'En cours') return 'Blessé';
   return statut || '—';
 }
 
-// ── Dashboard : compteurs joueurs (blessés / réathlétisation / aptes) ──
+// ── Dashboard : compteurs joueurs (blessés / réathlétisation / adapté / aptes) ──
 function medicalPlayerStatus(name) {
   const list = (medicalRecords[name] || []).slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
   if (!list.length) return 'apte';
   const latest = list[list.length - 1];
   if (latest.statut === 'En cours') return 'blesse';
   if (latest.statut === 'Réathlétisation') return 'reathletisation';
+  if (latest.statut === 'Adapté') return 'adapte';
   return 'apte';
 }
 
 function renderMedicalStatsCards() {
   const players = getMedicalPlayerList();
-  let blesse = 0, reath = 0, apte = 0;
-  const byStatus = { blesse: [], reathletisation: [], apte: [] };
+  let blesse = 0, reath = 0, adapte = 0, apte = 0;
+  const byStatus = { blesse: [], reathletisation: [], adapte: [], apte: [] };
   players.forEach(function(name) {
     const s = medicalPlayerStatus(name);
     byStatus[s].push(name);
     if (s === 'blesse') blesse++;
     else if (s === 'reathletisation') reath++;
+    else if (s === 'adapte') adapte++;
     else apte++;
   });
   const total = players.length || 1;
   const pctBlesse = Math.round((blesse / total) * 100);
   const pctReath = Math.round((reath / total) * 100);
+  const pctAdapte = Math.round((adapte / total) * 100);
   const pctApte = Math.round((apte / total) * 100);
 
   const elB = document.getElementById('medicalCountBlesse');
   const elR = document.getElementById('medicalCountReathletisation');
+  const elD = document.getElementById('medicalCountAdapte');
   const elA = document.getElementById('medicalCountApte');
   if (elB) elB.textContent = blesse;
   if (elR) elR.textContent = reath;
+  if (elD) elD.textContent = adapte;
   if (elA) elA.textContent = apte;
 
   const barB = document.getElementById('medicalBarBlesse');
   const barR = document.getElementById('medicalBarReathletisation');
+  const barD = document.getElementById('medicalBarAdapte');
   const barA = document.getElementById('medicalBarApte');
   if (barB) barB.style.width = pctBlesse + '%';
   if (barR) barR.style.width = pctReath + '%';
+  if (barD) barD.style.width = pctAdapte + '%';
   if (barA) barA.style.width = pctApte + '%';
 
   const pB = document.getElementById('medicalPctBlesse');
   const pR = document.getElementById('medicalPctReathletisation');
+  const pD = document.getElementById('medicalPctAdapte');
   const pA = document.getElementById('medicalPctApte');
   if (pB) pB.textContent = pctBlesse + '%';
   if (pR) pR.textContent = pctReath + '%';
+  if (pD) pD.textContent = pctAdapte + '%';
   if (pA) pA.textContent = pctApte + '%';
 
   const totalEl = document.getElementById('medicalTotalRoster');
@@ -11919,14 +11950,18 @@ function renderMedicalStatsCards() {
   medicalStatGroups = byStatus;
   renderMedicalStatListPanel('blesse');
   renderMedicalStatListPanel('reathletisation');
+  renderMedicalStatListPanel('adapte');
   renderMedicalStatListPanel('apte');
   renderMedicalFullRosterPanel();
 }
 
-var medicalStatGroups = { blesse: [], reathletisation: [], apte: [] };
+var medicalStatGroups = { blesse: [], reathletisation: [], adapte: [], apte: [] };
 
 function medicalStatListElId(status) {
-  return status === 'blesse' ? 'medicalListBlesse' : status === 'reathletisation' ? 'medicalListReathletisation' : 'medicalListApte';
+  if (status === 'blesse') return 'medicalListBlesse';
+  if (status === 'reathletisation') return 'medicalListReathletisation';
+  if (status === 'adapte') return 'medicalListAdapte';
+  return 'medicalListApte';
 }
 
 function renderMedicalStatListPanel(status) {
@@ -11947,7 +11982,7 @@ function toggleMedicalStatList(status) {
   if (!el) return;
   const opening = el.classList.contains('hidden');
   // Referme les autres listes pour rester lisible
-  ['blesse','reathletisation','apte'].forEach(function(s){
+  ['blesse','reathletisation','adapte','apte'].forEach(function(s){
     const other = document.getElementById(medicalStatListElId(s));
     if (other && s !== status) other.classList.add('hidden');
   });
@@ -12008,19 +12043,22 @@ function renderMedicalDashboardTable() {
   }
 
   wrap.innerHTML = '<div class="medical-injury-table-wrap"><table class="medical-injury-table"><thead><tr>'
-    + '<th>Joueur</th><th>Date</th><th>Typologie</th><th>Blessure</th><th>Lieu</th><th>Gravité</th><th>Statut</th><th>Retour prévu</th><th></th>'
+    + '<th>Joueur</th><th>Date</th><th>Typologie</th><th>Blessure</th><th>Lieu</th><th>Grade</th><th>Statut</th><th>Retour prévu</th><th>Commentaire</th><th></th>'
     + '</tr></thead><tbody>'
     + rows.map(function(inj) {
         const statutCls = medicalBadgeClass(inj.statut);
+        const noteFull = (inj.notes || '').replace(/"/g, '&quot;');
+        const noteShort = noteFull.length > 28 ? noteFull.slice(0, 28) + '…' : noteFull;
         return '<tr>'
           + '<td style="font-weight:700">' + inj.player + '</td>'
           + '<td>' + (inj.date || '—') + '</td>'
           + '<td>' + (inj.typologie || '—') + '</td>'
           + '<td>' + (inj.blessure || '—') + '</td>'
           + '<td>' + (inj.lieuLabel || '—') + '</td>'
-          + '<td>' + (inj.gravite || '—') + '</td>'
+          + '<td>' + (inj.gravite ? 'Grade ' + inj.gravite : '—') + '</td>'
           + '<td><span class="medical-badge ' + statutCls + '">' + medicalStatutLabel(inj.statut) + '</span></td>'
           + '<td>' + (inj.dateRetourPrevue || '—') + '</td>'
+          + '<td style="white-space:normal;max-width:180px;color:rgba(255,255,255,.55);font-size:11px" title="' + noteFull + '">' + (noteShort || '—') + '</td>'
           + '<td>'
           +   '<button class="medical-action-btn" onclick="openMedicalInjuryForm(\'' + inj.id + '\')" title="Modifier">✏️</button>'
           +   '<button class="medical-action-btn" onclick="deleteMedicalInjury(\'' + inj.id + '\')" title="Supprimer">🗑️</button>'
@@ -12060,9 +12098,12 @@ function renderProfileMedical(name) {
   }
   wrap.innerHTML = list.map(function(inj) {
     const statutCls = medicalBadgeClass(inj.statut);
-    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px">'
-      + '<div><span style="font-weight:700;color:#fff">' + (inj.date||'—') + '</span> · ' + (inj.blessure||'') + ' — ' + (inj.lieuLabel||'') + '</div>'
-      + '<span class="medical-badge ' + statutCls + '">' + medicalStatutLabel(inj.statut) + '</span>'
+    return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">'
+      +   '<div><span style="font-weight:700;color:#fff">' + (inj.date||'—') + '</span> · ' + (inj.blessure||'') + ' — ' + (inj.lieuLabel||'') + (inj.gravite ? ' · Grade ' + inj.gravite : '') + '</div>'
+      +   '<span class="medical-badge ' + statutCls + '">' + medicalStatutLabel(inj.statut) + '</span>'
+      + '</div>'
+      + (inj.notes ? '<div style="margin-top:4px;color:rgba(255,255,255,.5);font-size:11px">' + inj.notes.replace(/</g,'&lt;') + '</div>' : '')
       + '</div>';
   }).join('');
 }
@@ -12151,20 +12192,23 @@ function computeAccueilRpeRecap() {
 function computeAccueilMedicalRecap() {
   if (typeof getMedicalPlayerList !== 'function') return null;
   var players = getMedicalPlayerList();
-  var blesseNames = [], reathNames = [];
+  var blesseNames = [], reathNames = [], adapteNames = [];
   players.forEach(function(n) {
     var s = medicalPlayerStatus(n);
     if (s === 'blesse') blesseNames.push(n);
     else if (s === 'reathletisation') reathNames.push(n);
+    else if (s === 'adapte') adapteNames.push(n);
   });
   var total = players.length || 1;
   return {
     total: players.length,
     blesseNames: blesseNames,
     reathNames: reathNames,
+    adapteNames: adapteNames,
     pctBlesse: Math.round((blesseNames.length / total) * 100),
     pctReath: Math.round((reathNames.length / total) * 100),
-    pctApte: Math.round(((players.length - blesseNames.length - reathNames.length) / total) * 100)
+    pctAdapte: Math.round((adapteNames.length / total) * 100),
+    pctApte: Math.round(((players.length - blesseNames.length - reathNames.length - adapteNames.length) / total) * 100)
   };
 }
 
@@ -12312,12 +12356,14 @@ function renderAccueilRecap() {
     medHtml = '<div class="recap-top-row"><div class="recap-mini-grid" style="flex:1">'
       + '<div class="recap-mini"><div class="recap-mini-val" style="color:#cc1122">' + med.pctBlesse + '%</div><div class="recap-mini-lbl">Blessés (' + med.blesseNames.length + ')</div>' + medBar(med.pctBlesse, '#cc1122') + '</div>'
       + '<div class="recap-mini"><div class="recap-mini-val" style="color:#a67c00">' + med.pctReath + '%</div><div class="recap-mini-lbl">Réathlétisation (' + med.reathNames.length + ')</div>' + medBar(med.pctReath, '#e0b341') + '</div>'
+      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#3aa8dd">' + med.pctAdapte + '%</div><div class="recap-mini-lbl">Adapté (' + med.adapteNames.length + ')</div>' + medBar(med.pctAdapte, '#5bc4f5') + '</div>'
       + '<div class="recap-mini"><div class="recap-mini-val" style="color:#2ecc8a">' + med.pctApte + '%</div><div class="recap-mini-lbl">Aptes</div>' + medBar(med.pctApte, '#2ecc8a') + '</div>'
       + '</div></div>'
-      + ((med.blesseNames.length || med.reathNames.length)
+      + ((med.blesseNames.length || med.reathNames.length || med.adapteNames.length)
           ? '<div class="recap-chip-row">'
             + med.blesseNames.map(function(n){ return '<span class="recap-chip recap-chip-red">' + n + '</span>'; }).join('')
             + med.reathNames.map(function(n){ return '<span class="recap-chip recap-chip-yellow">' + n + '</span>'; }).join('')
+            + med.adapteNames.map(function(n){ return '<span class="recap-chip recap-chip-blue">' + n + '</span>'; }).join('')
             + '</div>'
           : '<div class="recap-empty">Aucun joueur blessé actuellement. ✅</div>');
   }
