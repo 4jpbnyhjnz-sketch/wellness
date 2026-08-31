@@ -1549,13 +1549,19 @@ table.roster-table select { padding: 4px; }
   background:#ffffff; opacity:1; isolation:isolate; position:relative; z-index:1;
   border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.2);
 }
-.recap-card-title { font-size:14px; font-weight:800; color:#1a0003; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.recap-card-title { font-size:14px; font-weight:800; color:#1a0003; margin-bottom:12px; display:flex; align-items:center; gap:8px; width:100%; }
+.recap-week-nav { display:flex; align-items:center; gap:6px; font-weight:400; }
+.recap-week-btn { width:24px; height:24px; border-radius:6px; border:1px solid rgba(0,0,0,.12); background:#f7f5f1; color:#1a0003; font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.recap-week-btn:hover { background:#eee; }
+.recap-week-label { font-size:11px; color:#666; font-weight:700; min-width:118px; text-align:center; }
 .recap-top-row { display:flex; gap:18px; flex-wrap:wrap; align-items:stretch; }
 .recap-big-stat { display:flex; flex-direction:column; justify-content:center; align-items:center; min-width:110px; padding:10px 18px; border-radius:10px; background:color-mix(in srgb, var(--rc,#D6001C) 12%, transparent); }
 .recap-big-val { font-size:32px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--rc,#D6001C); line-height:1; }
 .recap-big-lbl { font-size:10px; font-weight:700; color:#666; text-transform:uppercase; letter-spacing:.04em; margin-top:6px; text-align:center; }
 .recap-mini-grid { flex:1; display:grid; grid-template-columns:repeat(auto-fit,minmax(88px,1fr)); gap:10px; }
-.recap-mini { background:#f7f5f1; border-radius:8px; padding:8px 10px; text-align:center; }
+.recap-mini { background:#f7f5f1; border-radius:8px; padding:8px 10px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:64px; }
+.recap-mini-bar-track { width:80%; height:5px; border-radius:3px; background:rgba(0,0,0,.08); margin-top:6px; overflow:hidden; }
+.recap-mini-bar-fill { height:100%; border-radius:3px; transition:width .3s ease; }
 .recap-mini-val { font-size:16px; font-weight:800; color:var(--mc,#1a0003); font-family:'JetBrains Mono',monospace; }
 .recap-mini-lbl { font-size:9px; color:#888; text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
 .recap-chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
@@ -1568,11 +1574,12 @@ table.roster-table select { padding: 4px; }
 .recap-gps-group:last-child { margin-bottom:0; }
 .recap-gps-group-title { font-size:12px; font-weight:800; color:#1a0003; margin-bottom:8px; }
 .recap-gps-chart-wrap { height:140px; margin-top:10px; position:relative; }
-.recap-gps-charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; }
+.recap-gps-charts-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+@media (max-width:760px) { .recap-gps-charts-grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:520px) { .recap-gps-charts-grid { grid-template-columns:1fr; } }
 .recap-gps-chart-cell { background:#f7f5f1; border-radius:10px; padding:10px 12px; }
 .recap-gps-chart-cell-title { font-size:10.5px; font-weight:800; color:#1a0003; text-transform:uppercase; letter-spacing:.03em; text-align:center; margin-bottom:2px; }
 .recap-gps-chart-cell .recap-gps-chart-wrap { height:130px; margin-top:2px; }
-@media (max-width:520px) { .recap-gps-charts-grid { grid-template-columns:1fr; } }
 @media (max-width:640px) { .recap-top-row { flex-direction:column; } .recap-big-stat { width:100%; } }
 .medical-quickform-card {
   margin:0 20px 8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
@@ -2209,7 +2216,14 @@ table.roster-table select { padding: 4px; }
       </div>
 
       <div class="recap-card recap-card-full">
-        <div class="recap-card-title">📊 GPS — moyennes Avant / 3/4 (Espoirs) cette semaine</div>
+        <div class="recap-card-title" style="justify-content:space-between">
+          <span>📊 GPS — moyennes Avant / 3/4 (Espoirs)</span>
+          <div class="recap-week-nav">
+            <button class="recap-week-btn" onclick="accueilGpsShiftWeek(-1)" title="Semaine précédente">‹</button>
+            <span class="recap-week-label" id="recapGpsWeekLabel">—</span>
+            <button class="recap-week-btn" onclick="accueilGpsShiftWeek(1)" title="Semaine suivante">›</button>
+          </div>
+        </div>
         <div id="recapGpsEmpty" class="recap-empty">Chargement…</div>
         <div class="recap-gps-charts-grid" id="recapGpsChartsGrid" style="display:none">
           <div class="recap-gps-chart-cell">
@@ -2227,6 +2241,26 @@ table.roster-table select { padding: 4px; }
           <div class="recap-gps-chart-cell">
             <div class="recap-gps-chart-cell-title">m/min</div>
             <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartMpm"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">Contact</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartContact"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">Nb accel (2-3)</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartAccel23"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">HSR (+18km/h)</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartHsr"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">THI (+24km/h)</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartThi"></canvas></div>
+          </div>
+          <div class="recap-gps-chart-cell">
+            <div class="recap-gps-chart-cell-title">RHIE</div>
+            <div class="recap-gps-chart-wrap"><canvas id="accueilGpsChartRhie"></canvas></div>
           </div>
         </div>
       </div>
@@ -12027,6 +12061,11 @@ function accueilWeekRange(refDate) {
   sunday.setHours(23, 59, 59, 999);
   return { monday: monday, sunday: sunday };
 }
+function accueilFmtFR(d) { return typeof fmtFR === 'function' ? fmtFR(d) : (String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()); }
+function accueilPerfWeekLabel() {
+  var r = accueilWeekRange(new Date());
+  return 'du ' + accueilFmtFR(r.monday) + ' au ' + accueilFmtFR(r.sunday);
+}
 
 // ── Wellness : dernière réponse connue + nombre de joueurs "rouge" ──
 function computeAccueilWellnessRecap() {
@@ -12119,9 +12158,15 @@ function computeAccueilPerfPhysiqueRecap() {
   return { count: entries.length, entries: entries };
 }
 
-// ── GPS : moyennes par groupe (Avant / 3/4) sur les séances + matchs de la semaine ──
+// ── GPS : moyennes par groupe (Avant / 3/4) sur les séances + matchs de la semaine sélectionnée ──
+var accueilGpsWeekOffset = 0; // 0 = semaine en cours, -1 = semaine précédente, +1 = semaine suivante...
+function accueilGpsSelectedWeekRef() {
+  var d = new Date();
+  d.setDate(d.getDate() + accueilGpsWeekOffset * 7);
+  return d;
+}
 function computeAccueilGpsRecap() {
-  var range = accueilWeekRange(new Date());
+  var range = accueilWeekRange(accueilGpsSelectedWeekRef());
   var byGroup = { '3/4': [], Avant: [] };
   function collect(list) {
     (list || []).forEach(function(item) {
@@ -12135,7 +12180,12 @@ function computeAccueilGpsRecap() {
             distance: p.distance != null ? p.distance : null,
             vmax: p.vmax != null ? p.vmax : null,
             accelMax: p.accelMax != null ? p.accelMax : null,
-            meterPerMin: p.meterPerMin != null ? p.meterPerMin : (p.durationMinutes > 0 ? p.distance / p.durationMinutes : null)
+            meterPerMin: p.meterPerMin != null ? p.meterPerMin : (p.durationMinutes > 0 ? p.distance / p.durationMinutes : null),
+            contacts: p.contacts != null ? p.contacts : null,
+            accel23: p.accel23 != null ? p.accel23 : null,
+            dist18: p.dist18 != null ? p.dist18 : null,
+            dist24: p.dist24 != null ? p.dist24 : null,
+            rhie: p.rhie != null ? p.rhie : null
           });
         });
       });
@@ -12148,14 +12198,19 @@ function computeAccueilGpsRecap() {
     var vals = arr.map(function(x){ return x[key]; }).filter(function(v){ return v != null && !isNaN(v); });
     return vals.length ? (vals.reduce(function(a,b){ return a+b; }, 0) / vals.length) : null;
   }
-  var out = {};
+  var out = { range: range };
   ['3/4', 'Avant'].forEach(function(g) {
     out[g] = {
       n: byGroup[g].length,
       distance: avgKey(byGroup[g], 'distance'),
       vmax: avgKey(byGroup[g], 'vmax'),
       accelMax: avgKey(byGroup[g], 'accelMax'),
-      meterPerMin: avgKey(byGroup[g], 'meterPerMin')
+      meterPerMin: avgKey(byGroup[g], 'meterPerMin'),
+      contacts: avgKey(byGroup[g], 'contacts'),
+      accel23: avgKey(byGroup[g], 'accel23'),
+      dist18: avgKey(byGroup[g], 'dist18'),
+      dist24: avgKey(byGroup[g], 'dist24'),
+      rhie: avgKey(byGroup[g], 'rhie')
     };
   });
   out.hasAny = (byGroup['3/4'].length + byGroup.Avant.length) > 0;
@@ -12222,10 +12277,13 @@ function renderAccueilRecap() {
   if (!med) {
     medHtml = '<div class="recap-empty">Chargement…</div>';
   } else {
+    function medBar(pct, color) {
+      return '<div class="recap-mini-bar-track"><div class="recap-mini-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>';
+    }
     medHtml = '<div class="recap-top-row"><div class="recap-mini-grid" style="flex:1">'
-      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#cc1122">' + med.pctBlesse + '%</div><div class="recap-mini-lbl">Blessés (' + med.blesseNames.length + ')</div></div>'
-      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#a67c00">' + med.pctReath + '%</div><div class="recap-mini-lbl">Réathlétisation (' + med.reathNames.length + ')</div></div>'
-      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#2ecc8a">' + med.pctApte + '%</div><div class="recap-mini-lbl">Aptes</div></div>'
+      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#cc1122">' + med.pctBlesse + '%</div><div class="recap-mini-lbl">Blessés (' + med.blesseNames.length + ')</div>' + medBar(med.pctBlesse, '#cc1122') + '</div>'
+      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#a67c00">' + med.pctReath + '%</div><div class="recap-mini-lbl">Réathlétisation (' + med.reathNames.length + ')</div>' + medBar(med.pctReath, '#e0b341') + '</div>'
+      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#2ecc8a">' + med.pctApte + '%</div><div class="recap-mini-lbl">Aptes</div>' + medBar(med.pctApte, '#2ecc8a') + '</div>'
       + '</div></div>'
       + ((med.blesseNames.length || med.reathNames.length)
           ? '<div class="recap-chip-row">'
@@ -12245,17 +12303,23 @@ function renderAccueilRecap() {
     var byPlayer = {};
     perf.entries.forEach(function(t) { (byPlayer[t.player] = byPlayer[t.player] || []).push(t); });
     perfEl.innerHTML = '<div class="recap-chip-row" style="margin-top:0">' + Object.keys(byPlayer).sort().map(function(p) {
-        return '<span class="recap-chip">' + p + ' <span style="opacity:.55">(' + byPlayer[p].length + ')</span></span>';
+        var dates = byPlayer[p].map(function(t){ return t.date; }).sort();
+        return '<span class="recap-chip">' + p + ' <span style="opacity:.55">(' + dates.join(', ') + ')</span></span>';
       }).join('') + '</div>'
-      + '<div class="recap-date-note">' + perf.count + ' test(s) enregistré(s) cette semaine.</div>';
+      + '<div class="recap-date-note">' + perf.count + ' test(s) enregistré(s) cette semaine (' + accueilPerfWeekLabel() + ').</div>';
   }
 
   // GPS
   var gps = computeAccueilGpsRecap();
   var gpsEmptyEl = document.getElementById('recapGpsEmpty');
   var gpsGridEl = document.getElementById('recapGpsChartsGrid');
+  var gpsWeekLabelEl = document.getElementById('recapGpsWeekLabel');
+  if (gpsWeekLabelEl) {
+    gpsWeekLabelEl.textContent = accueilFmtFR(gps.range.monday) + ' → ' + accueilFmtFR(gps.range.sunday)
+      + (accueilGpsWeekOffset === 0 ? ' (en cours)' : '');
+  }
   if (!gps.hasAny) {
-    if (gpsEmptyEl) { gpsEmptyEl.style.display = 'block'; gpsEmptyEl.textContent = 'Aucune séance ou match GPS cette semaine pour les Espoirs.'; }
+    if (gpsEmptyEl) { gpsEmptyEl.style.display = 'block'; gpsEmptyEl.textContent = 'Aucune séance ou match GPS cette semaine-là pour les Espoirs.'; }
     if (gpsGridEl) gpsGridEl.style.display = 'none';
     accueilGpsChartInsts.forEach(function(c){ if (c) c.destroy(); });
     accueilGpsChartInsts = [];
@@ -12264,6 +12328,11 @@ function renderAccueilRecap() {
     if (gpsGridEl) gpsGridEl.style.display = 'grid';
     renderAccueilGpsChart(gps);
   }
+}
+
+function accueilGpsShiftWeek(delta) {
+  accueilGpsWeekOffset += delta;
+  renderAccueilRecap();
 }
 
 var accueilGpsChartInsts = [];
@@ -12276,7 +12345,12 @@ function renderAccueilGpsChart(gps) {
     { key:'distance',    canvasId:'accueilGpsChartDistance', decimals:0 },
     { key:'vmax',        canvasId:'accueilGpsChartVmax',      decimals:1 },
     { key:'accelMax',    canvasId:'accueilGpsChartAccel',     decimals:1 },
-    { key:'meterPerMin', canvasId:'accueilGpsChartMpm',       decimals:1 }
+    { key:'meterPerMin', canvasId:'accueilGpsChartMpm',       decimals:1 },
+    { key:'contacts',    canvasId:'accueilGpsChartContact',   decimals:1 },
+    { key:'accel23',     canvasId:'accueilGpsChartAccel23',   decimals:1 },
+    { key:'dist18',      canvasId:'accueilGpsChartHsr',       decimals:0 },
+    { key:'dist24',      canvasId:'accueilGpsChartThi',       decimals:0 },
+    { key:'rhie',        canvasId:'accueilGpsChartRhie',      decimals:1 }
   ];
 
   metrics.forEach(function(m) {
