@@ -1918,7 +1918,9 @@ table.roster-table select { padding: 4px; }
 .gps-record-card .gr-label { font-size:9px; font-weight:700; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
 .gps-record-card .gr-val { font-size:16px; font-weight:800; color:#c9a84c; font-family:'JetBrains Mono',monospace; }
 .gps-record-card .gr-date { font-size:9px; color:rgba(255,255,255,.2); margin-top:2px; }
-.gps-records-charts { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; padding:0 20px 16px; }
+.gps-records-charts { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 20px 16px; }
+@media (max-width:760px) { .gps-records-charts { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:520px) { .gps-records-charts { grid-template-columns:1fr; } }
 .gps-chart-card {
   background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
   border-radius:8px; padding:10px 12px;
@@ -3256,8 +3258,12 @@ Petit Enzo ; 9</pre>
     <div class="joueur-section-title">📊 Records GPS <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.35)">(séances + matchs)</span></div>
     <div class="gps-records-grid" id="profileGpsRecords"></div>
 
-    <div class="joueur-section-title" style="margin-top:8px">📈 Évolution VMAX &amp; Accel Max <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.35)">(🏉 = match)</span></div>
+    <div class="joueur-section-title" style="margin-top:8px">📈 Évolution des données <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.35)">(🏉 = match)</span></div>
     <div class="gps-records-charts" id="profileGpsCharts">
+      <div class="gps-chart-card">
+        <div class="gr-label">Distance (m) — par séance</div>
+        <div style="height:170px"><canvas id="profileDistanceChart"></canvas></div>
+      </div>
       <div class="gps-chart-card">
         <div class="gr-label">VMAX (km/h) — par séance</div>
         <div style="height:170px"><canvas id="profileVmaxChart"></canvas></div>
@@ -3265,6 +3271,30 @@ Petit Enzo ; 9</pre>
       <div class="gps-chart-card">
         <div class="gr-label">Accel Max — par séance</div>
         <div style="height:170px"><canvas id="profileAccelChart"></canvas></div>
+      </div>
+      <div class="gps-chart-card">
+        <div class="gr-label">m/min — par séance</div>
+        <div style="height:170px"><canvas id="profileMpmChart"></canvas></div>
+      </div>
+      <div class="gps-chart-card">
+        <div class="gr-label">Contact — par séance</div>
+        <div style="height:170px"><canvas id="profileContactChart"></canvas></div>
+      </div>
+      <div class="gps-chart-card">
+        <div class="gr-label">Nb accel (2-3) — par séance</div>
+        <div style="height:170px"><canvas id="profileAccel23Chart"></canvas></div>
+      </div>
+      <div class="gps-chart-card">
+        <div class="gr-label">HSR (+18km/h) — par séance</div>
+        <div style="height:170px"><canvas id="profileHsrChart"></canvas></div>
+      </div>
+      <div class="gps-chart-card">
+        <div class="gr-label">THI (+24km/h) — par séance</div>
+        <div style="height:170px"><canvas id="profileThiChart"></canvas></div>
+      </div>
+      <div class="gps-chart-card">
+        <div class="gr-label">RHIE — par séance</div>
+        <div style="height:170px"><canvas id="profileRhieChart"></canvas></div>
       </div>
     </div>
 
@@ -11014,7 +11044,18 @@ function profileGpsSessionSeries(name) {
         return pname && pname.toLowerCase() === name.toLowerCase();
       });
       if (!p) return;
-      out.push({ date: session.date || '', vmax: p.vmax != null ? p.vmax : null, accelMax: p.accelMax != null ? p.accelMax : null, type: 'session' });
+      out.push({
+        date: session.date || '', type: 'session',
+        distance: p.distance != null ? p.distance : null,
+        vmax: p.vmax != null ? p.vmax : null,
+        accelMax: p.accelMax != null ? p.accelMax : null,
+        meterPerMin: p.meterPerMin != null ? p.meterPerMin : (p.durationMinutes > 0 ? p.distance / p.durationMinutes : null),
+        contacts: p.contacts != null ? p.contacts : null,
+        accel23: p.accel23 != null ? p.accel23 : null,
+        dist18: p.dist18 != null ? p.dist18 : null,
+        dist24: p.dist24 != null ? p.dist24 : null,
+        rhie: p.rhie != null ? p.rhie : null
+      });
     });
   }
   if (typeof savedMatches !== 'undefined') {
@@ -11027,7 +11068,18 @@ function profileGpsSessionSeries(name) {
       });
       if (!p) return;
       var label = (match.date || '') + (match.opponent ? ' vs ' + match.opponent : '');
-      out.push({ date: match.date || '', label: label, vmax: p.vmax != null ? p.vmax : null, accelMax: p.accelMax != null ? p.accelMax : null, type: 'match' });
+      out.push({
+        date: match.date || '', label: label, type: 'match',
+        distance: p.distance != null ? p.distance : null,
+        vmax: p.vmax != null ? p.vmax : null,
+        accelMax: p.accelMax != null ? p.accelMax : null,
+        meterPerMin: p.meterPerMin != null ? p.meterPerMin : (p.durationMinutes > 0 ? p.distance / p.durationMinutes : null),
+        contacts: p.contacts != null ? p.contacts : null,
+        accel23: p.accel23 != null ? p.accel23 : null,
+        dist18: p.dist18 != null ? p.dist18 : null,
+        dist24: p.dist24 != null ? p.dist24 : null,
+        rhie: p.rhie != null ? p.rhie : null
+      });
     });
   }
   out.sort(function(a, b) {
@@ -11122,10 +11174,11 @@ function renderProfileMatchesList(name) {
     return 0;
   });
   el.innerHTML = '<div class="medical-injury-table-wrap"><table class="medical-injury-table"><thead><tr>'
-    + '<th>Date</th><th>Adversaire</th><th>Journée</th><th>Distance</th><th>Vmax</th><th>Accel max</th>'
+    + '<th>Date</th><th>Adversaire</th><th>Journée</th><th>Distance</th><th>Vmax</th><th>Accel max</th><th>m/min</th><th>Contact</th><th>Nb accel</th><th>HSR</th><th>THI</th><th>RHIE</th>'
     + '</tr></thead><tbody>'
     + rows.map(function(r) {
         var m = r.match, p = r.p;
+        var mpm = p.meterPerMin != null ? p.meterPerMin : (p.durationMinutes > 0 && p.distance != null ? p.distance / p.durationMinutes : null);
         return '<tr>'
           + '<td>' + (m.date || '—') + '</td>'
           + '<td>' + (m.opponent || '—') + '</td>'
@@ -11133,6 +11186,12 @@ function renderProfileMatchesList(name) {
           + '<td>' + (p.distance != null ? Math.round(p.distance) + ' m' : '—') + '</td>'
           + '<td>' + (p.vmax != null ? p.vmax.toFixed(1) + ' km/h' : '—') + '</td>'
           + '<td>' + (p.accelMax != null ? p.accelMax : '—') + '</td>'
+          + '<td>' + (mpm != null ? mpm.toFixed(1) : '—') + '</td>'
+          + '<td>' + (p.contacts != null ? p.contacts : '—') + '</td>'
+          + '<td>' + (p.accel23 != null ? p.accel23 : '—') + '</td>'
+          + '<td>' + (p.dist18 != null ? Math.round(p.dist18) + ' m' : '—') + '</td>'
+          + '<td>' + (p.dist24 != null ? Math.round(p.dist24) + ' m' : '—') + '</td>'
+          + '<td>' + (p.rhie != null ? p.rhie : '—') + '</td>'
           + '</tr>';
       }).join('')
     + '</tbody></table></div>';
@@ -11144,14 +11203,9 @@ function renderProfileGpsCharts(name) {
   profileGpsChartInsts = [];
 
   var series = profileGpsSessionSeries(name);
-  var vmaxWrap = document.getElementById('profileVmaxChart');
-  var accelWrap = document.getElementById('profileAccelChart');
-  if (!vmaxWrap || !accelWrap) return;
-
-  var seriesWithVmax = series.filter(function(s){ return s.vmax != null; });
-  var seriesWithAccel = series.filter(function(s){ return s.accelMax != null; });
 
   function drawChart(canvas, entries, key, color) {
+    if (!canvas) return null;
     var card = canvas.closest('.gps-chart-card');
     if (entries.length < 2) {
       canvas.style.display = 'none';
@@ -11196,10 +11250,24 @@ function renderProfileGpsCharts(name) {
     });
   }
 
-  var c1 = drawChart(vmaxWrap, seriesWithVmax, 'vmax', '#c9a84c');
-  var c2 = drawChart(accelWrap, seriesWithAccel, 'accelMax', '#D6001C');
-  if (c1) profileGpsChartInsts.push(c1);
-  if (c2) profileGpsChartInsts.push(c2);
+  var chartDefs = [
+    { id:'profileDistanceChart', key:'distance',    color:'#5bc4f5' },
+    { id:'profileVmaxChart',     key:'vmax',        color:'#c9a84c' },
+    { id:'profileAccelChart',    key:'accelMax',    color:'#D6001C' },
+    { id:'profileMpmChart',      key:'meterPerMin', color:'#8e6fd6' },
+    { id:'profileContactChart',  key:'contacts',    color:'#e8862e' },
+    { id:'profileAccel23Chart',  key:'accel23',     color:'#2ecc8a' },
+    { id:'profileHsrChart',      key:'dist18',      color:'#e0b341' },
+    { id:'profileThiChart',      key:'dist24',      color:'#ff6b6b' },
+    { id:'profileRhieChart',     key:'rhie',        color:'#5bd6c4' }
+  ];
+
+  chartDefs.forEach(function(def) {
+    var canvas = document.getElementById(def.id);
+    var entries = series.filter(function(s){ return s[def.key] != null; });
+    var chart = drawChart(canvas, entries, def.key, def.color);
+    if (chart) profileGpsChartInsts.push(chart);
+  });
 }
 
 // Badges poste + statut
