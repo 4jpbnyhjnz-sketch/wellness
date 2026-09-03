@@ -9908,7 +9908,7 @@ const TEST_DEFS = [
   { id:'clean',     label:'Clean',       unit:'kg', icon:'🔱', lower:false },
   { id:'trapbar',   label:'Trap Bar',    unit:'kg', icon:'🏋️', lower:false },
   { id:'pendlay',   label:'Pendlay Row', unit:'kg', icon:'🏋️', lower:false },
-  { id:'traction',  label:'Traction',    unit:'reps',icon:'🔝',lower:false },
+  { id:'traction',  label:'Traction (TP)', unit:'reps',icon:'🔝',lower:false },
   { id:'cmj',       label:'CMJ',         unit:'cm', icon:'⬆️', lower:false },
   { id:'sj',        label:'SJ',          unit:'cm', icon:'⬆️', lower:false },
   { id:'broadjump', label:'Broad Jump',  unit:'cm', icon:'↔️', lower:false },
@@ -10926,7 +10926,7 @@ function makeSparkline(history, lower) {
 function renderProfileTestsV2(name) {
   var el = document.getElementById('profileTests');
   if (!el) return;
-  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump','taille','poids'];
+  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','cmj','broadjump','taille','poids'];
   var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_IDS.indexOf(t.id) !== -1; });
 
   el.innerHTML = testsToShow.map(function(test) {
