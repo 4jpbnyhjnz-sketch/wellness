@@ -1733,6 +1733,17 @@ table.roster-table select { padding: 4px; }
   font-size:20px; cursor:pointer; line-height:1;
 }
 .joueur-modal-close:hover { color:#fff; }
+.name-review-modal { max-width:560px; }
+.name-review-row {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:12px 0; border-bottom:1px solid rgba(255,255,255,.08); flex-wrap:wrap;
+}
+.name-review-row:last-child { border-bottom:none; }
+.name-review-raw { font-size:13px; color:#fff; font-weight:700; flex:1; min-width:160px; }
+.name-review-count { font-weight:400; color:rgba(255,255,255,.4); font-size:11px; }
+.name-review-hint { font-size:11px; color:#e0b341; font-weight:400; margin-top:2px; }
+.name-review-hint-none { color:rgba(255,255,255,.35); }
+.name-review-select { width:auto; min-width:200px; font-size:12px; padding:6px 10px; }
 .joueur-modal-title { font-size:16px; font-weight:700; color:#fff; margin-bottom:16px; }
 .w-detail-row {
   display:flex; align-items:center; justify-content:space-between;
@@ -3335,6 +3346,20 @@ Petit Enzo ; 9</pre>
 
 <!-- PERF PHYSIQUE SECTION -->
 <div id="hub-perf-physique" class="hub-section">
+
+  <!-- Modal validation des noms proches/inconnus à l'import -->
+  <div class="joueur-modal-overlay" id="nameReviewModal" onclick="closeNameReviewModal(false)">
+    <div class="joueur-modal name-review-modal" onclick="event.stopPropagation()">
+      <button class="joueur-modal-close" onclick="closeNameReviewModal(true)">✕</button>
+      <div class="joueur-modal-title">👤 Vérifier les noms avant import</div>
+      <div id="nameReviewBody"></div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="hub-refresh-pill" style="flex:1;padding:10px;font-size:13px;background:rgba(46,204,138,.2);border-color:#2ecc8a" onclick="confirmNameReview()">✓ Valider l'import</button>
+        <button class="hub-refresh-pill" style="flex:0 0 auto;padding:10px 16px;font-size:13px" onclick="closeNameReviewModal(true)">Annuler</button>
+      </div>
+    </div>
+  </div>
+
   <div class="perf-section-wrap">
 
     <!-- Saisie manuelle -->
@@ -10516,6 +10541,46 @@ function excelDateCellToParts(dateRaw) {
   return null;
 }
 
+function levenshtein(a, b) {
+  a = String(a); b = String(b);
+  var m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  var prev = new Array(n + 1);
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    var cur = [i];
+    for (var j2 = 1; j2 <= n; j2++) {
+      var cost = a[i-1] === b[j2-1] ? 0 : 1;
+      cur[j2] = Math.min(prev[j2] + 1, cur[j2-1] + 1, prev[j2-1] + cost);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+function stripAccents(s) {
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// Cherche le nom du roster le plus proche d'un nom saisi (accents/casse ignorés).
+// Retourne { exact: bool, match: nom_roster|null, distance: number }
+function findClosestRosterName(playerRaw) {
+  var norm = stripAccents(playerRaw).toLowerCase().trim();
+  var exact = FIXED_ROSTER.find(function(n){ return stripAccents(n).toLowerCase() === norm; });
+  if (exact) return { exact: true, match: exact, distance: 0 };
+
+  var best = null, bestDist = Infinity;
+  FIXED_ROSTER.forEach(function(n) {
+    var d = levenshtein(norm, stripAccents(n).toLowerCase());
+    if (d < bestDist) { bestDist = d; best = n; }
+  });
+  // Seuil relatif : tolère ~30% de caractères différents (mini 1, maxi 3)
+  var threshold = Math.max(1, Math.min(3, Math.round(norm.length * 0.3)));
+  if (best && bestDist <= threshold) return { exact: false, match: best, distance: bestDist };
+  return { exact: false, match: null, distance: bestDist };
+}
+
 function handleXlsxDrop(e) {
   e.preventDefault();
   document.getElementById('xlsxDrop').classList.remove('drag');
@@ -10596,11 +10661,8 @@ function handleXlsxFile(file) {
 
       var saved=0, skipped=0, errors=0;
       var ignoredTests = {};
-      var unmatchedNames = {};
-
-      function stripAccents(s) {
-        return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      }
+      var pendingRows = [];      // lignes prêtes (nom exact ou déjà résolu)
+      var reviewGroups = {};     // nom brut -> { rows:[...], suggestion:{exact,match,distance} }
 
       rows.forEach(function(row) {
         var playerRaw = String(findVal(row,['NOMS','Joueur','joueur','NOM','nom','Player','Nom','Noms'])||'').trim();
@@ -10613,17 +10675,6 @@ function handleXlsxFile(file) {
 
         // Ignorer données anthropo
         if (['weight','height','mg','masse grasse'].indexOf(testRaw) !== -1) { skipped++; return; }
-
-        // Normaliser le nom : insensible à la casse ET aux accents,
-        // pour que "Clement" retombe bien sur "Clément" du roster.
-        var player = playerRaw;
-        var playerNorm = stripAccents(playerRaw).toLowerCase();
-        var found = FIXED_ROSTER.find(function(n){ return stripAccents(n).toLowerCase() === playerNorm; });
-        if (found) {
-          player = found;
-        } else {
-          unmatchedNames[playerRaw] = (unmatchedNames[playerRaw]||0)+1;
-        }
 
         // Type de test
         var testId = testMap[testRaw];
@@ -10645,28 +10696,32 @@ function handleXlsxFile(file) {
         }
         if (!dateStr) { errors++; return; }
 
-        physicalTests.push({ id:Date.now()+Math.random(), player:player, type:testId, value:Math.round(val*100)/100, date:dateStr, context:ctx });
-        saved++;
+        var rowData = { player:playerRaw, type:testId, value:Math.round(val*100)/100, date:dateStr, context:ctx };
+
+        // Normaliser le nom : insensible à la casse ET aux accents.
+        var found = findClosestRosterName(playerRaw);
+        if (found.exact) {
+          rowData.player = found.match;
+          pendingRows.push(rowData);
+        } else {
+          // Nom proche (typo probable) OU totalement inconnu : à valider par l'utilisateur
+          if (!reviewGroups[playerRaw]) reviewGroups[playerRaw] = { rows: [], suggestion: found };
+          reviewGroups[playerRaw].rows.push(rowData);
+        }
       });
 
-      savePhysicalTests();
-      physicalTests = loadPhysicalTests();
-
-      // Mettre à jour les sélecteurs
-      var selPlayer = document.getElementById('perfFilterPlayer');
-      if (selPlayer) selPlayer.innerHTML = '<option value="">Tous les joueurs</option>';
-
-      renderPerfHistory();
-      if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
-
-      var ignoredList = Object.keys(ignoredTests);
-      var unmatchedList = Object.keys(unmatchedNames);
-      var msg = '✓ ' + saved + ' test(s) importé(s)';
-      if (skipped) msg += ' · ' + skipped + ' ignoré(s) (poids/taille)';
-      if (errors) msg += ' · ' + errors + ' erreur(s)';
-      if (ignoredList.length) msg += '\nTests non reconnus: ' + ignoredList.slice(0,5).join(', ');
-      if (unmatchedList.length) msg += '\n⚠ Nom(s) absent(s) de l\'effectif (importés tels quels, à vérifier) : ' + unmatchedList.slice(0,8).join(', ');
-      showStatus(msg, saved > 0 ? (unmatchedList.length ? '#f5a623' : '#2ecc8a') : '#e8564a');
+      var reviewNames = Object.keys(reviewGroups);
+      if (!reviewNames.length) {
+        // Rien à valider : on enregistre directement
+        pendingRows.forEach(function(r) {
+          physicalTests.push({ id:Date.now()+Math.random(), player:r.player, type:r.type, value:r.value, date:r.date, context:r.context });
+        });
+        saved = pendingRows.length;
+        finishXlsxImport(saved, skipped, errors, ignoredTests, []);
+      } else {
+        // Ouvre la modale de validation des noms proches / inconnus
+        openNameReviewModal(pendingRows, reviewGroups, skipped, errors, ignoredTests);
+      }
 
     } catch(err) {
       showStatus('⚠ Erreur: ' + err.message, '#e8564a');
@@ -10674,6 +10729,97 @@ function handleXlsxFile(file) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+function finishXlsxImport(saved, skipped, errors, ignoredTests, keptAsIsNames) {
+  savePhysicalTests();
+  physicalTests = loadPhysicalTests();
+
+  var selPlayer = document.getElementById('perfFilterPlayer');
+  if (selPlayer) selPlayer.innerHTML = '<option value="">Tous les joueurs</option>';
+
+  renderPerfHistory();
+  if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+
+  var status = document.getElementById('xlsxStatus');
+  function showStatus(msg, color) {
+    if (!status) return;
+    status.style.display = 'block';
+    status.style.color = color || '#2ecc8a';
+    status.textContent = msg;
+  }
+
+  var ignoredList = Object.keys(ignoredTests);
+  var msg = '✓ ' + saved + ' test(s) importé(s)';
+  if (skipped) msg += ' · ' + skipped + ' ignoré(s) (poids/taille)';
+  if (errors) msg += ' · ' + errors + ' erreur(s)';
+  if (ignoredList.length) msg += '\nTests non reconnus: ' + ignoredList.slice(0,5).join(', ');
+  if (keptAsIsNames && keptAsIsNames.length) msg += '\n⚠ Nom(s) gardé(s) tel quel (absent de l\'effectif) : ' + keptAsIsNames.slice(0,8).join(', ');
+  showStatus(msg, saved > 0 ? (keptAsIsNames && keptAsIsNames.length ? '#f5a623' : '#2ecc8a') : '#e8564a');
+}
+
+// ── Modale de validation des noms proches / inconnus à l'import ──
+var nameReviewState = null;
+
+function openNameReviewModal(pendingRows, reviewGroups, skipped, errors, ignoredTests) {
+  nameReviewState = { pendingRows: pendingRows, reviewGroups: reviewGroups, skipped: skipped, errors: errors, ignoredTests: ignoredTests };
+
+  var names = Object.keys(reviewGroups);
+  var rosterOptions = FIXED_ROSTER.slice().sort();
+
+  var html = '<p style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px">'
+    + names.length + ' nom(s) du fichier ne correspondent pas exactement à l\'effectif. '
+    + 'Vérifie la correspondance proposée (ou choisis un autre joueur), puis valide.</p>';
+
+  html += names.map(function(rawName, idx) {
+    var group = reviewGroups[rawName];
+    var sug = group.suggestion;
+    var n = group.rows.length;
+    var options = '<option value="__keep__"' + (sug.match ? '' : ' selected') + '>➕ Garder « ' + rawName + ' » tel quel (nouveau nom)</option>'
+      + rosterOptions.map(function(r) {
+          return '<option value="' + r.replace(/"/g,'&quot;') + '"' + (sug.match === r ? ' selected' : '') + '>' + r + '</option>';
+        }).join('');
+    return '<div class="name-review-row">'
+      + '<div class="name-review-raw">« ' + rawName + ' » <span class="name-review-count">(' + n + ' résultat' + (n>1?'s':'') + ')</span>'
+      + (sug.match ? '<div class="name-review-hint">Suggestion : <b>' + sug.match + '</b></div>' : '<div class="name-review-hint name-review-hint-none">Aucune correspondance proche trouvée</div>')
+      + '</div>'
+      + '<select class="perf-input name-review-select" id="nameReviewSel_' + idx + '" data-raw="' + rawName.replace(/"/g,'&quot;') + '">' + options + '</select>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('nameReviewBody').innerHTML = html;
+  document.getElementById('nameReviewModal').classList.add('open');
+}
+
+function closeNameReviewModal(discard) {
+  document.getElementById('nameReviewModal').classList.remove('open');
+  if (discard) nameReviewState = null;
+}
+
+function confirmNameReview() {
+  if (!nameReviewState) return;
+  var names = Object.keys(nameReviewState.reviewGroups);
+  var keptAsIsNames = [];
+
+  names.forEach(function(rawName, idx) {
+    var sel = document.getElementById('nameReviewSel_' + idx);
+    var chosen = sel ? sel.value : '__keep__';
+    var group = nameReviewState.reviewGroups[rawName];
+    var finalName = (chosen === '__keep__') ? rawName : chosen;
+    if (chosen === '__keep__') keptAsIsNames.push(rawName);
+    group.rows.forEach(function(r) {
+      physicalTests.push({ id:Date.now()+Math.random(), player:finalName, type:r.type, value:r.value, date:r.date, context:r.context });
+    });
+  });
+
+  nameReviewState.pendingRows.forEach(function(r) {
+    physicalTests.push({ id:Date.now()+Math.random(), player:r.player, type:r.type, value:r.value, date:r.date, context:r.context });
+  });
+
+  var saved = nameReviewState.pendingRows.length + names.reduce(function(sum,n){ return sum + nameReviewState.reviewGroups[n].rows.length; }, 0);
+  finishXlsxImport(saved, nameReviewState.skipped, nameReviewState.errors, nameReviewState.ignoredTests, keptAsIsNames);
+
+  closeNameReviewModal(true);
 }
 
 /* ── Init ── */
