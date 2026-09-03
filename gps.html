@@ -1877,9 +1877,11 @@ table.roster-table select { padding: 4px; }
   border-radius:10px; padding:12px; cursor:pointer; transition:all .15s;
   position:relative; overflow:hidden;
 }
+.test-card-v2::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:transparent; }
+.test-card-v2.has-chart::before { background:#D6001C; }
 .test-card-v2:hover { background:rgba(255,255,255,.08); }
 .test-card-v2 .tc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
-.test-card-v2 .tc-name { font-size:10px; font-weight:700; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; }
+.test-card-v2 .tc-name { font-size:11px; font-weight:800; color:rgba(255,255,255,.7); text-transform:uppercase; letter-spacing:.06em; }
 .test-card-v2 .tc-icon { font-size:14px; }
 .test-card-v2 .tc-val { font-size:22px; font-weight:800; color:#fff; font-family:'JetBrains Mono',monospace; line-height:1; }
 .test-card-v2 .tc-unit { font-size:10px; color:rgba(255,255,255,.35); margin-left:3px; }
@@ -1887,7 +1889,7 @@ table.roster-table select { padding: 4px; }
 .test-card-v2 .tc-trend { font-size:10px; font-weight:700; }
 .test-card-v2 .tc-trend.up   { color:#2ecc8a; }
 .test-card-v2 .tc-trend.down { color:#e8564a; }
-.test-card-v2 .tc-sparkline { margin-top:6px; width:100%; height:24px; }
+.test-card-v2 .tc-sparkline { margin-top:8px; width:100%; height:52px; overflow:visible; }
 .test-card-v2 .tc-empty { font-size:11px; color:rgba(255,255,255,.2); text-align:center; padding:8px 0; }
 
 /* AC:CR widget */
@@ -9933,9 +9935,29 @@ function savePlayerProfiles() {
   localStorage.setItem(PLAYER_PROFILES_KEY, JSON.stringify(playerProfiles));
   markLocalDataChanged();
 }
+function stripAccentsGlobal(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+function normalizePhysicalTestNames(list) {
+  var changed = false;
+  list.forEach(function(t) {
+    if (!t.player) return;
+    var norm = stripAccentsGlobal(t.player).toLowerCase();
+    var found = (typeof FIXED_ROSTER !== 'undefined') && FIXED_ROSTER.find(function(n){ return stripAccentsGlobal(n).toLowerCase() === norm; });
+    if (found && found !== t.player) { t.player = found; changed = true; }
+  });
+  return changed;
+}
 function loadPhysicalTests() {
-  try { return JSON.parse(localStorage.getItem(PHYSICAL_TESTS_KEY) || '[]'); }
+  var list;
+  try { list = JSON.parse(localStorage.getItem(PHYSICAL_TESTS_KEY) || '[]'); }
   catch(e) { return []; }
+  // Auto-corrige les noms mal orthographiés / sans accents (ex. "Clement" -> "Clément")
+  // pour qu'ils retombent bien sur la fiche du joueur correspondant.
+  if (normalizePhysicalTestNames(list)) {
+    try { localStorage.setItem(PHYSICAL_TESTS_KEY, JSON.stringify(list)); } catch(e) {}
+  }
+  return list;
 }
 function savePhysicalTests() {
   localStorage.setItem(PHYSICAL_TESTS_KEY, JSON.stringify(physicalTests));
@@ -10246,7 +10268,7 @@ function showTestEvo(playerName, testId) {
     return;
   }
 
-  var xLabels = history.map(function(t){ return t.date.slice(0,5); });
+  var xLabels = history.map(function(t){ return shortDateLabel(t.date); });
   var values  = history.map(function(t){ return t.value; });
 
   // Graphique SVG
@@ -10528,6 +10550,11 @@ function handleXlsxFile(file) {
 
       var saved=0, skipped=0, errors=0;
       var ignoredTests = {};
+      var unmatchedNames = {};
+
+      function stripAccents(s) {
+        return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      }
 
       rows.forEach(function(row) {
         var playerRaw = String(findVal(row,['NOMS','Joueur','joueur','NOM','nom','Player','Nom','Noms'])||'').trim();
@@ -10541,10 +10568,16 @@ function handleXlsxFile(file) {
         // Ignorer données anthropo
         if (['weight','height','mg','masse grasse'].indexOf(testRaw) !== -1) { skipped++; return; }
 
-        // Normaliser le nom (insensible à la casse)
+        // Normaliser le nom : insensible à la casse ET aux accents,
+        // pour que "Clement" retombe bien sur "Clément" du roster.
         var player = playerRaw;
-        var found = FIXED_ROSTER.find(function(n){ return n.toLowerCase() === playerRaw.toLowerCase(); });
-        if (found) player = found;
+        var playerNorm = stripAccents(playerRaw).toLowerCase();
+        var found = FIXED_ROSTER.find(function(n){ return stripAccents(n).toLowerCase() === playerNorm; });
+        if (found) {
+          player = found;
+        } else {
+          unmatchedNames[playerRaw] = (unmatchedNames[playerRaw]||0)+1;
+        }
 
         // Type de test
         var testId = testMap[testRaw];
@@ -10581,11 +10614,13 @@ function handleXlsxFile(file) {
       if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
 
       var ignoredList = Object.keys(ignoredTests);
+      var unmatchedList = Object.keys(unmatchedNames);
       var msg = '✓ ' + saved + ' test(s) importé(s)';
       if (skipped) msg += ' · ' + skipped + ' ignoré(s) (poids/taille)';
       if (errors) msg += ' · ' + errors + ' erreur(s)';
       if (ignoredList.length) msg += '\nTests non reconnus: ' + ignoredList.slice(0,5).join(', ');
-      showStatus(msg, saved > 0 ? '#2ecc8a' : '#e8564a');
+      if (unmatchedList.length) msg += '\n⚠ Nom(s) absent(s) de l\'effectif (importés tels quels, à vérifier) : ' + unmatchedList.slice(0,8).join(', ');
+      showStatus(msg, saved > 0 ? (unmatchedList.length ? '#f5a623' : '#2ecc8a') : '#e8564a');
 
     } catch(err) {
       showStatus('⚠ Erreur: ' + err.message, '#e8564a');
@@ -10845,21 +10880,46 @@ if (_origMarkLocalDataChanged) {
    ═══════════════════════════════════════════ */
 
 // Sparkline SVG inline pour un test
-function makeSparkline(values, lower) {
-  if (!values || values.length < 2) return '';
-  var W = 80, H = 22;
+function shortDateLabel(d) {
+  if (!d) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (m) return m[3] + '/' + m[2];
+  var m2 = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d);
+  if (m2) return m2[1] + '/' + m2[2];
+  return d.slice(0, 5);
+}
+
+function makeSparkline(history, lower) {
+  if (!history || history.length < 2) return '';
+  var values = history.map(function(h){ return h.value; });
+  var W = 340, H = 52;
+  var lineTop = 13, lineBottom = H - 15;
   var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
   if (min === max) { min -= 1; max += 1; }
-  var sx = function(i) { return (i / (values.length - 1)) * W; };
-  var sy = function(v) { return H - ((v - min) / (max - min)) * (H - 2) - 1; };
+  var n = values.length;
+  var sx = function(i) { return n > 1 ? (i / (n - 1)) * W : W / 2; };
+  var sy = function(v) { return lineBottom - ((v - min) / (max - min)) * (lineBottom - lineTop); };
   var path = values.map(function(v, i) { return (i === 0 ? 'M' : 'L') + sx(i).toFixed(1) + ',' + sy(v).toFixed(1); }).join(' ');
   var lastColor = lower
-    ? (values[values.length-1] <= values[0] ? '#2ecc8a' : '#e8564a')
-    : (values[values.length-1] >= values[0] ? '#2ecc8a' : '#e8564a');
-  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="tc-sparkline">'
-    + '<path d="' + path + '" fill="none" stroke="' + lastColor + '" stroke-width="1.5" opacity="0.7"/>'
-    + '<circle cx="' + sx(values.length-1).toFixed(1) + '" cy="' + sy(values[values.length-1]).toFixed(1) + '" r="2" fill="' + lastColor + '"/>'
-    + '</svg>';
+    ? (values[n-1] <= values[0] ? '#2ecc8a' : '#e8564a')
+    : (values[n-1] >= values[0] ? '#2ecc8a' : '#e8564a');
+
+  var showAllLabels = n <= 6;
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="tc-sparkline">';
+  svg += '<path d="' + path + '" fill="none" stroke="' + lastColor + '" stroke-width="1.5" opacity="0.85"/>';
+  history.forEach(function(h, i) {
+    var x = sx(i), y = sy(h.value);
+    var isEdge = (i === 0 || i === n - 1);
+    var showLabel = showAllLabels || isEdge;
+    svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2" fill="' + lastColor + '"/>';
+    if (showLabel) {
+      var labelY = y - 5 < 8 ? y + 12 : y - 5;
+      svg += '<text x="' + x.toFixed(1) + '" y="' + labelY.toFixed(1) + '" font-size="8" text-anchor="middle" fill="rgba(255,255,255,.8)">' + h.value + '</text>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + (H - 3) + '" font-size="7" text-anchor="middle" fill="rgba(255,255,255,.4)">' + shortDateLabel(h.date) + '</text>';
+    }
+  });
+  svg += '</svg>';
+  return svg;
 }
 
 // Nouvelle renderProfileTests avec sparklines
@@ -10879,8 +10939,7 @@ function renderProfileTestsV2(name) {
     }
     var last = history[history.length - 1];
     var prev = history[history.length - 2];
-    var values = history.map(function(h){ return h.value; });
-    var sparkline = makeSparkline(values, test.lower);
+    var sparkline = makeSparkline(history, test.lower);
 
     var trendHtml = '';
     if (prev) {
@@ -10893,7 +10952,7 @@ function renderProfileTestsV2(name) {
         + '</span>';
     }
 
-    return '<div class="test-card-v2" onclick="showTestEvo(\'' + name.replace(/'/g,"\\'") + '\',\'' + test.id + '\')">'
+    return '<div class="test-card-v2' + (sparkline ? ' has-chart' : '') + '" onclick="showTestEvo(\'' + name.replace(/'/g,"\\'") + '\',\'' + test.id + '\')">'
       + '<div class="tc-header"><span class="tc-name">' + test.label + '</span><span class="tc-icon">' + test.icon + '</span></div>'
       + '<div><span class="tc-val">' + last.value + '</span><span class="tc-unit">' + test.unit + '</span> ' + trendHtml + '</div>'
       + '<div class="tc-date">' + last.date + (history.length > 1 ? ' · ' + history.length + ' mesures' : '') + '</div>'
