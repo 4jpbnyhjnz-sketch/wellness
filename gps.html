@@ -3403,7 +3403,10 @@ Petit Enzo ; 9</pre>
     <div class="perf-form-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="perf-form-title" style="margin-bottom:0">📋 Historique des tests</div>
-        <button onclick="deleteAllPerfTests()" style="background:rgba(204,17,34,.15);border:1px solid rgba(204,17,34,.4);border-radius:6px;padding:6px 14px;color:#ff4455;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑 Tout supprimer</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="dedupePerfTests()" style="background:rgba(224,179,65,.15);border:1px solid rgba(224,179,65,.4);border-radius:6px;padding:6px 14px;color:#e0b341;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🧹 Supprimer les doublons</button>
+          <button onclick="deleteAllPerfTests()" style="background:rgba(204,17,34,.15);border:1px solid rgba(204,17,34,.4);border-radius:6px;padding:6px 14px;color:#ff4455;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑 Tout supprimer</button>
+        </div>
         <div style="display:flex;gap:8px;align-items:center">
           <select id="perfFilterTest" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
             <option value="">Tous les tests</option>
@@ -10450,6 +10453,49 @@ function deletePerfTest(id) {
   physicalTests = physicalTests.filter(function(t){ return String(t.id) !== String(id); });
   savePhysicalTests();
   renderPerfHistory();
+}
+
+function dedupePerfTests() {
+  if (!physicalTests.length) { alert('Aucun test enregistré.'); return; }
+
+  // Une "même mesure" = même joueur (insensible casse/accents) + même test + même date.
+  // Entre plusieurs doublons on garde celui avec la valeur la plus récemment saisie
+  // (id le plus grand), et on prévient si les valeurs diffèrent (vrai conflit à trancher soi-même).
+  var groups = {};
+  physicalTests.forEach(function(t) {
+    var key = stripAccentsGlobal(t.player||'').toLowerCase().trim() + '|' + t.type + '|' + (t.date||'');
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+
+  var toKeep = [];
+  var removed = 0;
+  var conflicts = [];
+  Object.keys(groups).forEach(function(key) {
+    var arr = groups[key];
+    if (arr.length === 1) { toKeep.push(arr[0]); return; }
+    // Doublon(s) détecté(s)
+    var values = arr.map(function(t){ return t.value; });
+    var allSame = values.every(function(v){ return v === values[0]; });
+    if (!allSame) conflicts.push(arr[0].player + ' — ' + arr[0].type + ' (' + arr[0].date + ') : valeurs différentes ' + values.join(' / ') + ', on garde la plus récente');
+    // Garde l'entrée la plus récemment ajoutée (id le plus grand)
+    arr.sort(function(a,b){ return (b.id||0) - (a.id||0); });
+    toKeep.push(arr[0]);
+    removed += arr.length - 1;
+  });
+
+  if (!removed) { alert('Aucun doublon trouvé (même joueur, même test, même date).'); return; }
+
+  var msg = removed + ' doublon(s) supprimé(s) (même joueur + même test + même date).';
+  if (conflicts.length) msg += '\n\n⚠ Parmi eux, ' + conflicts.length + ' avaient des valeurs différentes — la plus récente a été gardée :\n' + conflicts.slice(0,10).join('\n');
+  if (!confirm(msg + '\n\nConfirmer la suppression ?')) return;
+
+  physicalTests = toKeep;
+  savePhysicalTests();
+  renderPerfHistory();
+  if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+  var status = document.getElementById('xlsxStatus');
+  if (status) { status.style.display='block'; status.style.color='#2ecc8a'; status.textContent='✓ ' + removed + ' doublon(s) supprimé(s).'; setTimeout(function(){ status.style.display='none'; }, 4000); }
 }
 
 /* ── Import Excel ── */
