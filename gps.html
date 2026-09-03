@@ -11590,7 +11590,7 @@ function handleRpeXlsxFile(file) {
       // Convertir en fake rows pour processData
       // Format attendu par processData: [date, nom, 'Rpe', '', '', '', '', '', '', type, score]
       var newRows = [];
-      var saved = 0, errors = 0;
+      var saved = 0, errors = 0, outOfRange = 0;
 
       rows.forEach(function(row) {
         var dateRaw = findVal(row, ['Dates','dates','DATES','Date','date','DATE']);
@@ -11599,6 +11599,12 @@ function handleRpeXlsxFile(file) {
         var score   = parseFloat(String(findVal(row, ['score','Score','SCORE','RPE','rpe']) || '').replace(',','.'));
 
         if (!nom || !type || isNaN(score)) { errors++; return; }
+
+        // Garde-fou : une valeur RPE (échelle de Borg CR10) est forcément entre 0 et 10.
+        // Une valeur hors de cette plage signale presque toujours un mauvais fichier
+        // déposé ici par erreur (poids, temps de sprint...) plutôt qu'un vrai RPE —
+        // on rejette la ligne plutôt que de polluer le suivi sRPE.
+        if (score < 0 || score > 10) { outOfRange++; return; }
 
         // Normaliser le nom
         var found = FIXED_ROSTER.find(function(n){ return n.toLowerCase() === nom.toLowerCase(); });
@@ -11622,7 +11628,13 @@ function handleRpeXlsxFile(file) {
         saved++;
       });
 
-      if (!saved) { showStatus('⚠ Aucune ligne valide. Vérifiez les colonnes: Dates | Noms | Types | score', '#e8564a'); return; }
+      if (!saved) {
+        var reason = outOfRange
+          ? '⚠ Aucune ligne valide — ' + outOfRange + ' valeur(s) hors de l\'échelle RPE (0-10). Ce fichier ne ressemble pas à un export RPE (dépose-le plutôt dans "Import Excel" plus bas si ce sont des tests physiques).'
+          : '⚠ Aucune ligne valide. Vérifiez les colonnes: Dates | Noms | Types | score';
+        showStatus(reason, '#e8564a');
+        return;
+      }
 
       // Fusionner avec RAW_ROWS et reprocesser
       if (typeof RAW_ROWS !== 'undefined') {
@@ -11656,7 +11668,10 @@ function handleRpeXlsxFile(file) {
       previewHtml += '</div>';
       preview.innerHTML = previewHtml;
 
-      showStatus('✓ ' + saved + ' ligne(s) RPE importée(s)' + (errors ? ' · ' + errors + ' ignorée(s)' : ''), '#2ecc8a');
+      showStatus('✓ ' + saved + ' ligne(s) RPE importée(s)'
+        + (errors ? ' · ' + errors + ' ignorée(s)' : '')
+        + (outOfRange ? ' · ⚠ ' + outOfRange + ' rejetée(s) (hors échelle 0-10, probablement pas un fichier RPE)' : ''),
+        outOfRange ? '#f5a623' : '#2ecc8a');
 
     } catch(err) {
       showStatus('⚠ Erreur: ' + err.message, '#e8564a');
