@@ -1283,6 +1283,8 @@ table.roster-table select { padding: 4px; }
   body { margin:0; background:#0a0a0a; }
 
   /* Barre hub */
+  @keyframes syncPillPulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+  #globalSyncDot[style*="5bc4f5"] { animation: syncPillPulse 1s ease-in-out infinite; }
   .hub-topbar {
     position:fixed; top:0; left:0; right:0; height:52px;
     background:rgba(5,0,1,.97); border-bottom:2px solid #D6001C;
@@ -2140,11 +2142,23 @@ table.roster-table select { padding: 4px; }
     <button class="hub-topnav-link" id="topnav-medical" onclick="switchHub('medical')"><span>🏥</span>Médical</button>
   </nav>
   <button class="hub-back-btn" id="backBtn" onclick="switchHub('accueil')">← Accueil</button>
-  <div id="logoutBtn" style="display:none;align-items:center;gap:8px;margin-left:auto">
+  <div id="globalSyncPill" class="no-print" style="display:flex;align-items:center;gap:6px;margin-left:auto;padding:5px 12px;border-radius:20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);font-size:11px;color:rgba(255,255,255,.65);cursor:pointer;flex-shrink:0" onclick="syncSave()" title="Cliquer pour forcer une sauvegarde cloud">
+    <span id="globalSyncDot" style="width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0;transition:background .2s"></span>
+    <span id="globalSyncText">Synchro…</span>
+  </div>
+  <div id="logoutBtn" style="display:none;align-items:center;gap:8px">
     <span id="userLabel" style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.05em"></span>
     <button onclick="logout()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 12px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Déconnexion</button>
   </div>
 
+</div>
+
+<!-- Bannière visible sur TOUS les onglets en cas d'échec de sauvegarde cloud —
+     pour ne plus jamais rater un problème de synchronisation pendant des jours. -->
+<div id="globalSyncWarning" class="no-print" style="display:none;position:fixed;top:52px;left:0;right:0;z-index:900;background:#7a1010;color:#fff;padding:8px 16px;font-size:12px;font-weight:700;text-align:center;border-bottom:2px solid #ff4455">
+  ⚠ Sauvegarde cloud en échec — tes dernières modifications ne sont peut-être pas sauvegardées. <span id="globalSyncWarningDetail"></span>
+  <button onclick="syncSave()" style="margin-left:10px;background:#fff;color:#7a1010;border:none;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:800;cursor:pointer">Réessayer</button>
+  <button onclick="document.getElementById('globalSyncWarning').style.display='none'" style="margin-left:6px;background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer">Masquer</button>
 </div>
 
 <!-- OVERLAY + SIDEBAR -->
@@ -6628,6 +6642,33 @@ function deleteSavedSession(id) {
   renderRecordsTab();
 }
 
+// Corrige la date d'une séance déjà enregistrée (ex. mauvaise date lue dans le CSV importé).
+function editSavedSessionDate(id) {
+  const session = savedSessions.find((s) => s.id === id);
+  if (!session) return;
+  const current = session.date || "";
+  const input = prompt("Nouvelle date pour cette séance (format jj/mm/aaaa) :", current);
+  if (input === null) return; // annulé
+  const trimmed = input.trim();
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+  if (!match) {
+    alert("Format invalide. Utilise jj/mm/aaaa, par exemple 04/09/2026.");
+    return;
+  }
+  const dd = parseInt(match[1], 10), mm = parseInt(match[2], 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) {
+    alert("Date invalide.");
+    return;
+  }
+  session.date = String(dd).padStart(2, "0") + "/" + String(mm).padStart(2, "0") + "/" + match[3];
+  saveSavedSessions(savedSessions);
+  try { renderStatsTab(); } catch(e) { console.warn(e); }
+  try { renderAnalyseTab(); } catch(e) { console.warn(e); }
+  try { renderJoueurTab(); } catch(e) { console.warn(e); }
+  try { renderRecordsTab(); } catch(e) { console.warn(e); }
+  if (typeof renderAccueilRecap === "function") { try { renderAccueilRecap(); } catch(e) {} }
+}
+
 const FRENCH_MONTHS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
@@ -7174,6 +7215,19 @@ function renderStatsTab() {
         session.durationMinutes ? ", " + session.durationMinutes + " min" : ""
       })${session.category ? " · " + session.category : ""}`;
       summary.appendChild(summaryText);
+      // Bouton de correction de date, visible sans avoir à déplier la séance.
+      const editDateBtn = document.createElement("button");
+      editDateBtn.type = "button";
+      editDateBtn.className = "btn btn-secondary";
+      editDateBtn.textContent = "✏️ Date";
+      editDateBtn.title = "Corriger la date de cette séance";
+      editDateBtn.style.cssText = "flex-shrink:0;font-size:12px;padding:4px 10px";
+      editDateBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        editSavedSessionDate(session.id);
+      });
+      summary.appendChild(editDateBtn);
       // Bouton de suppression rapide, visible sans avoir à déplier la séance.
       const quickDelBtn = document.createElement("button");
       quickDelBtn.type = "button";
@@ -10981,40 +11035,65 @@ function restoreAllData(data) {
   if (typeof renderPerfHistory === 'function') renderPerfHistory();
 }
 
+// Pastille de synchro visible en permanence dans la barre du haut (état en temps réel)
+function setSyncPill(state, text, title) {
+  var dot = document.getElementById('globalSyncDot');
+  var label = document.getElementById('globalSyncText');
+  var pill = document.getElementById('globalSyncPill');
+  var colors = { ok:'#2ecc8a', warn:'#e0b341', error:'#ff4455', pending:'#5bc4f5' };
+  if (dot) dot.style.background = colors[state] || '#888';
+  if (label) label.textContent = text;
+  if (pill && title) pill.title = title;
+}
+
 // Lecture — automatique au démarrage
 async function syncLoad(silent) {
   try {
     var resp = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&select=data,updated_at', {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
     });
-    if (!resp.ok) { if (!silent) syncSetStatus('⚠ Erreur de chargement ('+resp.status+')', '#e8564a'); return; }
+    if (!resp.ok) {
+      if (!silent) syncSetStatus('⚠ Erreur de chargement ('+resp.status+')', '#e8564a');
+      setSyncPill('warn', 'Chargement échoué', 'Impossible de contacter le cloud (erreur ' + resp.status + ')');
+      return;
+    }
     var rows = await resp.json();
     if (!rows || !rows.length) { if (!silent) syncSetStatus('Aucune sauvegarde cloud pour l\'instant.', '#888'); return; }
     var data = rows[0].data;
     if (!data || !data._version) return;
 
-    // Ne protège que la toute petite fenêtre de l'anti-rebond de l'auto-save
-    // (quelques secondes juste après une modification locale) : au-delà, on
-    // synchronise toujours avec le cloud, pour que tous les ordinateurs
-    // restent connectés en permanence sans action manuelle.
+    // Ne jamais écraser des données locales plus récentes que ce que le cloud
+    // propose : on ne restaure QUE si le cloud est réellement plus récent que
+    // le dernier changement local connu — quel que soit le temps écoulé
+    // depuis (redémarrage de l'ordi compris). Avant, une fenêtre de 15s
+    // seulement protégeait contre ça : au-delà, une sauvegarde cloud restée
+    // en retard (auto-save interrompu par une extinction, par ex.) pouvait
+    // silencieusement écraser des données locales plus fraîches.
     var lastLocalChange = parseInt(localStorage.getItem('nissaLastLocalChange_v1') || '0', 10);
     var cloudTime = data._date ? new Date(data._date).getTime() : 0;
-    var justChangedLocally = lastLocalChange && (Date.now() - lastLocalChange) < 15000;
-    if (justChangedLocally && lastLocalChange > cloudTime) {
+    if (lastLocalChange && lastLocalChange > cloudTime) {
       if (!silent) {
-        syncSetStatus('⚠ Modification locale en cours de sauvegarde — réessayez dans quelques secondes.', '#f5a623');
+        syncSetStatus('⚠ Vos données locales sont plus récentes que le cloud — sauvegarde en cours, réessayez dans quelques secondes.', '#f5a623');
       }
+      setSyncPill('warn', 'En attente d\'envoi', 'Des modifications locales n\'ont pas encore été envoyées au cloud');
+      scheduleAutoSync(); // tente de repousser la sauvegarde locale vers le cloud plutôt que de l'écraser
       return;
     }
 
     restoreAllData(data);
+    var loadedLabel = data._date ? new Date(data._date).toLocaleString('fr-FR') : '';
     if (!silent) syncSetStatus('✓ Données chargées (' + (data._date ? new Date(data._date).toLocaleDateString('fr-FR') : '') + ')', '#2ecc8a');
-  } catch(e) { if (!silent) syncSetStatus('⚠ ' + e.message, '#e8564a'); }
+    setSyncPill('ok', 'Synchronisé', 'Dernière sauvegarde cloud : ' + loadedLabel);
+  } catch(e) {
+    if (!silent) syncSetStatus('⚠ ' + e.message, '#e8564a');
+    setSyncPill('warn', 'Hors ligne', 'Connexion au cloud impossible : ' + e.message);
+  }
 }
 
 // Sauvegarde vers Supabase
 async function syncSave() {
   syncSetStatus('⏳ Sauvegarde...', '#f5a623');
+  setSyncPill('pending', 'Sauvegarde…', 'Envoi des données au cloud en cours');
   try {
     var payload = collectAllData();
     var r = await fetch(SUPABASE_REST_URL + '?on_conflict=id', {
@@ -11028,17 +11107,40 @@ async function syncSave() {
       body: JSON.stringify({ id: SUPABASE_ROW_ID, data: payload, updated_at: new Date().toISOString() })
     });
     if (r.ok) {
-      syncSetStatus('✓ Sauvegardé le '+new Date().toLocaleString('fr-FR'), '#2ecc8a');
+      var savedLabel = new Date().toLocaleString('fr-FR');
+      syncSetStatus('✓ Sauvegardé le '+savedLabel, '#2ecc8a');
+      setSyncPill('ok', 'Synchronisé', 'Dernière sauvegarde cloud : ' + savedLabel);
+      hideGlobalSyncWarning();
     } else {
       var err = await r.text();
       syncSetStatus('⚠ Échec de la sauvegarde cloud.', '#e8564a');
+      setSyncPill('error', 'Non synchronisé', 'Échec de la sauvegarde cloud (erreur ' + r.status + ') — tes dernières modifications ne sont peut-être pas sauvegardées');
+      showGlobalSyncWarning('(erreur ' + r.status + ')');
     }
-  } catch(e) { syncSetStatus('⚠ '+e.message, '#e8564a'); }
+  } catch(e) {
+    syncSetStatus('⚠ '+e.message, '#e8564a');
+    setSyncPill('error', 'Non synchronisé', 'Échec de la sauvegarde cloud : ' + e.message);
+    showGlobalSyncWarning();
+  }
 }
 
 function syncSetStatus(msg, color) {
   var el = document.getElementById('syncStatus');
   if (el) { el.textContent=msg; el.style.color=color||'#888'; }
+}
+
+// Bannière globale, visible sur tous les onglets — pour qu'un échec de
+// sauvegarde ne passe plus inaperçu pendant des jours (avant, seul un petit
+// texte discret dans Réglages en parlait).
+function showGlobalSyncWarning(detail) {
+  var el = document.getElementById('globalSyncWarning');
+  if (el) el.style.display = 'block';
+  var d = document.getElementById('globalSyncWarningDetail');
+  if (d) d.textContent = detail || '';
+}
+function hideGlobalSyncWarning() {
+  var el = document.getElementById('globalSyncWarning');
+  if (el) el.style.display = 'none';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -11052,9 +11154,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Auto-save après chaque modification (avec anti-rebond)
 var _syncAutoSaveTimer = null;
+var _syncPendingFlush = false;
 function scheduleAutoSync() {
   if (_syncAutoSaveTimer) clearTimeout(_syncAutoSaveTimer);
-  _syncAutoSaveTimer = setTimeout(function(){ syncSave(); }, 3000);
+  _syncPendingFlush = true;
+  if (typeof setSyncPill === 'function') setSyncPill('pending', 'Modifié…', 'Modifications en attente d\'envoi au cloud');
+  _syncAutoSaveTimer = setTimeout(function(){ syncSave(); _syncPendingFlush = false; }, 3000);
 }
 var _origSavePhysTests = savePhysicalTests;
 savePhysicalTests = function() { _origSavePhysTests(); scheduleAutoSync(); };
@@ -11064,6 +11169,25 @@ var _origMarkLocalDataChanged = (typeof markLocalDataChanged === 'function') ? m
 if (_origMarkLocalDataChanged) {
   markLocalDataChanged = function() { _origMarkLocalDataChanged(); scheduleAutoSync(); };
 }
+
+// Filet de sécurité : si l'onglet/le navigateur se ferme (ou l'ordi s'éteint)
+// alors qu'une sauvegarde était encore en attente (anti-rebond de 3s), on
+// tente un envoi immédiat via sendBeacon — bien plus fiable qu'un fetch()
+// classique au moment où la page se ferme, pour éviter de perdre les
+// toutes dernières modifications non encore poussées vers le cloud.
+function flushPendingSyncOnExit() {
+  if (!_syncPendingFlush) return;
+  try {
+    var payload = collectAllData();
+    var body = new Blob([JSON.stringify({ id: SUPABASE_ROW_ID, data: payload, updated_at: new Date().toISOString() })], { type: 'application/json' });
+    navigator.sendBeacon(SUPABASE_REST_URL + '?on_conflict=id&apikey=' + encodeURIComponent(SUPABASE_ANON_KEY), body);
+  } catch(e) {}
+}
+window.addEventListener('pagehide', flushPendingSyncOnExit);
+window.addEventListener('beforeunload', flushPendingSyncOnExit);
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden') flushPendingSyncOnExit();
+});
 </script>
 <!-- REDESIGN PROFIL JOUEUR -->
 <script>
