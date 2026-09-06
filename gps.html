@@ -4372,8 +4372,10 @@ const METRIC_COLUMNS = [
   { key: "dist18",      label: "Distance +18km/h",     abbr: "+18 km/h",     decimals: 2 },
   { key: "dist24",      label: "Distance +24km/h",     abbr: "+24 km/h",     decimals: 2 },
   { key: "vmax",        label: "VMAX (km/h)",           abbr: "Vmax",         decimals: 2 },
+  { key: "pctVmax",     label: "% VMAX (record saison)", abbr: "% Vmax",     decimals: 1 },
   { key: "meterPerMin", label: "m/min",                 abbr: "m/min",        decimals: 2 },
   { key: "accelMax",    label: "ACCEL MAX",             abbr: "Accel",        decimals: 2 },
+  { key: "pctAccelMax", label: "% ACCEL MAX (record saison)", abbr: "% Accel", decimals: 1 },
   { key: "contacts",    label: "NB CONTACT",            abbr: "Contact",      decimals: 0 },
   { key: "rhie",        label: "RHIE",                  abbr: "RHIE",         decimals: 0 },
   { key: "accel23",     label: "ACCEL 2-3*",            abbr: "Acc. 2-3",     decimals: 0 },
@@ -5070,18 +5072,24 @@ function groupPlayers(stats) {
   const groups = { "3/4": [], Avant: [], "Non classé": [] };
   stats.forEach((s) => {
     const official = resolveOfficialName(s.player);
+    const recordName = official || s.player;
+    const rec = seasonRecords[recordName];
+    const pctVmax = (rec && rec.vmax > 0 && s.vmax != null) ? (s.vmax / rec.vmax) * 100 : null;
+    const pctAccelMax = (rec && rec.accel > 0 && s.accelMax != null) ? (s.accelMax / rec.accel) * 100 : null;
+    const withPct = { ...s, pctVmax, pctAccelMax };
     if (official && roster[official]) {
-      groups[roster[official]].push({ ...s, officialName: official, displayName: official });
+      groups[roster[official]].push({ ...withPct, officialName: official, displayName: official });
     } else {
-      groups["Non classé"].push({ ...s, displayName: s.player });
+      groups["Non classé"].push({ ...withPct, displayName: s.player });
     }
   });
   return groups;
 }
 
 function median(values) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
+  const clean = values.filter((v) => v !== null && v !== undefined && !isNaN(v));
+  if (!clean.length) return null;
+  const sorted = [...clean].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
@@ -5124,6 +5132,7 @@ function findLeader(stats, key, lowerIsBetter) {
    ------------------------------------------------------------------------- */
 
 function fmt(value, decimals) {
+  if (value === null || value === undefined || isNaN(value)) return "—";
   return value.toLocaleString("fr-FR", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -5754,12 +5763,17 @@ function groupMatchPlayers(stats) {
   stats.forEach(s => {
     const alias = matchAliasMap[s.player];
     const official = alias ? alias.officialName : (roster[s.player] ? s.player : null);
+    const recordName = official || s.player;
+    const rec = seasonRecords[recordName];
+    const pctVmax = (rec && rec.vmax > 0 && s.vmax != null) ? (s.vmax / rec.vmax) * 100 : null;
+    const pctAccelMax = (rec && rec.accel > 0 && s.accelMax != null) ? (s.accelMax / rec.accel) * 100 : null;
+    const withPct = { ...s, pctVmax, pctAccelMax };
     if (official && roster[official]) {
       const grp = roster[official];
       const pos = (alias && alias.position) || rosterPositions[official] || "";
-      if (groups[grp]) groups[grp].push({ ...s, officialName: official, displayName: official, position: pos });
+      if (groups[grp]) groups[grp].push({ ...withPct, officialName: official, displayName: official, position: pos });
     } else {
-      groups["Non classé"].push({ ...s, displayName: s.player, position: "" });
+      groups["Non classé"].push({ ...withPct, displayName: s.player, position: "" });
     }
   });
   return groups;
