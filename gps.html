@@ -4674,16 +4674,23 @@ function renderRecordsTab() {
   if (!container) return;
   container.innerHTML = "";
 
-  const names = Object.keys(seasonRecords);
+  // Tous les joueurs du listing pro (Réglages) doivent apparaître ici, même
+  // s'ils n'ont encore jamais fait de séance GPS — pour pouvoir saisir leur
+  // record de saison à la main dès leur arrivée dans l'effectif. On garde
+  // aussi les noms présents dans seasonRecords mais absents du roster
+  // (ex. ancien joueur retiré du listing, historique GPS conservé).
+  const names = Array.from(new Set([...Object.keys(roster), ...Object.keys(seasonRecords)])).sort((a, b) =>
+    a.localeCompare(b)
+  );
   if (!names.length) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "Aucun record pour l'instant — ajoutez un joueur ci-dessous.";
+    empty.textContent = "Aucun joueur pour l'instant — ajoutez-en dans l'onglet Réglages ou ci-dessous.";
     container.appendChild(empty);
     return;
   }
 
-  const sorted = names.sort((a, b) => a.localeCompare(b));
+  const sorted = names;
 
   sorted.forEach((name) => {
     const justBroke = lastBrokenRecords.includes(name);
@@ -4703,8 +4710,8 @@ function renderRecordsTab() {
     // enregistré (import manquant, session corrigée après coup, etc.), on aligne
     // le record affiché sur le vrai maximum avant de construire les cartes.
     const history = getPlayerHistory(name);
-    if (!seasonRecords[name]) seasonRecords[name] = { vmax: 0, accel: 0 };
     let recordFixed = false;
+    if (!seasonRecords[name]) { seasonRecords[name] = { vmax: 0, accel: 0 }; recordFixed = true; }
     history.forEach((h) => {
       if (h.vmax > seasonRecords[name].vmax) {
         seasonRecords[name].vmax = Math.round(h.vmax * 100) / 100;
