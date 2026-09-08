@@ -4391,7 +4391,9 @@ const OBJECTIVE_COLUMNS = [
   { key: "contacts", label: "Contact" },
   { key: "rhie", label: "RHIE" },
   { key: "vmax", label: "VMAX" },
+  { key: "pctVmax", label: "% VMAX" },
   { key: "accelMax", label: "ACCEL" },
+  { key: "pctAccelMax", label: "% ACCEL" },
   { key: "accel23", label: "ACCEL 2-3" },
 ];
 const OBJECTIVE_KEYS = new Set(OBJECTIVE_COLUMNS.map((c) => c.key));
@@ -5935,12 +5937,21 @@ function renderMatchGroupTableReadonly(groupName, sortedStats) {
     tr.appendChild(tdName);
     visibleColumns.forEach(col => {
       const isLeader = leaders[col.key] && (leaders[col.key].displayName || leaders[col.key].player) === (s.displayName || s.player);
+      // Même vérification d'objectif que dans la vue "import en cours" —
+      // absente ici jusqu'à présent, ce qui faisait que le vert ne
+      // s'affichait plus jamais une fois le match enregistré et rouvert.
+      const met = OBJECTIVE_KEYS.has(col.key)
+        ? (getMatchObjective(s.position, col.key) !== null ? s[col.key] >= getMatchObjective(s.position, col.key) : null)
+        : null;
+      const isRecord = (col.key === "vmax" || col.key === "accelMax") && s.displayName && seasonRecords[s.displayName] &&
+        s[col.key] > 0 && (col.key === "vmax" ? s[col.key] >= seasonRecords[s.displayName].vmax && seasonRecords[s.displayName].vmax > 0 : s[col.key] >= seasonRecords[s.displayName].accel && seasonRecords[s.displayName].accel > 0);
       const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
       const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
       const td = document.createElement("td");
-      td.style.background = `linear-gradient(to right, rgba(26,26,26,0.12) ${pct}%, transparent ${pct}%)`;
+      td.style.background = objectiveCellBackground(met, pct);
+      if (met === true) td.classList.add("obj-met");
       if (isLeader) td.dataset.leader = "1";
-      td.textContent = fmt(s[col.key], col.decimals);
+      td.textContent = fmt(s[col.key], col.decimals) + (isRecord ? " ⭐" : "");
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -10006,6 +10017,7 @@ const TEST_DEFS = [
   { id:'yoyo',      label:'Yo-Yo',       unit:'m',  icon:'🔄', lower:false },
   { id:'bronco',    label:'Bronco',      unit:'s',  icon:'⏱️', lower:true  },
   { id:'vmax',      label:'Vmax',        unit:'km/h',icon:'💨',lower:false },
+  { id:'accelmax',  label:'Accel Max (test)', unit:'',icon:'🚀',lower:false },
   { id:'dcsquat',   label:'DC Squat',    unit:'kg', icon:'🏋️', lower:false },
   { id:'backsquat', label:'Back Squat',  unit:'kg', icon:'🏋️', lower:false },
   { id:'clean',     label:'Clean',       unit:'kg', icon:'🔱', lower:false },
@@ -10714,8 +10726,9 @@ function handleXlsxFile(file) {
         'yoyo':'yoyo','yo-yo':'yoyo','yyir':'yoyo',
         'bronco':'bronco','temps bronco':'bronco',
         'vmax':'vmax',
+        'accel max':'accelmax','accelmax':'accelmax','accel':'accelmax',
         'dc':'dcsquat','dc squat':'dcsquat','dcsquat':'dcsquat',
-        'back squat':'backsquat','backsquat':'backsquat',
+        'back squat':'backsquat','backsquat':'backsquat','squat':'backsquat',
         'clean':'clean',
         'trap bar':'trapbar','trapbar':'trapbar',
         'pendlay row':'pendlay','pendlay':'pendlay','tp':'traction',
@@ -10742,8 +10755,8 @@ function handleXlsxFile(file) {
       rows.forEach(function(row) {
         var playerRaw = String(findVal(row,['NOMS','Joueur','joueur','NOM','nom','Player','Nom','Noms'])||'').trim();
         var dateRaw   = findVal(row,['DATES','Date','date','DATE','Dates']);
-        var testRaw   = String(findVal(row,['TEST','Test','test','TYPE','Type','TYPES','Types','types'])||'').trim().toLowerCase();
-        var valRaw    = findVal(row,['VALEURS','Valeur','valeur','VALEUR','Value','SCORE','Score','score','Valeurs']);
+        var testRaw   = String(findVal(row,['TEST','Test','test','TYPE','Type','TYPES','Types','types','Exercice','exercice','EXERCICE'])||'').trim().toLowerCase();
+        var valRaw    = findVal(row,['VALEURS','Valeur','valeur','VALEUR','Value','SCORE','Score','score','Valeurs','Charge','charge','CHARGE']);
         var ctx       = String(findVal(row,['Contexte','contexte'])||'').trim();
 
         if (!playerRaw || !testRaw || valRaw === undefined || valRaw === '') { errors++; return; }
@@ -11220,9 +11233,9 @@ document.addEventListener('visibilitychange', function() {
 function shortDateLabel(d) {
   if (!d) return '';
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
-  if (m) return m[3] + '/' + m[2];
+  if (m) return m[3] + '/' + m[2] + '/' + m[1].slice(2);
   var m2 = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d);
-  if (m2) return m2[1] + '/' + m2[2];
+  if (m2) return m2[1] + '/' + m2[2] + '/' + m2[3].slice(2);
   return d.slice(0, 5);
 }
 
@@ -11248,11 +11261,15 @@ function makeSparkline(history, lower) {
     var x = sx(i), y = sy(h.value);
     var isEdge = (i === 0 || i === n - 1);
     var showLabel = showAllLabels || isEdge;
+    // Ancrage du texte : à gauche/droite sur les points d'extrémité (pour ne
+    // pas déborder du cadre), centré pour les points intermédiaires.
+    var anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+    var tx = i === 0 ? x + 2 : (i === n - 1 ? x - 2 : x);
     svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2" fill="' + lastColor + '"/>';
     if (showLabel) {
       var labelY = y - 5 < 8 ? y + 12 : y - 5;
-      svg += '<text x="' + x.toFixed(1) + '" y="' + labelY.toFixed(1) + '" font-size="8" text-anchor="middle" fill="rgba(255,255,255,.8)">' + h.value + '</text>';
-      svg += '<text x="' + x.toFixed(1) + '" y="' + (H - 3) + '" font-size="7" text-anchor="middle" fill="rgba(255,255,255,.4)">' + shortDateLabel(h.date) + '</text>';
+      svg += '<text x="' + tx.toFixed(1) + '" y="' + labelY.toFixed(1) + '" font-size="8" text-anchor="' + anchor + '" fill="rgba(255,255,255,.8)">' + h.value + '</text>';
+      svg += '<text x="' + tx.toFixed(1) + '" y="' + (H - 3) + '" font-size="7" text-anchor="' + anchor + '" fill="rgba(255,255,255,.4)">' + shortDateLabel(h.date) + '</text>';
     }
   });
   svg += '</svg>';
@@ -11263,7 +11280,7 @@ function makeSparkline(history, lower) {
 function renderProfileTestsV2(name) {
   var el = document.getElementById('profileTests');
   if (!el) return;
-  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','cmj','broadjump','taille','poids'];
+  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','vmax','accelmax','cmj','broadjump','taille','poids'];
   var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_IDS.indexOf(t.id) !== -1; });
 
   el.innerHTML = testsToShow.map(function(test) {
@@ -11516,6 +11533,21 @@ function renderProfileGpsRecords(name) {
   scan(savedSessions, 'session', function(s){ return s.date || ''; });
   scan(savedMatches, 'match', function(m){ return (m.date || '') + (m.opponent ? ' vs ' + m.opponent : ''); });
 
+  // On compare aussi avec les tests Perf Physique (Vmax radar/chrono, Accel Max testé
+  // au sol) — si une valeur saisie là-bas est supérieure à ce qui ressort des séances
+  // GPS, c'est elle qui devient le record affiché.
+  function scanPerfPhysique(testId, recordKey) {
+    if (typeof getPlayerTests !== 'function') return;
+    var history = getPlayerTests(name, testId);
+    history.forEach(function(t) {
+      if (t.value != null && (records[recordKey].val == null || t.value > records[recordKey].val)) {
+        records[recordKey] = { val: t.value, date: shortDateLabel(t.date), type: 'perf' };
+      }
+    });
+  }
+  scanPerfPhysique('vmax', 'vmax');
+  scanPerfPhysique('accelmax', 'accel');
+
   var defs = [
     { key:'vmax',  label:'Vmax',      unit:'km/h' },
     { key:'accel', label:'Accel max', unit:''     },
@@ -11529,10 +11561,11 @@ function renderProfileGpsRecords(name) {
       var r = records[d.key];
       if (r.val == null) return '<div class="gps-record-card"><div class="gr-label">' + d.label + '</div><div class="gr-val" style="color:rgba(255,255,255,.2)">—</div></div>';
       var val = typeof r.val === 'number' ? (Number.isInteger(r.val) ? r.val : r.val.toFixed(2)) : r.val;
+      var srcIcon = r.type === 'match' ? '🏉 ' : (r.type === 'perf' ? '🏋️ ' : '');
       return '<div class="gps-record-card">'
         + '<div class="gr-label">' + d.label + '</div>'
         + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
-        + (r.date ? '<div class="gr-date">' + (r.type === 'match' ? '🏉 ' : '') + r.date + '</div>' : '')
+        + (r.date ? '<div class="gr-date">' + srcIcon + r.date + '</div>' : '')
         + '</div>';
     }).join('');
   }
