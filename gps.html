@@ -3260,7 +3260,10 @@ Petit Enzo ; 9</pre>
         <div class="joueur-profile-badges" id="profileBadges"></div>
         <div id="profileMeta" style="font-size:12px;color:rgba(255,255,255,.4)"></div>
       </div>
-      <button onclick="openAnthropoEdit()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px 14px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;align-self:flex-start;white-space:nowrap">✏️ Modifier</button>
+      <div style="display:flex;flex-direction:column;gap:6px;align-self:flex-start">
+        <button onclick="pidOpen()" style="background:#D6001C;border:1px solid #D6001C;border-radius:8px;padding:7px 14px;color:#fff;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">📄 Fiche PID</button>
+        <button onclick="openAnthropoEdit()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px 14px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;align-self:flex-start;white-space:nowrap">✏️ Modifier</button>
+      </div>
     </div>
 
     <!-- Charge AC:CR + sRPE -->
@@ -4391,9 +4394,7 @@ const OBJECTIVE_COLUMNS = [
   { key: "contacts", label: "Contact" },
   { key: "rhie", label: "RHIE" },
   { key: "vmax", label: "VMAX" },
-  { key: "pctVmax", label: "% VMAX" },
   { key: "accelMax", label: "ACCEL" },
-  { key: "pctAccelMax", label: "% ACCEL" },
   { key: "accel23", label: "ACCEL 2-3" },
 ];
 const OBJECTIVE_KEYS = new Set(OBJECTIVE_COLUMNS.map((c) => c.key));
@@ -5937,21 +5938,12 @@ function renderMatchGroupTableReadonly(groupName, sortedStats) {
     tr.appendChild(tdName);
     visibleColumns.forEach(col => {
       const isLeader = leaders[col.key] && (leaders[col.key].displayName || leaders[col.key].player) === (s.displayName || s.player);
-      // Même vérification d'objectif que dans la vue "import en cours" —
-      // absente ici jusqu'à présent, ce qui faisait que le vert ne
-      // s'affichait plus jamais une fois le match enregistré et rouvert.
-      const met = OBJECTIVE_KEYS.has(col.key)
-        ? (getMatchObjective(s.position, col.key) !== null ? s[col.key] >= getMatchObjective(s.position, col.key) : null)
-        : null;
-      const isRecord = (col.key === "vmax" || col.key === "accelMax") && s.displayName && seasonRecords[s.displayName] &&
-        s[col.key] > 0 && (col.key === "vmax" ? s[col.key] >= seasonRecords[s.displayName].vmax && seasonRecords[s.displayName].vmax > 0 : s[col.key] >= seasonRecords[s.displayName].accel && seasonRecords[s.displayName].accel > 0);
       const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
       const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
       const td = document.createElement("td");
-      td.style.background = objectiveCellBackground(met, pct);
-      if (met === true) td.classList.add("obj-met");
+      td.style.background = `linear-gradient(to right, rgba(26,26,26,0.12) ${pct}%, transparent ${pct}%)`;
       if (isLeader) td.dataset.leader = "1";
-      td.textContent = fmt(s[col.key], col.decimals) + (isRecord ? " ⭐" : "");
+      td.textContent = fmt(s[col.key], col.decimals);
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -10017,7 +10009,6 @@ const TEST_DEFS = [
   { id:'yoyo',      label:'Yo-Yo',       unit:'m',  icon:'🔄', lower:false },
   { id:'bronco',    label:'Bronco',      unit:'s',  icon:'⏱️', lower:true  },
   { id:'vmax',      label:'Vmax',        unit:'km/h',icon:'💨',lower:false },
-  { id:'accelmax',  label:'Accel Max (test)', unit:'',icon:'🚀',lower:false },
   { id:'dcsquat',   label:'DC Squat',    unit:'kg', icon:'🏋️', lower:false },
   { id:'backsquat', label:'Back Squat',  unit:'kg', icon:'🏋️', lower:false },
   { id:'clean',     label:'Clean',       unit:'kg', icon:'🔱', lower:false },
@@ -10726,9 +10717,8 @@ function handleXlsxFile(file) {
         'yoyo':'yoyo','yo-yo':'yoyo','yyir':'yoyo',
         'bronco':'bronco','temps bronco':'bronco',
         'vmax':'vmax',
-        'accel max':'accelmax','accelmax':'accelmax','accel':'accelmax',
         'dc':'dcsquat','dc squat':'dcsquat','dcsquat':'dcsquat',
-        'back squat':'backsquat','backsquat':'backsquat','squat':'backsquat',
+        'back squat':'backsquat','backsquat':'backsquat',
         'clean':'clean',
         'trap bar':'trapbar','trapbar':'trapbar',
         'pendlay row':'pendlay','pendlay':'pendlay','tp':'traction',
@@ -10755,8 +10745,8 @@ function handleXlsxFile(file) {
       rows.forEach(function(row) {
         var playerRaw = String(findVal(row,['NOMS','Joueur','joueur','NOM','nom','Player','Nom','Noms'])||'').trim();
         var dateRaw   = findVal(row,['DATES','Date','date','DATE','Dates']);
-        var testRaw   = String(findVal(row,['TEST','Test','test','TYPE','Type','TYPES','Types','types','Exercice','exercice','EXERCICE'])||'').trim().toLowerCase();
-        var valRaw    = findVal(row,['VALEURS','Valeur','valeur','VALEUR','Value','SCORE','Score','score','Valeurs','Charge','charge','CHARGE']);
+        var testRaw   = String(findVal(row,['TEST','Test','test','TYPE','Type','TYPES','Types','types'])||'').trim().toLowerCase();
+        var valRaw    = findVal(row,['VALEURS','Valeur','valeur','VALEUR','Value','SCORE','Score','score','Valeurs']);
         var ctx       = String(findVal(row,['Contexte','contexte'])||'').trim();
 
         if (!playerRaw || !testRaw || valRaw === undefined || valRaw === '') { errors++; return; }
@@ -11233,9 +11223,9 @@ document.addEventListener('visibilitychange', function() {
 function shortDateLabel(d) {
   if (!d) return '';
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
-  if (m) return m[3] + '/' + m[2] + '/' + m[1].slice(2);
+  if (m) return m[3] + '/' + m[2];
   var m2 = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d);
-  if (m2) return m2[1] + '/' + m2[2] + '/' + m2[3].slice(2);
+  if (m2) return m2[1] + '/' + m2[2];
   return d.slice(0, 5);
 }
 
@@ -11261,15 +11251,11 @@ function makeSparkline(history, lower) {
     var x = sx(i), y = sy(h.value);
     var isEdge = (i === 0 || i === n - 1);
     var showLabel = showAllLabels || isEdge;
-    // Ancrage du texte : à gauche/droite sur les points d'extrémité (pour ne
-    // pas déborder du cadre), centré pour les points intermédiaires.
-    var anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
-    var tx = i === 0 ? x + 2 : (i === n - 1 ? x - 2 : x);
     svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2" fill="' + lastColor + '"/>';
     if (showLabel) {
       var labelY = y - 5 < 8 ? y + 12 : y - 5;
-      svg += '<text x="' + tx.toFixed(1) + '" y="' + labelY.toFixed(1) + '" font-size="8" text-anchor="' + anchor + '" fill="rgba(255,255,255,.8)">' + h.value + '</text>';
-      svg += '<text x="' + tx.toFixed(1) + '" y="' + (H - 3) + '" font-size="7" text-anchor="' + anchor + '" fill="rgba(255,255,255,.4)">' + shortDateLabel(h.date) + '</text>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + labelY.toFixed(1) + '" font-size="8" text-anchor="middle" fill="rgba(255,255,255,.8)">' + h.value + '</text>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + (H - 3) + '" font-size="7" text-anchor="middle" fill="rgba(255,255,255,.4)">' + shortDateLabel(h.date) + '</text>';
     }
   });
   svg += '</svg>';
@@ -11280,7 +11266,7 @@ function makeSparkline(history, lower) {
 function renderProfileTestsV2(name) {
   var el = document.getElementById('profileTests');
   if (!el) return;
-  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','vmax','cmj','broadjump','taille','poids'];
+  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','cmj','broadjump','taille','poids'];
   var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_IDS.indexOf(t.id) !== -1; });
 
   el.innerHTML = testsToShow.map(function(test) {
@@ -11530,23 +11516,8 @@ function renderProfileGpsRecords(name) {
     });
   }
 
-  scan(savedSessions, 'session', function(s){ return shortDateLabel(s.date); });
-  scan(savedMatches, 'match', function(m){ return shortDateLabel(m.date) + (m.opponent ? ' vs ' + m.opponent : ''); });
-
-  // On compare aussi avec les tests Perf Physique (Vmax radar/chrono, Accel Max testé
-  // au sol) — si une valeur saisie là-bas est supérieure à ce qui ressort des séances
-  // GPS, c'est elle qui devient le record affiché.
-  function scanPerfPhysique(testId, recordKey) {
-    if (typeof getPlayerTests !== 'function') return;
-    var history = getPlayerTests(name, testId);
-    history.forEach(function(t) {
-      if (t.value != null && (records[recordKey].val == null || t.value > records[recordKey].val)) {
-        records[recordKey] = { val: t.value, date: shortDateLabel(t.date), type: 'perf' };
-      }
-    });
-  }
-  scanPerfPhysique('vmax', 'vmax');
-  scanPerfPhysique('accelmax', 'accel');
+  scan(savedSessions, 'session', function(s){ return s.date || ''; });
+  scan(savedMatches, 'match', function(m){ return (m.date || '') + (m.opponent ? ' vs ' + m.opponent : ''); });
 
   var defs = [
     { key:'vmax',  label:'Vmax',      unit:'km/h' },
@@ -11561,10 +11532,10 @@ function renderProfileGpsRecords(name) {
       var r = records[d.key];
       if (r.val == null) return '<div class="gps-record-card"><div class="gr-label">' + d.label + '</div><div class="gr-val" style="color:rgba(255,255,255,.2)">—</div></div>';
       var val = typeof r.val === 'number' ? (Number.isInteger(r.val) ? r.val : r.val.toFixed(2)) : r.val;
-      var srcIcon = r.type === 'match' ? '🏉' : (r.type === 'perf' ? '🏋️' : '');
       return '<div class="gps-record-card">'
-        + '<div class="gr-label">' + d.label + (srcIcon ? ' <span style="font-size:10px">' + srcIcon + '</span>' : '') + '</div>'
+        + '<div class="gr-label">' + d.label + '</div>'
         + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
+        + (r.date ? '<div class="gr-date">' + (r.type === 'match' ? '🏉 ' : '') + r.date + '</div>' : '')
         + '</div>';
     }).join('');
   }
@@ -13031,6 +13002,267 @@ switchHub = function(name) {
     }
   }
 };
+</script>
+
+<!-- ══════════ FICHE PID (A4 paysage) ══════════ -->
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,600;0,700;0,800;1,700;1,800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  #pidOverlay{font-family:'Archivo',system-ui,sans-serif;color:#17171a}
+  #pidOverlay *{box-sizing:border-box}
+  .pid-tcard{cursor:pointer;transition:box-shadow .12s,border-color .12s}
+  .pid-tcard:hover{border-color:#c1121f !important;box-shadow:0 2px 10px rgba(193,18,31,.16)}
+  @media print{
+    body>*{display:none !important}
+    #pidOverlay{display:block !important;position:static !important;background:#fff !important;padding:0 !important;overflow:visible !important}
+    #pidToolbar,#pidChartModal,#pidFoot{display:none !important}
+    #pidSheet>div{box-shadow:none !important;border:none !important;margin:0 !important}
+    @page{size:A4 landscape;margin:0}
+  }
+</style>
+<div id="pidOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:#e9e9ec;overflow:auto;padding:16px 16px 40px">
+  <div id="pidToolbar" style="width:1123px;max-width:100%;margin:0 auto 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <button onclick="pidClose()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:9px 16px;border:1px solid #c9c9d0;border-radius:8px;background:#fff;color:#3a3a42;cursor:pointer">← Retour</button>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#6a6a72">Dashboard PID NR</div>
+    <div style="flex:1"></div>
+    <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6a6a72">Joueur</label>
+    <select id="pidPlayerSelect" onchange="pidSelect(this.value)" style="font-family:inherit;font-size:13px;font-weight:700;padding:8px 12px;border:1px solid #c9c9d0;border-radius:8px;background:#fff;color:#17171a;min-width:190px;cursor:pointer"></select>
+    <button onclick="window.print()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:9px 16px;border:none;border-radius:8px;background:#c1121f;color:#fff;cursor:pointer">Imprimer / PDF</button>
+  </div>
+  <div id="pidSheet"></div>
+  <div id="pidFoot" style="width:1123px;max-width:100%;margin:12px auto 0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7a7a82">Données : Perf Physique (tests) · Profils joueurs · Médical (blessures). Clique une carte de test pour voir son évolution.</div>
+  <div id="pidChartModal" onclick="pidCloseChart()" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(12,12,14,.55);align-items:center;justify-content:center;padding:24px">
+    <div id="pidChartBox" onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:20px 22px 16px;width:760px;max-width:100%"></div>
+  </div>
+</div>
+<script>
+/* ═══════ FICHE PID — vue A4 paysage de la fiche joueur ═══════ */
+var pidPlayer = null;
+var PID_LOWER = { '10m':1, '20m':1, '30m':1, '50m':1, '5m':1, bronco:1 };
+
+function pidNum(v, dec) {
+  if (v === null || v === undefined || v === '' || isNaN(parseFloat(v))) return '—';
+  var n = parseFloat(v);
+  var s = (dec === null || dec === undefined) ? String(Math.round(n*100)/100) : n.toFixed(dec);
+  return s.replace('.', ',');
+}
+function pidDate(d) {
+  if (!d) return '—';
+  var s = String(d);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) { var p = s.slice(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+  return s;
+}
+function pidEsc(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function pidPlayers() {
+  var set = {};
+  try { (physicalTests||[]).forEach(function(t){ if (t && t.player) set[t.player]=1; }); } catch(e) {}
+  try { Object.keys(playerProfiles||{}).forEach(function(p){ set[p]=1; }); } catch(e) {}
+  try { Object.keys(medicalRecords||{}).forEach(function(p){ set[p]=1; }); } catch(e) {}
+  try { if (typeof getAllPlayerNames === 'function') getAllPlayerNames().forEach(function(p){ if(p) set[p]=1; }); } catch(e) {}
+  return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'fr'); });
+}
+function pidHist(name, type) {
+  var low = String(name||'').toLowerCase();
+  return (physicalTests||[])
+    .filter(function(t){ return t && String(t.player).toLowerCase()===low && t.type===type && t.value!==null && t.value!=='' && !isNaN(parseFloat(t.value)); })
+    .sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+}
+function pidLast(type) { var h = pidHist(pidPlayer, type); return h.length ? h[h.length-1].value : null; }
+
+function pidTestCard(type, label, dec, size) {
+  var h = pidHist(pidPlayer, type);
+  var last = h[h.length-1], prev = h[h.length-2];
+  var val = last ? pidNum(last.value, dec) : '—';
+  var dt  = last ? pidDate(last.date) : 'aucun test';
+  var delta = '', color = '#9a9aa2';
+  if (last && prev) {
+    var d = parseFloat(last.value) - parseFloat(prev.value);
+    if (Math.abs(d) > 1e-9) {
+      color = (PID_LOWER[type] ? d < 0 : d > 0) ? '#1f8a4c' : '#c1121f';
+      delta = (d > 0 ? '+' : '−') + pidNum(Math.abs(d), dec);
+    }
+  }
+  var titleSize = size === 'big' ? 15 : 13.5;
+  var valSize   = size === 'big' ? 26 : 23;
+  return '<div class="pid-tcard" onclick="pidShowChart(\''+type+'\',\''+pidEsc(label)+'\','+dec+')" title="Voir l\'évolution"'
+    + ' style="background:#fff;border:1px solid #dcdce2;border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">'
+    + '<div style="font-size:'+titleSize+'px;font-weight:800;color:#c1121f;text-align:center;line-height:1.15">'+pidEsc(label)+'</div>'
+    + '<div style="display:flex;align-items:baseline;gap:6px"><div style="font-size:'+valSize+'px;font-weight:700;color:#17171a;line-height:1.1">'+val+'</div>'
+    + '<div style="font-size:11px;font-weight:700;color:'+color+'">'+delta+'</div></div>'
+    + '<div style="font-size:10px;font-weight:600;font-style:italic;color:#9a9aa2">'+dt+'</div></div>';
+}
+
+function pidBannerCard(label, value, unit) {
+  return '<div style="background:#fff;border:1px solid #dcdce2;border-radius:12px;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px">'
+    + '<div style="font-size:11px;font-weight:800;font-style:italic;color:#c1121f;white-space:nowrap">'+pidEsc(label)+'</div>'
+    + '<div style="font-size:22px;font-weight:700;color:#17171a;line-height:1">'+value+'</div>'
+    + '<div style="font-size:8.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#9a9aa2">'+pidEsc(unit)+'</div></div>';
+}
+
+function pidSectionTitle(t) {
+  return '<div style="background:#fff;border:1px solid #dcdce2;border-radius:12px;padding:7px;font-size:16px;font-weight:800;font-style:italic;color:#c1121f;text-align:center">'+t+'</div>';
+}
+
+function pidRender() {
+  var sheet = document.getElementById('pidSheet');
+  if (!sheet || !pidPlayer) return;
+  var prof = (playerProfiles||{})[pidPlayer] || {};
+  var taille = prof.taille !== undefined && prof.taille !== '' && prof.taille !== null ? prof.taille : pidLast('taille');
+  var poids  = prof.poids  !== undefined && prof.poids  !== '' && prof.poids  !== null ? prof.poids  : pidLast('poids');
+
+  var banner = pidBannerCard('Taille', pidNum(taille,0), 'cm')
+    + pidBannerCard('% MG', pidNum(prof.mg, 2), '%')
+    + pidBannerCard('Poids', pidNum(poids,1), 'kg')
+    + pidBannerCard('Tps jeu', pidNum(prof.tpsjeu, 0), 'min')
+    + pidBannerCard('VMAX', pidNum(pidLast('vmax'), 2), 'km/h');
+
+  var inj = ((medicalRecords||{})[pidPlayer] || []).slice()
+    .sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); })
+    .map(function(i){ return { date: pidDate(i.date), loc: i.lieuLabel||'', bless: i.blessure||'', typo: i.typologie||'' }; });
+  while (inj.length < 7) inj.push({ date:'', loc:'', bless:'', typo:'' });
+  inj = inj.slice(0, 7);
+  var cols = 'display:grid;grid-template-columns:96px 1fr 1fr 1fr;gap:4px';
+  var th = function(t){ return '<div style="background:#17171a;color:#fff;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 8px;border-radius:4px;text-align:center">'+t+'</div>'; };
+  var cell = function(t, strong){ return '<div style="border:1px solid #e2e2e8;border-radius:4px;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 4px;font-size:11px;font-weight:'+(strong?700:600)+';color:'+(strong?'#17171a':'#3a3a42')+'">'+pidEsc(t)+'</div>'; };
+  var injRows = inj.map(function(r){ return '<div style="'+cols+'">'+cell(r.date,true)+cell(r.loc)+cell(r.bless)+cell(r.typo)+'</div>'; }).join('');
+
+  sheet.innerHTML =
+    '<div style="width:1123px;height:794px;margin:0 auto;background:#f4f4f6;border:1px solid #d6d6dc;box-shadow:0 18px 50px rgba(0,0,0,.14);padding:14px;display:grid;grid-template-columns:196px 1fr 1fr;gap:12px">'
+      + '<div style="display:flex;flex-direction:column;gap:12px;min-height:0">'
+        + '<div style="background:#fff;border:1px solid #dcdce2;border-radius:14px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;gap:6px">'
+          + '<img src="https://nissarugby.fr/main_logo.svg" alt="Nissa Rugby" style="height:52px;width:auto">'
+          + '<div style="font-size:15px;font-weight:800;color:#c1121f">Dashboard</div>'
+          + '<div style="font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#8a8a92">PID NR</div></div>'
+        + '<div style="flex:1;min-height:0;background:linear-gradient(170deg,#c1121f 0%,#8a0d17 55%,#3a0509 100%);border:1px solid #dcdce2;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;overflow:hidden">'
+          + '<div style="flex:1;min-height:0;border-radius:10px;border:1px dashed rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;text-align:center;padding:10px">'
+          + '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;line-height:1.6;color:rgba(255,255,255,.85)">photo joueur<br>à déposer</div></div>'
+          + '<div><div style="font-size:19px;font-weight:800;color:#fff;line-height:1.1">'+pidEsc(pidPlayer)+'</div>'
+          + '<div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.92)">'+pidEsc(prof.prenom || prof.prenoms || '—')+'</div></div>'
+          + '<div style="display:flex;gap:6px">'
+          + '<div style="flex:1;background:rgba(255,255,255,.16);border-radius:8px;padding:6px 8px"><div style="font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.8)">Poste 1</div><div style="font-size:14px;font-weight:800;color:#fff">'+pidEsc(prof.poste1 || prof.poste || '—')+'</div></div>'
+          + '<div style="flex:1;background:rgba(255,255,255,.16);border-radius:8px;padding:6px 8px"><div style="font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.8)">Poste 2</div><div style="font-size:14px;font-weight:800;color:#fff">'+pidEsc(prof.poste2 || '—')+'</div></div>'
+          + '</div></div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:12px;min-height:0">'
+        + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">'+banner+'</div>'
+        + '<div style="flex:1;min-height:0;background:#fff;border:1px solid #dcdce2;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px">'
+          + '<div style="font-size:16px;font-weight:800;font-style:italic;color:#c1121f;text-align:center">Historique de blessures</div>'
+          + '<div style="'+cols+'">'+th('Date')+th('Localisation')+th('Blessure')+th('Typologie')+'</div>'
+          + '<div style="flex:1;min-height:0;display:grid;grid-template-rows:repeat(7,1fr);gap:4px">'+injRows+'</div>'
+        + '</div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:12px;min-height:0">'
+        + pidSectionTitle('Vitesse (derniers tests)')
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;flex:1.05;min-height:0">'
+          + pidTestCard('10m','10m',2,'big') + pidTestCard('20m','20m',2,'big') + pidTestCard('30m','30m',2,'big') + pidTestCard('50m','50m',2,'big')
+        + '</div>'
+        + pidSectionTitle('Musculation (derniers tests)')
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1.05;min-height:0">'
+          + pidTestCard('backsquat','Back squat',1) + pidTestCard('dcsquat','Développé couché',1)
+          + pidTestCard('pendlay','Tirage planche',1) + pidTestCard('clean','Clean',1)
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:0.8;min-height:0">'
+          + pidTestCard('cmj','CMJ',0) + pidTestCard('broadjump','BJ',2)
+        + '</div>'
+        + pidSectionTitle('Endurance (dernier test)')
+        + pidEnduranceCard()
+      + '</div>'
+    + '</div>';
+}
+
+function pidEnduranceCard() {
+  var h = pidHist(pidPlayer, 'yoyo');
+  var last = h[h.length-1];
+  return '<div class="pid-tcard" onclick="pidShowChart(\'yoyo\',\'Yoyo\',0)" style="flex:0.75;min-height:0;background:#fff;border:1px solid #dcdce2;border-radius:12px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
+    + '<div><div style="font-size:15px;font-weight:800;font-style:italic;color:#c1121f">Yoyo</div>'
+    + '<div style="font-size:10px;font-weight:600;font-style:italic;color:#9a9aa2">'+(last ? pidDate(last.date) : 'aucun test')+'</div></div>'
+    + '<div style="display:flex;align-items:baseline;gap:8px"><div style="font-size:30px;font-weight:700;color:#17171a;line-height:1">'+(last ? pidNum(last.value,0) : '—')+'</div>'
+    + '<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9a9aa2">m</div></div></div>';
+}
+
+function pidShowChart(type, label, dec) {
+  var h = pidHist(pidPlayer, type);
+  var box = document.getElementById('pidChartBox');
+  var head = '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px"><div>'
+    + '<div style="font-size:19px;font-weight:800;font-style:italic;color:#c1121f">'+pidEsc(label)+' — évolution</div>'
+    + '<div style="font-size:12px;font-weight:600;color:#8a8a92">'+pidEsc(pidPlayer)+'</div></div><div style="flex:1"></div>'
+    + '<button onclick="pidCloseChart()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;border:1px solid #dcdce2;border-radius:8px;background:#f4f4f6;color:#3a3a42;cursor:pointer">Fermer</button></div>';
+
+  if (!h.length) {
+    box.innerHTML = head + '<div style="height:200px;display:flex;align-items:center;justify-content:center;border:1px dashed #dcdce2;border-radius:12px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:#9a9aa2">Aucun test enregistré pour ce joueur</div>';
+    document.getElementById('pidChartModal').style.display = 'flex';
+    return;
+  }
+
+  var vals = h.map(function(t){ return parseFloat(t.value); });
+  var lower = !!PID_LOWER[type];
+  var best = lower ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
+  var d = vals[vals.length-1] - vals[0];
+  var prog = '—', progColor = '#9a9aa2';
+  if (h.length > 1) {
+    if (Math.abs(d) < 1e-9) prog = '=';
+    else { prog = (d > 0 ? '+' : '−') + pidNum(Math.abs(d), dec); progColor = (lower ? d < 0 : d > 0) ? '#1f8a4c' : '#c1121f'; }
+  }
+  var stat = function(l, v, c){ return '<div style="flex:1;background:#f7f7f9;border:1px solid #e6e6ea;border-radius:10px;padding:8px 10px">'
+    + '<div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#9a9aa2">'+l+'</div>'
+    + '<div style="font-size:19px;font-weight:700;color:'+c+'">'+v+'</div></div>'; };
+  var stats = '<div style="display:flex;gap:8px;margin-bottom:14px">'
+    + stat('Dernier', pidNum(vals[vals.length-1], dec), '#17171a')
+    + stat('Meilleur', pidNum(best, dec), '#1f8a4c')
+    + stat('Écart 1er / dernier', prog, progColor)
+    + stat('Tests', String(h.length), '#17171a') + '</div>';
+
+  var L=56, R=684, T=40, B=258;
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  if (max - min < 1e-9) { var sp = Math.abs(min)*0.05 + 1; min -= sp; max += sp; }
+  else { var pad = (max-min)*0.18; min -= pad; max += pad; }
+  var yOf = function(v){ return B - ((v-min)/(max-min))*(B-T); };
+  var xOf = function(i){ return h.length===1 ? (L+R)/2 : L + (i/(h.length-1))*(R-L); };
+
+  var pts = h.map(function(t,i){ var x = Math.round(xOf(i)*10)/10, y = Math.round(yOf(parseFloat(t.value))*10)/10;
+    return { x:x, y:y, left:(x/700*100).toFixed(2)+'%', top:((y-9)/300*100).toFixed(2)+'%', label:pidNum(t.value,dec), date:pidDate(t.date) }; });
+  var path = pts.map(function(p,i){ return (i?'L':'M')+p.x+' '+p.y; }).join(' ');
+  var area = pts.length > 1 ? path + ' L'+pts[pts.length-1].x+' '+B+' L'+pts[0].x+' '+B+' Z' : '';
+  var grid = [0,0.25,0.5,0.75,1].map(function(f){ var v = min + f*(max-min), y = Math.round(yOf(v)*10)/10;
+    return { y:y, top:(y/300*100).toFixed(2)+'%', label:pidNum(v,dec) }; });
+
+  var svg = '<svg viewBox="0 0 700 300" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;display:block">'
+    + grid.map(function(g){ return '<line x1="56" y1="'+g.y+'" x2="684" y2="'+g.y+'" stroke="#e6e6ea" stroke-width="1"></line>'; }).join('')
+    + (area ? '<path d="'+area+'" fill="rgba(193,18,31,.10)"></path>' : '')
+    + '<path d="'+path+'" fill="none" stroke="#c1121f" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>'
+    + pts.map(function(p){ return '<circle cx="'+p.x+'" cy="'+p.y+'" r="5" fill="#fff" stroke="#c1121f" stroke-width="2.5"></circle>'; }).join('')
+    + '</svg>';
+  var labels = grid.map(function(g){ return '<div style="position:absolute;left:0;width:6.4%;text-align:right;transform:translateY(-50%);font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:#9a9aa2;top:'+g.top+'">'+g.label+'</div>'; }).join('')
+    + pts.map(function(p){ return '<div style="position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font-size:12px;font-weight:700;color:#17171a;left:'+p.left+';top:'+p.top+'">'+p.label+'</div>'; }).join('')
+    + pts.map(function(p){ return '<div style="position:absolute;bottom:0;transform:translateX(-50%);white-space:nowrap;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:#9a9aa2;left:'+p.left+'">'+p.date+'</div>'; }).join('');
+
+  box.innerHTML = head + stats + '<div style="position:relative;width:100%;aspect-ratio:700 / 300">'+svg+labels+'</div>';
+  document.getElementById('pidChartModal').style.display = 'flex';
+}
+function pidCloseChart() { document.getElementById('pidChartModal').style.display = 'none'; }
+
+function pidSelect(v) { pidPlayer = v; pidRender(); }
+
+function pidOpen(name) {
+  try { if (typeof loadPhysicalTests === 'function') physicalTests = loadPhysicalTests(); } catch(e) {}
+  try { if (typeof loadPlayerProfiles === 'function') playerProfiles = loadPlayerProfiles(); } catch(e) {}
+  try { if (typeof loadMedicalRecords === 'function') medicalRecords = loadMedicalRecords(); } catch(e) {}
+  var list = pidPlayers();
+  pidPlayer = name || (typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer) || list[0];
+  var sel = document.getElementById('pidPlayerSelect');
+  sel.innerHTML = list.map(function(p){ return '<option value="'+pidEsc(p)+'"'+(p===pidPlayer?' selected':'')+'>'+pidEsc(p)+'</option>'; }).join('');
+  pidRender();
+  document.getElementById('pidOverlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function pidClose() {
+  document.getElementById('pidOverlay').style.display = 'none';
+  pidCloseChart();
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  var ov = document.getElementById('pidOverlay');
+  if (!ov || ov.style.display === 'none') return;
+  if (document.getElementById('pidChartModal').style.display === 'flex') pidCloseChart(); else pidClose();
+});
 </script>
 </body>
 </html>
