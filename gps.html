@@ -11280,7 +11280,7 @@ function makeSparkline(history, lower) {
 function renderProfileTestsV2(name) {
   var el = document.getElementById('profileTests');
   if (!el) return;
-  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','vmax','accelmax','cmj','broadjump','taille','poids'];
+  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','vmax','cmj','broadjump','taille','poids'];
   var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_IDS.indexOf(t.id) !== -1; });
 
   el.innerHTML = testsToShow.map(function(test) {
@@ -11530,8 +11530,8 @@ function renderProfileGpsRecords(name) {
     });
   }
 
-  scan(savedSessions, 'session', function(s){ return s.date || ''; });
-  scan(savedMatches, 'match', function(m){ return (m.date || '') + (m.opponent ? ' vs ' + m.opponent : ''); });
+  scan(savedSessions, 'session', function(s){ return shortDateLabel(s.date); });
+  scan(savedMatches, 'match', function(m){ return shortDateLabel(m.date) + (m.opponent ? ' vs ' + m.opponent : ''); });
 
   // On compare aussi avec les tests Perf Physique (Vmax radar/chrono, Accel Max testé
   // au sol) — si une valeur saisie là-bas est supérieure à ce qui ressort des séances
@@ -11561,11 +11561,10 @@ function renderProfileGpsRecords(name) {
       var r = records[d.key];
       if (r.val == null) return '<div class="gps-record-card"><div class="gr-label">' + d.label + '</div><div class="gr-val" style="color:rgba(255,255,255,.2)">—</div></div>';
       var val = typeof r.val === 'number' ? (Number.isInteger(r.val) ? r.val : r.val.toFixed(2)) : r.val;
-      var srcIcon = r.type === 'match' ? '🏉 ' : (r.type === 'perf' ? '🏋️ ' : '');
+      var srcIcon = r.type === 'match' ? '🏉' : (r.type === 'perf' ? '🏋️' : '');
       return '<div class="gps-record-card">'
-        + '<div class="gr-label">' + d.label + '</div>'
+        + '<div class="gr-label">' + d.label + (srcIcon ? ' <span style="font-size:10px">' + srcIcon + '</span>' : '') + '</div>'
         + '<div class="gr-val">' + val + (d.unit ? ' <span style="font-size:10px;color:rgba(255,255,255,.3)">' + d.unit + '</span>' : '') + '</div>'
-        + (r.date ? '<div class="gr-date">' + srcIcon + r.date + '</div>' : '')
         + '</div>';
     }).join('');
   }
