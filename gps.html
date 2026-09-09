@@ -13019,14 +13019,6 @@ switchHub = function(name) {
     @page{size:A4 landscape;margin:0}
   }
 </style>
-<!-- Filtre de netteté (convolution "unsharp mask") appliqué aux photos joueurs
-     dans la Fiche PID — les photos sources sont de petites vignettes, ce filtre
-     compense un peu le flou dû à l'agrandissement. -->
-<svg width="0" height="0" style="position:absolute">
-  <filter id="pidPhotoSharpen">
-    <feConvolveMatrix order="3" kernelMatrix="0 -1 0 -1 5 -1 0 -1 0" preserveAlpha="true"/>
-  </filter>
-</svg>
 <div id="pidOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:#e9e9ec;overflow:auto;padding:16px 16px 40px">
   <div id="pidToolbar" style="width:1123px;max-width:100%;margin:0 auto 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <button onclick="pidClose()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:9px 16px;border:1px solid #c9c9d0;border-radius:8px;background:#fff;color:#3a3a42;cursor:pointer">← Retour</button>
@@ -13174,13 +13166,12 @@ function pidRender() {
           + '<img src="https://nissarugby.fr/main_logo.svg" alt="Nissa Rugby" style="height:52px;width:auto">'
           + '<div style="font-size:15px;font-weight:800;color:#c1121f">Dashboard</div>'
           + '<div style="font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#8a8a92">PID NR</div></div>'
-        + '<div style="flex:1;min-height:0;background:linear-gradient(170deg,#c1121f 0%,#8a0d17 55%,#3a0509 100%);border:1px solid #dcdce2;border-radius:14px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden">'
+        + '<div style="background:linear-gradient(170deg,#c1121f 0%,#8a0d17 55%,#3a0509 100%);border:1px solid #dcdce2;border-radius:14px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden">'
           + '<div style="width:150px;height:190px;flex-shrink:0;border-radius:10px;border:1px dashed rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;overflow:hidden;margin-top:6px">'
           + (typeof PLAYER_PHOTOS !== 'undefined' && PLAYER_PHOTOS[pidPlayer]
-              ? '<img src="'+PLAYER_PHOTOS[pidPlayer]+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px;image-rendering:-webkit-optimize-contrast;filter:url(#pidPhotoSharpen) contrast(1.08) saturate(1.08)">'
+              ? '<img src="'+PLAYER_PHOTOS[pidPlayer]+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px">'
               : '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;line-height:1.6;color:rgba(255,255,255,.85)">photo joueur<br>à déposer</div>')
           + '</div>'
-          + '<div style="flex:1"></div>'
           + '<div style="width:100%"><div style="font-size:19px;font-weight:800;color:#fff;line-height:1.1">'+pidEsc(pidPlayer)+'</div>'
           + '<div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.92)">'+pidEsc(prof.prenom || prof.prenoms || '—')+'</div></div>'
           + '<div style="display:flex;gap:6px;width:100%">'
