@@ -10180,7 +10180,7 @@ function renderJoueurGrid() {
     var photoHtml = PLAYER_PHOTOS[name]
       ? '<img src="' + PLAYER_PHOTOS[name] + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
       : '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="28" r="16" fill="rgba(255,255,255,.3)"/><path d="M8 80 Q8 50 40 50 Q72 50 72 80Z" fill="rgba(255,255,255,.3)"/></svg>';
-    return '<div class="joueur-card ' + status + '" onclick="openJoueurProfile(\'' + name.replace(/'/g,"\\'") + '\')">'
+    return '<div class="joueur-card ' + status + '" onclick="pidOpen(\'' + name.replace(/'/g,"\\'") + '\')">'
       + '<div class="joueur-avatar">' + photoHtml + '</div>'
       + '<div class="joueur-card-name">' + shortName + '</div>'
       + '</div>';
@@ -13026,10 +13026,11 @@ switchHub = function(name) {
     <div style="flex:1"></div>
     <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6a6a72">Joueur</label>
     <select id="pidPlayerSelect" onchange="pidSelect(this.value)" style="font-family:inherit;font-size:13px;font-weight:700;padding:8px 12px;border:1px solid #c9c9d0;border-radius:8px;background:#fff;color:#17171a;min-width:190px;cursor:pointer"></select>
+    <button onclick="pidOpenDetailedProfile()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:9px 16px;border:1px solid #c9c9d0;border-radius:8px;background:#fff;color:#3a3a42;cursor:pointer">📊 GPS / Wellness / Charge</button>
     <button onclick="window.print()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:9px 16px;border:none;border-radius:8px;background:#c1121f;color:#fff;cursor:pointer">Imprimer / PDF</button>
   </div>
   <div id="pidSheet"></div>
-  <div id="pidFoot" style="width:1123px;max-width:100%;margin:12px auto 0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7a7a82">Données : Perf Physique (tests) · Profils joueurs · Médical (blessures). Clique une carte de test pour voir son évolution.</div>
+  <div id="pidFoot" style="width:1123px;max-width:100%;margin:12px auto 0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7a7a82">Données : Perf Physique (tests) · Profils joueurs · Médical (blessures) · GPS (séances + matchs). Clique une carte pour voir son évolution.</div>
   <div id="pidChartModal" onclick="pidCloseChart()" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(12,12,14,.55);align-items:center;justify-content:center;padding:24px">
     <div id="pidChartBox" onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:20px 22px 16px;width:760px;max-width:100%"></div>
   </div>
@@ -13068,6 +13069,16 @@ function pidHist(name, type) {
 }
 function pidLast(type) { var h = pidHist(pidPlayer, type); return h.length ? h[h.length-1].value : null; }
 
+// Historique GPS (séances + matchs) pour un joueur, au même format {date, value}
+// que pidHist — réutilise les mêmes données que l'onglet Joueur normal pour
+// que la Fiche PID montre exactement les mêmes évolutions GPS (🏉 = match).
+function pidGpsHist(name, key) {
+  if (typeof profileGpsSessionSeries !== 'function') return [];
+  return profileGpsSessionSeries(name)
+    .filter(function(s){ return s[key] !== null && s[key] !== undefined && !isNaN(s[key]); })
+    .map(function(s){ return { date: s.date, value: s[key], label: s.label, isMatch: s.type === 'match' }; });
+}
+
 function pidTestCard(type, label, dec, size) {
   var h = pidHist(pidPlayer, type);
   var last = h[h.length-1], prev = h[h.length-2];
@@ -13089,6 +13100,29 @@ function pidTestCard(type, label, dec, size) {
     + '<div style="display:flex;align-items:baseline;gap:6px"><div style="font-size:'+valSize+'px;font-weight:700;color:#17171a;line-height:1.1">'+val+'</div>'
     + '<div style="font-size:11px;font-weight:700;color:'+color+'">'+delta+'</div></div>'
     + '<div style="font-size:10px;font-weight:600;font-style:italic;color:#9a9aa2">'+dt+'</div></div>';
+}
+
+// Carte d'évolution GPS (séances + matchs) — même principe que pidTestCard,
+// mais alimentée par les séances/matchs enregistrés plutôt que Perf Physique.
+function pidGpsCard(key, label, dec) {
+  var h = pidGpsHist(pidPlayer, key);
+  var last = h[h.length-1], prev = h[h.length-2];
+  var val = last ? pidNum(last.value, dec) : '—';
+  var dt  = last ? pidDate(last.date) : 'aucune séance';
+  var delta = '', color = '#9a9aa2';
+  if (last && prev) {
+    var d = parseFloat(last.value) - parseFloat(prev.value);
+    if (Math.abs(d) > 1e-9) {
+      color = d > 0 ? '#1f8a4c' : '#c1121f';
+      delta = (d > 0 ? '+' : '−') + pidNum(Math.abs(d), dec);
+    }
+  }
+  return '<div class="pid-tcard" onclick="pidShowChart(\''+key+'\',\''+pidEsc(label)+'\','+dec+',\'gps\')" title="Voir l\'évolution"'
+    + ' style="background:#fff;border:1px solid #dcdce2;border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">'
+    + '<div style="font-size:13.5px;font-weight:800;color:#c1121f;text-align:center;line-height:1.15">'+pidEsc(label)+'</div>'
+    + '<div style="display:flex;align-items:baseline;gap:6px"><div style="font-size:23px;font-weight:700;color:#17171a;line-height:1.1">'+val+'</div>'
+    + '<div style="font-size:11px;font-weight:700;color:'+color+'">'+delta+'</div></div>'
+    + '<div style="font-size:10px;font-weight:600;font-style:italic;color:#9a9aa2">'+(last && last.isMatch ? '🏉 ' : '')+dt+'</div></div>';
 }
 
 function pidBannerCard(label, value, unit) {
@@ -13164,6 +13198,14 @@ function pidRender() {
         + pidSectionTitle('Endurance (dernier test)')
         + pidEnduranceCard()
       + '</div>'
+    + '</div>'
+    + '<div style="width:1123px;max-width:100%;margin:14px auto 0;background:#f4f4f6;border:1px solid #d6d6dc;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.14);padding:14px">'
+      + '<div style="font-size:16px;font-weight:800;font-style:italic;color:#c1121f;text-align:center;margin-bottom:10px">Évolution GPS — séances + matchs <span style="font-size:11px;font-weight:600;font-style:normal;color:#9a9aa2">(🏉 = match · clique une carte pour le détail)</span></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
+        + pidGpsCard('distance','Distance (m)',0) + pidGpsCard('vmax','Vmax (km/h)',2) + pidGpsCard('accelMax','Accel Max',2)
+        + pidGpsCard('meterPerMin','m/min',1) + pidGpsCard('contacts','Contact',0) + pidGpsCard('accel23','Nb accel (2-3)',0)
+        + pidGpsCard('dist18','HSR (+18km/h)',0) + pidGpsCard('dist24','THI (+24km/h)',0) + pidGpsCard('rhie','RHIE',0)
+      + '</div>'
     + '</div>';
 }
 
@@ -13177,8 +13219,8 @@ function pidEnduranceCard() {
     + '<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9a9aa2">m</div></div></div>';
 }
 
-function pidShowChart(type, label, dec) {
-  var h = pidHist(pidPlayer, type);
+function pidShowChart(type, label, dec, source) {
+  var h = source === 'gps' ? pidGpsHist(pidPlayer, type) : pidHist(pidPlayer, type);
   var box = document.getElementById('pidChartBox');
   var head = '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px"><div>'
     + '<div style="font-size:19px;font-weight:800;font-style:italic;color:#c1121f">'+pidEsc(label)+' — évolution</div>'
@@ -13246,11 +13288,19 @@ function pidOpen(name) {
   try { if (typeof loadMedicalRecords === 'function') medicalRecords = loadMedicalRecords(); } catch(e) {}
   var list = pidPlayers();
   pidPlayer = name || (typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer) || list[0];
+  if (typeof currentProfilePlayer !== 'undefined') currentProfilePlayer = pidPlayer;
   var sel = document.getElementById('pidPlayerSelect');
   sel.innerHTML = list.map(function(p){ return '<option value="'+pidEsc(p)+'"'+(p===pidPlayer?' selected':'')+'>'+pidEsc(p)+'</option>'; }).join('');
   pidRender();
   document.getElementById('pidOverlay').style.display = 'block';
   document.body.style.overflow = 'hidden';
+}
+// Ouvre la vue détaillée (Charge, Wellness, Records GPS, évolutions, blessures,
+// matchs) pour le joueur actuellement affiché dans la Fiche PID.
+function pidOpenDetailedProfile() {
+  var name = pidPlayer;
+  pidClose();
+  if (name && typeof openJoueurProfile === 'function') openJoueurProfile(name);
 }
 function pidClose() {
   document.getElementById('pidOverlay').style.display = 'none';
