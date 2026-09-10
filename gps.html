@@ -10560,6 +10560,10 @@ function perfUpdateTestType(id, sel) {
 function renderPerfHistory() {
   var el = document.getElementById('perfHistoryContent');
   if (!el) return;
+  // Empêche la page de sauter en haut à chaque modification/tri/suppression :
+  // remplacer le HTML du tableau fait perdre le focus de la cellule éditée,
+  // ce qui pousse certains navigateurs à réinitialiser le défilement.
+  var scrollY = window.scrollY;
   var filterTest   = (document.getElementById('perfFilterTest')||{}).value || '';
   var filterPlayer = (document.getElementById('perfFilterPlayer')||{}).value || '';
 
@@ -10588,6 +10592,7 @@ function renderPerfHistory() {
 
   if (!tests.length) {
     el.innerHTML = '<div class="perf-empty">Aucun résultat enregistré.</div>';
+    window.scrollTo(0, scrollY);
     return;
   }
 
@@ -10617,6 +10622,7 @@ function renderPerfHistory() {
           + '</tr>';
       }).join('')
     + '</tbody></table>';
+  window.scrollTo(0, scrollY);
 }
 
 function deleteAllPerfTests() {
