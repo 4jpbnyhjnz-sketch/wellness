@@ -1780,6 +1780,10 @@ table.roster-table select { padding: 4px; }
 .perf-results-table th { background:rgba(255,255,255,.08); color:rgba(255,255,255,.5); text-align:left; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
 .perf-results-table td { padding:8px 10px; border-top:1px solid rgba(255,255,255,.06); color:#fff; }
 .perf-results-table tr:hover td { background:rgba(255,255,255,.03); }
+.perf-results-table th:hover { background:rgba(255,255,255,.14); color:#fff; }
+.perf-editable { cursor:text; border-radius:4px; outline:none; }
+.perf-editable:hover { background:rgba(214,0,28,.08); box-shadow:inset 0 0 0 1px rgba(214,0,28,.25); }
+.perf-editable:focus { background:rgba(214,0,28,.14); box-shadow:inset 0 0 0 1px #D6001C; }
 .perf-empty { font-size:13px; color:rgba(255,255,255,.3); text-align:center; padding:30px; }
 .perf-chart-wrap { background:rgba(255,255,255,.03); border-radius:8px; padding:12px; margin-top:10px; }
 .perf-chart-wrap svg { width:100%; height:auto; }
@@ -10502,6 +10506,57 @@ function savePerfTests() {
   alert('✓ ' + saved + ' test(s) enregistré(s) !');
 }
 
+var perfSortState = { key: 'date', dir: 'desc' };
+
+function perfSortBy(key) {
+  if (perfSortState.key === key) {
+    perfSortState.dir = perfSortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    perfSortState.key = key;
+    perfSortState.dir = (key === 'date') ? 'desc' : 'asc';
+  }
+  renderPerfHistory();
+}
+
+function perfSortArrow(key) {
+  if (perfSortState.key !== key) return '<span style="opacity:.25">↕</span>';
+  return perfSortState.dir === 'asc' ? '<span style="color:#D6001C">▲</span>' : '<span style="color:#D6001C">▼</span>';
+}
+
+function perfUpdateField(id, field, el) {
+  var t = physicalTests.find(function(x){ return String(x.id) === String(id); });
+  if (!t) return;
+  var raw = el.textContent.trim();
+  if (field === 'value') {
+    var num = parseFloat(raw.replace(',', '.'));
+    if (isNaN(num)) { el.textContent = t.value; alert('Valeur invalide.'); return; }
+    t.value = num;
+  } else if (field === 'date') {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw) || /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw);
+    if (!m) { el.textContent = t.date; alert('Date invalide (aaaa-mm-jj ou jj/mm/aaaa).'); return; }
+    t.date = m[1].length === 4 ? raw : (m[3] + '-' + m[2] + '-' + m[1]);
+  } else if (field === 'player') {
+    if (!raw) { el.textContent = t.player; return; }
+    t.player = raw;
+  } else if (field === 'context') {
+    t.context = raw;
+  }
+  savePhysicalTests();
+  var sel = document.getElementById('perfFilterPlayer');
+  if (sel) { var cur = sel.value; sel.innerHTML = '<option value="">Tous les joueurs</option>'; renderPerfHistory(); sel.value = cur; }
+  else renderPerfHistory();
+  if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+}
+
+function perfUpdateTestType(id, sel) {
+  var t = physicalTests.find(function(x){ return String(x.id) === String(id); });
+  if (!t) return;
+  t.type = sel.value;
+  savePhysicalTests();
+  renderPerfHistory();
+  if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+}
+
 function renderPerfHistory() {
   var el = document.getElementById('perfHistoryContent');
   if (!el) return;
@@ -10509,8 +10564,20 @@ function renderPerfHistory() {
   var filterPlayer = (document.getElementById('perfFilterPlayer')||{}).value || '';
 
   var tests = physicalTests
-    .filter(function(t){ return (!filterTest||t.type===filterTest) && (!filterPlayer||t.player===filterPlayer); })
-    .sort(function(a,b){ return b.date.localeCompare(a.date); });
+    .filter(function(t){ return (!filterTest||t.type===filterTest) && (!filterPlayer||t.player===filterPlayer); });
+
+  var key = perfSortState.key, dir = perfSortState.dir === 'asc' ? 1 : -1;
+  tests.sort(function(a, b) {
+    var av, bv;
+    if (key === 'value') { av = parseFloat(a.value); bv = parseFloat(b.value); }
+    else if (key === 'test') {
+      var da = TEST_DEFS.find(function(d){ return d.id===a.type; }); var dbb = TEST_DEFS.find(function(d){ return d.id===b.type; });
+      av = (da ? da.label : a.type).toLowerCase(); bv = (dbb ? dbb.label : b.type).toLowerCase();
+    } else { av = String(a[key]||'').toLowerCase(); bv = String(b[key]||'').toLowerCase(); }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
 
   // Populate player filter
   var sel = document.getElementById('perfFilterPlayer');
@@ -10524,16 +10591,28 @@ function renderPerfHistory() {
     return;
   }
 
-  el.innerHTML = '<table class="perf-results-table"><thead><tr>'
-    + '<th>Date</th><th>Joueur</th><th>Test</th><th>Valeur</th><th>Contexte</th><th></th>'
+  var testOptions = TEST_DEFS.map(function(d){ return '<option value="'+d.id+'">'+d.icon+' '+d.label+'</option>'; }).join('');
+
+  el.innerHTML = '<div style="font-size:10.5px;color:rgba(255,255,255,.35);margin-bottom:6px">'
+    + tests.length + ' résultat(s) · clique une colonne pour trier · clique une cellule pour la modifier</div>'
+    + '<table class="perf-results-table"><thead><tr>'
+    + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'date\')">Date ' + perfSortArrow('date') + '</th>'
+    + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'player\')">Joueur ' + perfSortArrow('player') + '</th>'
+    + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'test\')">Test ' + perfSortArrow('test') + '</th>'
+    + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'value\')">Valeur ' + perfSortArrow('value') + '</th>'
+    + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'context\')">Contexte ' + perfSortArrow('context') + '</th>'
+    + '<th></th>'
     + '</tr></thead><tbody>'
-    + tests.slice(0,50).map(function(t) {
-        var def = TEST_DEFS.find(function(d){ return d.id===t.type; }) || { label:t.type, unit:'' };
-        return '<tr><td style="color:rgba(255,255,255,.5);font-size:11px">'+t.date+'</td>'
-          + '<td style="font-weight:600">'+t.player+'</td>'
-          + '<td>'+def.icon+' '+def.label+'</td>'
-          + '<td style="color:#D6001C;font-weight:700;font-family:monospace">'+t.value+' '+def.unit+'</td>'
-          + '<td style="font-size:11px;color:rgba(255,255,255,.35)">'+( t.context||'—')+'</td>'
+    + tests.map(function(t) {
+        var def = TEST_DEFS.find(function(d){ return d.id===t.type; }) || { label:t.type, unit:'', icon:'' };
+        return '<tr>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="color:rgba(255,255,255,.6);font-size:11px" onblur="perfUpdateField(\''+t.id+'\',\'date\',this)">'+t.date+'</td>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="font-weight:600" onblur="perfUpdateField(\''+t.id+'\',\'player\',this)">'+t.player+'</td>'
+          + '<td><select onchange="perfUpdateTestType(\''+t.id+'\',this)" style="background:#1a1a1e;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:4px;font-size:11px;padding:2px 4px">'
+            + TEST_DEFS.map(function(d){ return '<option value="'+d.id+'"'+(d.id===t.type?' selected':'')+'>'+d.icon+' '+d.label+'</option>'; }).join('')
+            + '</select></td>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="color:#D6001C;font-weight:700;font-family:monospace" onblur="perfUpdateField(\''+t.id+'\',\'value\',this)">'+t.value+' '+def.unit+'</td>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="font-size:11px;color:rgba(255,255,255,.35)" onblur="perfUpdateField(\''+t.id+'\',\'context\',this)">'+(t.context||'')+'</td>'
           + '<td><button onclick="deletePerfTest(\''+t.id+'\')" style="background:none;border:none;color:#cc3333;cursor:pointer;font-size:13px">✕</button></td>'
           + '</tr>';
       }).join('')
