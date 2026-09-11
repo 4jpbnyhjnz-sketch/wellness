@@ -2150,6 +2150,7 @@ table.roster-table select { padding: 4px; }
     <span id="globalSyncDot" style="width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0;transition:background .2s"></span>
     <span id="globalSyncText">Synchro…</span>
   </div>
+  <button class="no-print" onclick="forceSyncLoad()" title="Forcer le rechargement des données depuis le cloud (utile sur un nouvel appareil)" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">⬇️</button>
   <div id="logoutBtn" style="display:none;align-items:center;gap:8px">
     <span id="userLabel" style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.05em"></span>
     <button onclick="logout()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 12px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Déconnexion</button>
@@ -4191,7 +4192,7 @@ let roster = loadRoster();
 function loadRosterPositions() {
   try { return JSON.parse(localStorage.getItem(ROSTER_POSITIONS_KEY) || "{}"); } catch(e) { return {}; }
 }
-function saveRosterPositions(p) { localStorage.setItem(ROSTER_POSITIONS_KEY, JSON.stringify(p)); }
+function saveRosterPositions(p) { localStorage.setItem(ROSTER_POSITIONS_KEY, JSON.stringify(p)); markLocalDataChanged(); }
 
 let rosterPositions = loadRosterPositions();
 
@@ -11192,9 +11193,36 @@ async function syncLoad(silent) {
     restoreAllData(data);
     var loadedLabel = data._date ? new Date(data._date).toLocaleString('fr-FR') : '';
     if (!silent) syncSetStatus('✓ Données chargées (' + (data._date ? new Date(data._date).toLocaleDateString('fr-FR') : '') + ')', '#2ecc8a');
-    setSyncPill('ok', 'Synchronisé', 'Dernière sauvegarde cloud : ' + loadedLabel);
+    setSyncPill('ok', 'À jour', 'Dernières données reçues du cloud : ' + loadedLabel);
   } catch(e) {
     if (!silent) syncSetStatus('⚠ ' + e.message, '#e8564a');
+    setSyncPill('warn', 'Hors ligne', 'Connexion au cloud impossible : ' + e.message);
+  }
+}
+
+// Force le rechargement depuis le cloud, en ignorant la protection "mes
+// données locales sont plus récentes" — utile pour un appareil qui vient
+// d'ouvrir l'appli et n'a que des données locales vides/anciennes, mais dont
+// une trace locale (même minime) empêchait le chargement automatique normal.
+async function forceSyncLoad() {
+  if (!confirm('Recharger les données du cloud maintenant ? Toute modification locale non envoyée sera perdue.')) return;
+  try {
+    setSyncPill('pending', 'Chargement…', 'Récupération forcée des données du cloud');
+    var resp = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&select=data,updated_at', {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+    });
+    if (!resp.ok) { syncSetStatus('⚠ Erreur de chargement ('+resp.status+')', '#e8564a'); setSyncPill('warn', 'Chargement échoué', ''); return; }
+    var rows = await resp.json();
+    if (!rows || !rows.length) { syncSetStatus('Aucune sauvegarde cloud pour l\'instant.', '#888'); return; }
+    var data = rows[0].data;
+    if (!data || !data._version) { syncSetStatus('⚠ Données cloud invalides.', '#e8564a'); return; }
+    localStorage.setItem('nissaLastLocalChange_v1', '0'); // lève la protection pour ce chargement
+    restoreAllData(data);
+    var loadedLabel = data._date ? new Date(data._date).toLocaleString('fr-FR') : '';
+    syncSetStatus('✓ Données rechargées (' + (data._date ? new Date(data._date).toLocaleDateString('fr-FR') : '') + ')', '#2ecc8a');
+    setSyncPill('ok', 'À jour', 'Dernières données reçues du cloud : ' + loadedLabel);
+  } catch(e) {
+    syncSetStatus('⚠ ' + e.message, '#e8564a');
     setSyncPill('warn', 'Hors ligne', 'Connexion au cloud impossible : ' + e.message);
   }
 }
@@ -11218,7 +11246,7 @@ async function syncSave() {
     if (r.ok) {
       var savedLabel = new Date().toLocaleString('fr-FR');
       syncSetStatus('✓ Sauvegardé le '+savedLabel, '#2ecc8a');
-      setSyncPill('ok', 'Synchronisé', 'Dernière sauvegarde cloud : ' + savedLabel);
+      setSyncPill('ok', 'Envoyé', 'Vos données ont été envoyées au cloud le : ' + savedLabel);
       hideGlobalSyncWarning();
     } else {
       var err = await r.text();
