@@ -2151,6 +2151,8 @@ table.roster-table select { padding: 4px; }
     <span id="globalSyncText">Synchro…</span>
   </div>
   <button class="no-print" onclick="forceSyncLoad()" title="Forcer le rechargement des données depuis le cloud (utile sur un nouvel appareil)" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">⬇️</button>
+  <button class="no-print" onclick="restoreLocalBackup()" title="Restaurer la sauvegarde locale prise juste avant le dernier chargement cloud (annuler un écrasement accidentel)" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">🕒</button>
+  <button class="no-print" onclick="recoverStoredPdfs()" title="Retélécharger les PDF de séances encore présents sur cet appareil" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">📄</button>
   <div id="logoutBtn" style="display:none;align-items:center;gap:8px">
     <span id="userLabel" style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.05em"></span>
     <button onclick="logout()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 12px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Déconnexion</button>
@@ -6842,6 +6844,41 @@ function deletePdfBlob(id) {
   })).catch((e) => console.error("deletePdfBlob failed", e));
 }
 
+// Outil de secours : liste et permet de retélécharger tous les PDF de séances
+// encore présents dans le stockage local (IndexedDB), même si la liste des
+// séances elle-même (localStorage) a été vidée par erreur. Ces PDF ne sont
+// pas ré-importables automatiquement, mais ils gardent une trace visuelle
+// complète de chaque séance pour ressaisir les données à la main si besoin.
+function recoverStoredPdfs() {
+  openPdfDb().then((db) => {
+    const tx = db.transaction(PDF_STORE_NAME, "readonly");
+    const store = tx.objectStore(PDF_STORE_NAME);
+    const keysReq = store.getAllKeys();
+    keysReq.onsuccess = () => {
+      const ids = keysReq.result || [];
+      if (!ids.length) {
+        alert("Aucun PDF de séance retrouvé dans le stockage local de ce navigateur.");
+        return;
+      }
+      if (!confirm(ids.length + " PDF de séance retrouvé(s) dans ce navigateur. Les télécharger maintenant ?")) return;
+      ids.forEach((id) => {
+        getPdfBlob(id).then((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "seance_" + id + ".pdf";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        });
+      });
+    };
+    keysReq.onerror = () => alert("Impossible de lire le stockage local des PDF.");
+  }).catch((e) => alert("Erreur : " + e.message));
+}
+
 /* -------------------------------------------------------------------------
    Extraction automatique des données joueurs depuis un PDF de rapport GPS
    (page 1 "TABLEAUX & MÉDIANES", générée par cette appli elle-même). Le PDF
@@ -11086,14 +11123,50 @@ function collectAllData() {
   return d;
 }
 
+// Sauvegarde locale de secours, prise juste avant tout écrasement par une
+// restauration cloud — pour qu'une donnée locale ne puisse plus jamais être
+// perdue définitivement sans possibilité de retour en arrière (comme ça a
+// été le cas avant l'ajout de cette protection).
+function backupLocalDataBeforeRestore() {
+  try {
+    var snapshot = { _date: new Date().toISOString() };
+    SYNC_DATA_KEYS.forEach(function(k) {
+      var v = localStorage.getItem(k);
+      if (v) snapshot[k] = v;
+    });
+    localStorage.setItem('nissaPreRestoreBackup_v1', JSON.stringify(snapshot));
+  } catch(e) { console.warn('Backup avant restauration impossible :', e); }
+}
+
+// Restaure la sauvegarde de secours prise juste avant la dernière
+// restauration cloud (voir backupLocalDataBeforeRestore).
+function restoreLocalBackup() {
+  var raw = localStorage.getItem('nissaPreRestoreBackup_v1');
+  if (!raw) { alert("Aucune sauvegarde de secours trouvée sur cet appareil."); return; }
+  var snapshot;
+  try { snapshot = JSON.parse(raw); } catch(e) { alert("Sauvegarde de secours illisible."); return; }
+  if (!confirm('Restaurer la sauvegarde locale du ' + new Date(snapshot._date).toLocaleString('fr-FR') + ' ? Ceci va remplacer les données actuellement affichées sur cet appareil (mais pas encore le cloud).')) return;
+  SYNC_DATA_KEYS.forEach(function(k) {
+    if (snapshot[k] !== undefined) localStorage.setItem(k, snapshot[k]);
+  });
+  reloadAllVariablesAndRerender();
+  alert('Sauvegarde locale restaurée. Pense à cliquer sur la pastille de synchro pour la renvoyer au cloud si elle est correcte.');
+}
+
 function restoreAllData(data) {
+  backupLocalDataBeforeRestore();
   SYNC_DATA_KEYS.forEach(function(k) {
     if (data[k]!==undefined) localStorage.setItem(k, JSON.stringify(data[k]));
   });
-  // Recharger TOUTES les variables GPS en mémoire depuis localStorage
-  // (indispensable : sinon les données arrivent bien dans localStorage
-  // mais l'app continue d'utiliser les variables chargées au démarrage,
-  // ce qui donne l'impression que "rien n'est arrivé" sur un autre ordinateur)
+  reloadAllVariablesAndRerender();
+}
+
+// Recharge TOUTES les variables GPS en mémoire depuis localStorage et
+// rafraîchit les onglets concernés — indispensable après avoir écrit
+// directement dans localStorage (restauration cloud ou restauration d'une
+// sauvegarde de secours locale), sinon l'app continue d'utiliser les
+// variables chargées au démarrage et rien ne semble avoir changé à l'écran.
+function reloadAllVariablesAndRerender() {
   if (typeof loadRoster === 'function') {
     try { roster = loadRoster(); } catch(e) {}
   }
