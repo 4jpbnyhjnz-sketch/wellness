@@ -6890,24 +6890,53 @@ function recoverStoredPdfs() {
    autre mise en page...), on renvoie null et l'appli retombe sur le mode
    "PDF joint sans données" existant.
    ------------------------------------------------------------------------- */
-const PDF_METRIC_KEYS = ["pctMarche", "pctHi", "dist18", "dist24", "vmax", "accelMax", "contacts", "rhie", "accel23"];
-
-// Les rapports imprimés par l'app peuvent avoir une colonne "M/MIN" en plus
-// (ajoutée après coup au gabarit) selon la version qui a généré le PDF. On
-// lit donc la ligne d'en-tête JOUEUR du PDF importé pour reconstruire la
-// liste réelle des colonnes plutôt que de supposer un nombre fixe de 9.
-const PDF_COLUMN_LABEL_MAP = {
-  "%MARC.": "pctMarche",
-  "%HI": "pctHi",
-  "+18KM/H": "dist18",
-  "+24KM/H": "dist24",
-  "VMAX": "vmax",
-  "M/MIN": "meterPerMin",
-  "ACCEL": "accelMax",
-  "CONTACT": "contacts",
-  "RHIE": "rhie",
-  "ACC.2-3": "accel23",
-};
+// Les rapports imprimés par l'app peuvent avoir des colonnes en plus/en moins
+// (M/MIN, % VMAX, % ACCEL...) selon la version qui a généré le PDF, et selon
+// les cases "Colonnes :" cochées au moment de l'export. On reconstruit donc
+// la liste réelle des colonnes à partir de la ligne d'en-tête du PDF importé,
+// plutôt que de supposer un nombre et un ordre fixes.
+//
+// Problème rencontré en pratique : pdf.js peut couper un même intitulé
+// contenant un espace ("% HI", "+18 KM/H", "DISTANCE (M)") en plusieurs tokens
+// séparés lors de l'extraction. Un appariement token-par-token est donc
+// fragile. On concatène ici TOUTE la ligne d'en-tête (espaces retirés) et on
+// consomme les libellés connus par préfixe, insensible à la façon dont
+// pdf.js a origanellement découpé le texte.
+const PDF_HEADER_LABEL_PATTERNS = [
+  ["DISTANCE(M)", null], ["DISTANCE", null],
+  ["%MARCHE", "pctMarche"], ["%MARC.", "pctMarche"],
+  ["%HI", "pctHi"],
+  ["+18KM/H", "dist18"],
+  ["+24KM/H", "dist24"],
+  ["%VMAX", "pctVmax"],
+  ["VMAX(KM/H)", "vmax"], ["VMAX", "vmax"],
+  ["M/MIN", "meterPerMin"],
+  ["%ACCEL", "pctAccelMax"],
+  ["ACCELMAX", "accelMax"], ["ACCEL", "accelMax"],
+  ["CONTACT", "contacts"],
+  ["RHIE", "rhie"],
+  ["ACC.2-3*", "accel23"], ["ACC.2-3", "accel23"], ["ACC2-3", "accel23"],
+];
+function detectColumnsFromHeaderTokens(headerTokens) {
+  var joined = headerTokens.map(normalizePdfColLabel).join("");
+  var keys = [];
+  var guard = 0;
+  while (joined.length && guard++ < 60) {
+    var matched = false;
+    for (var i = 0; i < PDF_HEADER_LABEL_PATTERNS.length; i++) {
+      var pat = PDF_HEADER_LABEL_PATTERNS[i][0];
+      if (joined.indexOf(pat) === 0) {
+        if (PDF_HEADER_LABEL_PATTERNS[i][1]) keys.push(PDF_HEADER_LABEL_PATTERNS[i][1]);
+        joined = joined.slice(pat.length);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) joined = joined.slice(1); // caractère de bruit non reconnu (★, espace résiduel...)
+  }
+  return keys;
+}
+const PDF_METRIC_KEYS = ["pctHi", "dist18", "dist24", "vmax", "pctVmax", "accelMax", "pctAccelMax", "contacts", "rhie", "accel23"];
 function normalizePdfColLabel(s) {
   return String(s || "").replace(/\s+/g, "").toUpperCase();
 }
@@ -7002,18 +7031,19 @@ async function parseGpsReportPdfFile(file) {
       while (i < lines.length && lines[i][0] !== "JOUEUR") i++;
       if (i >= lines.length) return [];
       const headerLine = lines[i];
-      const detectedKeys = headerLine
-        .slice(1)
-        .map((lbl) => PDF_COLUMN_LABEL_MAP[normalizePdfColLabel(lbl)])
-        .filter(Boolean);
+      const detectedKeys = detectColumnsFromHeaderTokens(headerLine.slice(1));
       const effectiveKeys = detectedKeys.length ? detectedKeys : PDF_METRIC_KEYS;
       i++; // passe l'entête
       const out = [];
       while (i < lines.length) {
         const first = lines[i][0] || "";
         if (first.indexOf("OBJECTIF") === 0) break;
-        if (lines[i].length >= effectiveKeys.length + 2) {
-          const p = parsePdfPlayerRow(lines[i], effectiveKeys);
+        // Retire les étoiles ⭐ (surlignage "meilleure valeur du groupe") : elles
+        // sont extraites comme des tokens à part entière et décaleraient sinon
+        // toute la lecture positionnelle de la ligne dès qu'un joueur en a une.
+        const rowTokens = lines[i].filter((t) => t !== "★" && t !== "⭐");
+        if (rowTokens.length >= effectiveKeys.length + 2) {
+          const p = parsePdfPlayerRow(rowTokens, effectiveKeys);
           if (p) out.push(p);
         }
         i++;
