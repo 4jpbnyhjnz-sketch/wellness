@@ -2738,6 +2738,7 @@ table.roster-table select { padding: 4px; }
         });
         if (removed === 0) { alert('Aucun horodateur du 31/08/2026 trouvé.'); return; }
         localStorage.setItem('nissa_espoirs_rpe_overrides_v1', JSON.stringify(o));
+        if (typeof markLocalDataChanged === 'function') markLocalDataChanged();
         alert('✓ ' + removed + ' horodateur(s) du 31/08/2026 supprimé(s). La page va recharger.');
         location.reload();
       " style="background:#e0b341;border:none;border-radius:6px;padding:10px 20px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
@@ -4204,7 +4205,7 @@ function loadMatchObjectives() {
     return raw ? JSON.parse(raw) : {};
   } catch(e) { return {}; }
 }
-function saveMatchObjectives(o) { localStorage.setItem(MATCH_OBJECTIVES_KEY, JSON.stringify(o)); }
+function saveMatchObjectives(o) { localStorage.setItem(MATCH_OBJECTIVES_KEY, JSON.stringify(o)); markLocalDataChanged(); }
 let matchObjectives = loadMatchObjectives();
 
 // Préremplit les objectifs match (par poste) avec les valeurs par défaut du groupe
@@ -7487,7 +7488,7 @@ function loadP1Roster() {
   } catch (e) { return DEFAULT_P1_ROSTER.slice(); }
 }
 function saveP1Roster(list) {
-  try { localStorage.setItem(P1_ROSTER_KEY, JSON.stringify(list)); } catch (e) {}
+  try { localStorage.setItem(P1_ROSTER_KEY, JSON.stringify(list)); markLocalDataChanged(); } catch (e) {}
 }
 let p1Roster = loadP1Roster();
 
@@ -7496,7 +7497,7 @@ function loadP1WeekExclusions() {
   catch (e) { return {}; }
 }
 function saveP1WeekExclusions(obj) {
-  try { localStorage.setItem(P1_WEEK_EXCLUSIONS_KEY, JSON.stringify(obj)); } catch (e) {}
+  try { localStorage.setItem(P1_WEEK_EXCLUSIONS_KEY, JSON.stringify(obj)); markLocalDataChanged(); } catch (e) {}
 }
 let p1WeekExclusions = loadP1WeekExclusions();
 
@@ -8109,6 +8110,9 @@ const BACKUP_KEYS = [
   "gpsClubName_v1",
   "gpsSessionTheme_v1",
   "gpsScatterAxes_v1",
+  "nissaPlayerProfiles_v1",
+  "nissaPhysicalTests_v1",
+  "gpsMedicalRecords_v1",
 ];
 
 function exportAllData() {
@@ -8151,6 +8155,13 @@ function importAllData(file) {
       savedSessions = loadSavedSessions();
       savedMatches = loadSavedMatches();
       columnVisibility = loadColumnVisibility();
+      if (typeof loadPlayerProfiles === 'function') playerProfiles = loadPlayerProfiles();
+      if (typeof loadPhysicalTests === 'function') physicalTests = loadPhysicalTests();
+      if (typeof loadMedicalRecords === 'function') medicalRecords = loadMedicalRecords();
+      // Marquer le changement et le pousser vers le cloud tout de suite :
+      // une restauration manuelle de sauvegarde doit se propager aux autres
+      // appareils comme n'importe quelle autre modification.
+      markLocalDataChanged();
       // Re-rendre tous les panneaux
       renderRosterTable();
       renderObjectivesPanel();
@@ -8164,6 +8175,8 @@ function importAllData(file) {
   renderJoueurTab();
       renderRecordsTab();
       rerenderIfLoaded();
+      if (typeof renderPerfHistory === 'function') renderPerfHistory();
+      if (typeof renderMedicalHub === 'function') renderMedicalHub();
       const status = document.getElementById("backupStatus");
       if (status) status.textContent = `✓ ${count} éléments restaurés avec succès — rechargez la page si nécessaire.`;
       alert(`✓ Restauration réussie ! ${count} éléments chargés.`);
@@ -8631,7 +8644,7 @@ function loadOverrides() {
   } catch(e) { return {durations:{}, typeFixes:{}, scoreFixes:{}, tsFixes:{}, srpeExclusions:{}, week1Starts:Object.assign({},DEFAULT_WEEK1_STARTS), weekAbsences:{}}; }
 }
 function saveOverrides() {
-  try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(RPE_OVERRIDES)); } catch(e) {}
+  try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(RPE_OVERRIDES)); markLocalDataChanged(); } catch(e) {}
 }
 var RPE_OVERRIDES = loadOverrides();
 
@@ -11112,6 +11125,10 @@ var SYNC_DATA_KEYS = [
   'gpsRosterPositions_v1',
   'gpsMatchObjectives_v1',
   'gpsMedicalRecords_v1',
+  'gpsMedicalExcludedPlayers_v1',
+  'nissa_espoirs_rpe_overrides_v1',
+  'gpsP1Roster_v1',
+  'gpsP1WeekExclusions_v1',
 ];
 
 function collectAllData() {
@@ -11216,6 +11233,19 @@ function reloadAllVariablesAndRerender() {
   if (typeof playerProfiles !== 'undefined' && typeof loadPlayerProfiles === 'function')
     playerProfiles = loadPlayerProfiles();
   if (typeof renderPerfHistory === 'function') renderPerfHistory();
+  // Corrections RPE manuelles, effectif "Suivi joueurs P1" et exclusions médicales
+  if (typeof RPE_OVERRIDES !== 'undefined' && typeof loadOverrides === 'function') {
+    try { RPE_OVERRIDES = loadOverrides(); if (typeof reprocessData === 'function') reprocessData(); } catch(e) {}
+  }
+  if (typeof p1Roster !== 'undefined' && typeof loadP1Roster === 'function') {
+    try { p1Roster = loadP1Roster(); } catch(e) {}
+  }
+  if (typeof p1WeekExclusions !== 'undefined' && typeof loadP1WeekExclusions === 'function') {
+    try { p1WeekExclusions = loadP1WeekExclusions(); } catch(e) {}
+  }
+  if (typeof medicalExcludedPlayers !== 'undefined' && typeof loadMedicalExcluded === 'function') {
+    try { medicalExcludedPlayers = loadMedicalExcluded(); } catch(e) {}
+  }
 }
 
 // Pastille de synchro visible en permanence dans la barre du haut (état en temps réel)
