@@ -522,6 +522,11 @@ table.data-table tbody td:first-child {
   text-overflow: ellipsis;
 }
 table.data-table td.obj-met { font-weight: bold; }
+table.data-table td.obj-manual { position: relative; }
+table.data-table td.obj-manual::after {
+  content: "✎"; position: absolute; top: 1px; right: 3px;
+  font-size: 9px; opacity: .55;
+}
 table.data-table td[data-leader] { font-weight: bold; }
 table.data-table td.editable-cell { cursor: text; }
 table.data-table td.editable-cell:hover { box-shadow: inset 0 0 0 9999px rgba(255, 248, 225, 0.5); }
@@ -5816,6 +5821,34 @@ function getMatchObjective(position, key) {
   return Number.isFinite(num) ? num : null;
 }
 
+// Surlignage manuel des cellules du rapport de match : permet au staff de
+// forcer une case en vert (ou de retirer un vert automatique) d'un simple
+// clic, indépendamment du calcul d'objectif — utile tant que l'objectif
+// exact n'est pas configuré pour un poste, ou pour mettre en avant un point
+// particulier à l'oeil. Clé = "nomJoueur|clefColonne".
+var matchManualGreen = {};
+function matchManualKey(player, colKey) { return player + '|' + colKey; }
+function toggleMatchManualGreen(td, player, colKey, baseMet, pct) {
+  var key = matchManualKey(player, colKey);
+  var forced = !!matchManualGreen[key];
+  if (!forced && baseMet === true) {
+    // La case est déjà verte automatiquement (objectif atteint) : un clic la
+    // force au contraire à rester neutre (utile pour corriger un faux positif).
+    matchManualGreen[key] = 'off';
+  } else if (matchManualGreen[key] === 'off') {
+    delete matchManualGreen[key];
+  } else if (forced) {
+    delete matchManualGreen[key];
+  } else {
+    matchManualGreen[key] = 'on';
+  }
+  var state = matchManualGreen[key];
+  var effectiveMet = state === 'on' ? true : (state === 'off' ? false : baseMet);
+  td.style.background = objectiveCellBackground(effectiveMet, pct);
+  td.classList.toggle('obj-met', effectiveMet === true);
+  td.classList.toggle('obj-manual', !!state);
+}
+
 function renderMatchGroupTable(groupName, stats) {
   const visibleColumns = getVisibleMetricColumns();
   const sortedStats = sortByPosition(stats, groupName);
@@ -5869,9 +5902,16 @@ function renderMatchGroupTable(groupName, stats) {
       const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
       const barColor = met === true ? "rgba(127, 209, 127, 0.9)" : "rgba(26, 26, 26, 0.12)";
 
+      const manualKey = matchManualKey(s.displayName || s.player, col.key);
+      const manualState = matchManualGreen[manualKey];
+      const effectiveMet = manualState === 'on' ? true : (manualState === 'off' ? false : met);
+
       const td = document.createElement("td");
-      td.style.background = objectiveCellBackground(met, pct);
-      if (met === true) td.classList.add("obj-met");
+      td.style.background = objectiveCellBackground(effectiveMet, pct);
+      td.style.cursor = "pointer";
+      td.title = "Cliquer pour forcer/retirer le vert sur cette case";
+      if (effectiveMet === true) td.classList.add("obj-met");
+      if (manualState) td.classList.add("obj-manual");
       if (isLeader) td.dataset.leader = "1";
       td.textContent = fmt(s[col.key], col.decimals) + (isRecord ? " ⭐" : "");
       if (isLeader) {
@@ -5881,6 +5921,7 @@ function renderMatchGroupTable(groupName, stats) {
         ls.style.fontWeight = "bold";
         td.appendChild(ls);
       }
+      td.addEventListener("click", () => toggleMatchManualGreen(td, s.displayName || s.player, col.key, met, pct));
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -5946,12 +5987,39 @@ function renderMatchGroupTableReadonly(groupName, sortedStats) {
     tr.appendChild(tdName);
     visibleColumns.forEach(col => {
       const isLeader = leaders[col.key] && (leaders[col.key].displayName || leaders[col.key].player) === (s.displayName || s.player);
+      const met = OBJECTIVE_KEYS.has(col.key)
+        ? (getMatchObjective(s.position, col.key) !== null ? s[col.key] >= getMatchObjective(s.position, col.key) : null)
+        : null;
+      const isRecord = (col.key === "vmax" || col.key === "accelMax") && s.displayName && seasonRecords[s.displayName] &&
+        s[col.key] > 0 && (col.key === "vmax" ? s[col.key] >= seasonRecords[s.displayName].vmax && seasonRecords[s.displayName].vmax > 0 : s[col.key] >= seasonRecords[s.displayName].accel && seasonRecords[s.displayName].accel > 0);
       const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
       const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
+
+      // Surlignage manuel sauvegardé avec CE match précisément — on ne
+      // regarde jamais l'état global ici, pour éviter qu'un même nom de
+      // joueur ne « fuite » son surlignage d'un match à l'autre.
+      const name = s.displayName || s.player;
+      const manualState = s._manualGreen && s._manualGreen[col.key];
+      const effectiveMet = manualState === 'on' ? true : (manualState === 'off' ? false : met);
+
       const td = document.createElement("td");
-      td.style.background = `linear-gradient(to right, rgba(26,26,26,0.12) ${pct}%, transparent ${pct}%)`;
+      td.style.background = objectiveCellBackground(effectiveMet, pct);
+      td.style.cursor = "pointer";
+      td.title = "Cliquer pour forcer/retirer le vert sur cette case";
+      if (effectiveMet === true) td.classList.add("obj-met");
+      if (manualState) td.classList.add("obj-manual");
       if (isLeader) td.dataset.leader = "1";
-      td.textContent = fmt(s[col.key], col.decimals);
+      td.textContent = fmt(s[col.key], col.decimals) + (isRecord ? " ⭐" : "");
+      td.addEventListener("click", () => {
+        var newState = manualState === 'on' ? 'off' : (manualState === 'off' ? null : 'on');
+        s._manualGreen = s._manualGreen || {};
+        if (newState) s._manualGreen[col.key] = newState; else delete s._manualGreen[col.key];
+        const newEffectiveMet = newState === 'on' ? true : (newState === 'off' ? false : met);
+        td.style.background = objectiveCellBackground(newEffectiveMet, pct);
+        td.classList.toggle('obj-met', newEffectiveMet === true);
+        td.classList.toggle('obj-manual', !!newState);
+        if (typeof saveSavedMatchesList === "function") saveSavedMatchesList(savedMatches);
+      });
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -6322,6 +6390,18 @@ function buildMatchSnapshot() {
   if (!matchLastParsed) return null;
   const stats = buildMatchPlayerStats(matchLastParsed.rows);
   const grouped = groupMatchPlayers(stats);
+  // Embarque le surlignage manuel (case forcée en vert / neutralisée à la main)
+  // dans chaque joueur, pour qu'il survive à l'enregistrement du match.
+  ["3/4", "Avant"].forEach((g) => {
+    (grouped[g] || []).forEach((p) => {
+      const name = p.displayName || p.player;
+      const manual = {};
+      Object.keys(matchManualGreen).forEach((k) => {
+        if (k.indexOf(name + "|") === 0) manual[k.slice(name.length + 1)] = matchManualGreen[k];
+      });
+      if (Object.keys(manual).length) p._manualGreen = manual;
+    });
+  });
   return {
     id: Date.now(),
     journee: document.getElementById("matchJournee")?.textContent.trim() || "",
