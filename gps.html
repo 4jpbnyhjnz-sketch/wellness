@@ -13666,11 +13666,20 @@ document.addEventListener('keydown', function(e) {
   .coach-meta{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6b6b75}
   .coach-meta b{display:block;font-size:14px;text-transform:none;letter-spacing:0;color:#1b1b20;margin-top:3px}
   .coach-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-  .coach-kpi{border:1px solid #dcdce2;border-radius:10px;padding:14px 12px;background:#fff;break-inside:avoid}
+  .coach-kpi{border:1px solid #dcdce2;border-radius:10px;padding:16px 14px;background:#fff;break-inside:avoid;display:flex;flex-direction:column;min-height:168px}
   .coach-kpi-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#6b6b75;min-height:24px}
-  .coach-kpi-val{font-size:30px;font-weight:800;line-height:1.05;margin-top:6px;color:#1b1b20;font-variant-numeric:tabular-nums}
+  .coach-kpi-val{font-size:32px;font-weight:800;line-height:1.05;margin-top:8px;color:#1b1b20;font-variant-numeric:tabular-nums;white-space:nowrap}
   .coach-kpi-unit{font-size:11px;font-weight:600;color:#8a8a93;margin-left:3px}
-  .coach-kpi-ref{margin-top:12px;border-top:1px solid #ededf1;padding-top:9px}
+  .coach-kpi-ref{margin-top:auto;padding-top:12px;border-top:1px solid #ededf1}
+  .coach-sec{margin:26px 0 8px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#6b6b75;border-bottom:1px solid #ededf1;padding-bottom:6px}
+  table.coach-grouptable tbody tr:last-child{background:#fafafb;font-weight:700}
+  .coach-plist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 26px}
+  .coach-prow{display:grid;grid-template-columns:minmax(78px,1fr) minmax(60px,1.4fr) auto auto auto;align-items:center;gap:10px;font-size:11px;padding:3px 0;border-bottom:1px solid #f2f2f5}
+  .coach-pname{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .coach-pbar{display:block;height:7px;background:#ededf1;border-radius:4px;overflow:hidden}
+  .coach-pbar i{display:block;height:100%;border-radius:4px}
+  .coach-pval{font-weight:800;font-variant-numeric:tabular-nums;text-align:right;min-width:52px}
+  .coach-pval2{color:#8a8a93;font-variant-numeric:tabular-nums;text-align:right;min-width:58px}
   .coach-kpi-pct{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
   .coach-kpi-sub{font-size:10px;color:#8a8a93;margin-top:2px}
   .coach-bar{height:5px;border-radius:3px;background:#ededf1;margin-top:7px;overflow:hidden}
@@ -13814,6 +13823,15 @@ function renderCoachCover(){
     </div>`;
   }).join("");
 
+  // Détail par groupe
+  const grouped=(typeof groupPlayers==="function")?groupPlayers(players):{};
+  const groupSets=[["3/4",(grouped["3/4"]||[])],["Avant",(grouped["Avant"]||[])],["Non classé",(grouped["Non classé"]||[])],["Équipe",players]]
+    .filter(([n,arr])=>arr.length);
+  const groupRows=groupSets.map(([n,arr])=>
+    `<tr><td><b>${n}</b> <span style="color:#8a8a93;font-weight:400">${arr.length}</span></td>`+
+    COACH_RADAR_METRICS.map(m=>`<td>${coachFmt(coachAvg(arr,m.key),m.dec)}</td>`).join("")+"</tr>"
+  ).join("");
+
   const refInputs=COACH_METRICS.map(m=>
     `<label>${m.label} (${m.unit})<input type="number" step="0.01" value="${ov[m.key]!==undefined?ov[m.key]:""}" placeholder="${ref[m.key]?coachFmt(ref[m.key],m.dec):"à renseigner"}" onchange="coachSetRef('${m.key}', this.value)"></label>`
   ).join("");
@@ -13834,10 +13852,17 @@ function renderCoachCover(){
       <div class="coach-meta">Joueurs<b>${players.length}</b></div>
     </div>
     <div class="coach-kpi-grid">${cards}</div>
-    <p class="panel-help" style="margin-top:16px">
+    <p class="panel-help" style="margin-top:14px">
       Moyennes de l'effectif présent sur la ligne « Session ». Le pourcentage compare la séance à la
       référence match moyenne des postes présents.
     </p>
+
+    <h3 class="coach-sec">Moyennes par groupe</h3>
+    <table class="coach-delta coach-grouptable">
+      <thead><tr><th>Groupe</th>${COACH_RADAR_METRICS.map(m=>`<th>${m.label}</th>`).join("")}</tr></thead>
+      <tbody>${groupRows}</tbody>
+    </table>
+
     <div class="coach-refpanel no-print">
       <h4>Référence match</h4>
       <p class="panel-help" style="margin:0">Laissez vide pour utiliser la référence par poste déjà enregistrée. Une valeur saisie ici s'applique à tous les rapports coach.</p>
