@@ -2376,6 +2376,8 @@ table.roster-table select { padding: 4px; }
       <div id="excludedPlayersBar" class="excluded-players-bar no-print hidden"></div>
 
       <div class="report-card" id="reportCard">
+        <div id="coachCoverPage" class="coach-only page1-block"></div>
+
         <div id="page1Content" class="page1-block">
           <p class="page-title">Page 1 — Tableaux &amp; médianes</p>
           <div class="report-header">
@@ -2428,12 +2430,15 @@ table.roster-table select { padding: 4px; }
           ★ rouge = meilleur de la séance · ⭐ = record de la saison
         </p>
 
+        <div id="coachRadarPage" class="coach-only page-break-before avoid-break-group"></div>
+
       </div>
 
       <div class="actions-row no-print">
         <button id="saveSessionBtn" class="btn btn-primary">Enregistrer la séance</button>
         <button id="exportPngBtn" class="btn btn-secondary">Télécharger en image (PNG)</button>
         <button id="printBtn" class="btn btn-secondary">Imprimer / PDF</button>
+        <button id="coachReportBtn" class="btn btn-secondary">Rapport coach</button>
       </div>
 
     </div>
@@ -2715,6 +2720,17 @@ table.roster-table select { padding: 4px; }
 
   <!-- ===================== ONGLET REGLAGES ===================== -->
   <section id="tab-reglages" class="tab-panel">
+
+    <div class="settings-card" id="coachThemesCard" style="margin-bottom:16px">
+      <h2 class="section-title" style="margin-top:0">Thèmes de séance — rapport coach</h2>
+      <p class="panel-help">
+        Créez ici vos types de séance (Collectif, Skills, Réathlé…) et, si vous les connaissez, les valeurs de
+        référence attendues pour chacun. Le rapport coach compare la séance à ces valeurs ; si un champ est vide,
+        il utilise la moyenne des séances déjà enregistrées avec ce thème.
+      </p>
+      <div id="coachThemesList"></div>
+      <button class="btn btn-secondary" style="margin-top:10px" onclick="coachAddTheme()">+ Ajouter un thème</button>
+    </div>
 
     <div class="settings-card" id="storageDiagCard" style="margin-bottom:16px">
       <h2 class="section-title" style="margin-top:0">🔧 Diagnostic stockage</h2>
@@ -13636,6 +13652,388 @@ document.addEventListener('keydown', function(e) {
   var ov = document.getElementById('pidOverlay');
   if (!ov || ov.style.display === 'none') return;
   if (document.getElementById('pidChartModal').style.display === 'flex') pidCloseChart(); else pidClose();
+});
+</script>
+
+<style>
+  .coach-only{display:none}
+  body.coach-mode .coach-only{display:block}
+  #coachBanner{position:sticky;top:0;z-index:60;display:none;align-items:center;gap:14px;padding:10px 16px;background:#1b1b20;color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  body.coach-mode #coachBanner{display:flex}
+  #coachBanner button{font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:7px 14px;border:none;border-radius:6px;cursor:pointer}
+  .coach-cover-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:26px;border-bottom:3px solid #c1121f;padding-bottom:12px;margin-bottom:20px}
+  .coach-cover-head h2{margin:0;font-size:24px;letter-spacing:-.01em}
+  .coach-meta{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6b6b75}
+  .coach-meta b{display:block;font-size:14px;text-transform:none;letter-spacing:0;color:#1b1b20;margin-top:3px}
+  .coach-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+  .coach-kpi{border:1px solid #dcdce2;border-radius:10px;padding:14px 12px;background:#fff;break-inside:avoid}
+  .coach-kpi-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#6b6b75;min-height:24px}
+  .coach-kpi-val{font-size:30px;font-weight:800;line-height:1.05;margin-top:6px;color:#1b1b20;font-variant-numeric:tabular-nums}
+  .coach-kpi-unit{font-size:11px;font-weight:600;color:#8a8a93;margin-left:3px}
+  .coach-kpi-ref{margin-top:12px;border-top:1px solid #ededf1;padding-top:9px}
+  .coach-kpi-pct{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+  .coach-kpi-sub{font-size:10px;color:#8a8a93;margin-top:2px}
+  .coach-bar{height:5px;border-radius:3px;background:#ededf1;margin-top:7px;overflow:hidden}
+  .coach-bar span{display:block;height:100%;border-radius:3px}
+  .coach-refpanel{margin-top:18px;border:1px dashed #c9c9d0;border-radius:10px;padding:12px 14px;background:#fafafb}
+  .coach-refpanel h4{margin:0 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6b6b75}
+  .coach-refrow{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+  .coach-refrow label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b6b75;display:flex;flex-direction:column;gap:4px}
+  .coach-refrow input{font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid #c9c9d0;border-radius:6px;width:110px}
+  .coach-radar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;align-items:start}
+  .coach-radar-card{break-inside:avoid;page-break-inside:avoid}
+  .coach-radar-title{margin:0 0 2px;font-size:15px;letter-spacing:-.01em}
+  .coach-themebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 18px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#6b6b75}
+  .coach-chip{font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.03em;padding:6px 12px;border:1px solid #c9c9d0;border-radius:20px;background:#fff;color:#1b1b20;cursor:pointer;text-transform:none}
+  .coach-chip.on{background:#1b1b20;border-color:#1b1b20;color:#fff}
+  .coach-theme-row{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(7,minmax(0,1fr)) auto;gap:6px;align-items:end;margin-bottom:8px}
+  .coach-theme-row input{font-family:inherit;font-size:13px;padding:7px 8px;border:1px solid #c9c9d0;border-radius:6px;width:100%;background:#fff;color:#1b1b20}
+  .coach-theme-head{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#8a8a93}
+  .coach-legend{display:flex;flex-direction:column;gap:8px;margin-top:10px;font-size:12px}
+  .coach-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:8px;vertical-align:middle}
+  table.coach-delta{width:100%;border-collapse:collapse;font-size:12px}
+  table.coach-delta th,table.coach-delta td{border-bottom:1px solid #ededf1;padding:7px 8px;text-align:right;font-variant-numeric:tabular-nums}
+  table.coach-delta th:first-child,table.coach-delta td:first-child{text-align:left}
+  table.coach-delta thead th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b6b75;border-bottom:2px solid #1b1b20}
+  @media print{
+    #coachBanner{display:none!important}
+    .coach-refpanel{display:none!important}
+    body.coach-mode #coachCoverPage{page-break-after:always}
+  }
+</style>
+<script>
+/* ===================== RAPPORT COACH (séance) ===================== */
+const COACH_REF_KEY = "gpsCoachMatchRef_v1";
+const COACH_THEMES_KEY = "gpsCoachThemes_v1";
+const COACH_METRICS = [
+  { key:"distance",    ref:"distance",    label:"Distance moyenne", unit:"m",        dec:0 },
+  { key:"meterPerMin", ref:"meterPerMin", label:"Intensité",        unit:"m/min",    dec:1 },
+  { key:"dist18",      ref:"dist18",      label:"HSR moyenne",      unit:"m",        dec:0 },
+  { key:"accel23",     ref:"accel23",     label:"Accélérations",    unit:"/ joueur", dec:1 },
+  { key:"contacts",    ref:null,          label:"Contacts",         unit:"/ joueur", dec:1 },
+];
+
+const COACH_RADAR_METRICS = [
+  { key:"distance",    ref:"distance",    label:"Distance",     unit:"m",        dec:0 },
+  { key:"meterPerMin", ref:"meterPerMin", label:"m/min",        unit:"m/min",    dec:1 },
+  { key:"accel23",     ref:"accel23",     label:"Nb accél.",    unit:"/ joueur", dec:1 },
+  { key:"rhie",        ref:"rhie",        label:"RHIE",         unit:"/ joueur", dec:1 },
+  { key:"contacts",    ref:null,          label:"Contacts",     unit:"/ joueur", dec:1 },
+  { key:"dist18",      ref:"dist18",      label:"+18 km/h",     unit:"m",        dec:0 },
+  { key:"dist24",      ref:"dist24",      label:"+24 km/h",     unit:"m",        dec:0 },
+];
+const COACH_ALL_METRICS = COACH_METRICS.concat(
+  COACH_RADAR_METRICS.filter(m => !COACH_METRICS.some(x => x.key === m.key))
+);
+
+function coachNum(v){ if(v===null||v===undefined||v==="") return null; const n=parseFloat(String(v).replace(",",".")); return isFinite(n)?n:null; }
+function coachFmt(v,d){ return v===null||v===undefined||isNaN(v) ? "—" : v.toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function coachAvg(arr,key){ const v=arr.map(p=>coachNum(p[key])).filter(n=>n!==null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+function coachLoadRef(){ try{ return JSON.parse(localStorage.getItem(COACH_REF_KEY)||"{}"); }catch(e){ return {}; } }
+function coachSetRef(key,val){
+  const o=coachLoadRef();
+  if(val==="" || val===null || val===undefined) delete o[key]; else o[key]=val;
+  localStorage.setItem(COACH_REF_KEY, JSON.stringify(o));
+  if(typeof markLocalDataChanged==="function") markLocalDataChanged();
+  renderCoachCover(); renderCoachRadar();
+}
+
+// Référence match : moyenne des références par poste des joueurs présents,
+// écrasée par toute valeur saisie à la main dans le panneau "Référence match".
+function coachMatchRef(players){
+  const out={};
+  COACH_ALL_METRICS.forEach(m=>{
+    let vals=[];
+    if(m.ref){
+      players.forEach(p=>{
+        const off=(typeof resolveOfficialName==="function"?resolveOfficialName(p.player):null)||p.officialName||p.player;
+        const pos=(typeof rosterPositions!=="undefined"&&rosterPositions[off])||"";
+        const r=pos&&DEFAULT_MATCH_REFERENCE_BY_POSITION[pos];
+        const v=r?coachNum(r[m.ref]):null;
+        if(v!==null) vals.push(v);
+      });
+      if(!vals.length){
+        vals=Object.values(DEFAULT_MATCH_REFERENCE_BY_POSITION).map(r=>coachNum(r[m.ref])).filter(v=>v!==null);
+      }
+    }
+    out[m.key]=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+  });
+  const ov=coachLoadRef();
+  Object.keys(ov).forEach(k=>{ const n=coachNum(ov[k]); if(n!==null) out[k]=n; });
+  return out;
+}
+
+function coachSessionPlayers(){
+  if(typeof lastParsed==="undefined"||!lastParsed) return [];
+  return buildPlayerStats(lastParsed.rows);
+}
+
+function coachSimilar(){
+  const theme=((document.getElementById("sessionTheme")||{}).textContent||"").trim().toLowerCase();
+  const date=(lastParsed&&lastParsed.meta&&lastParsed.meta.date)||"";
+  const list=(typeof savedSessions!=="undefined"?savedSessions:[]).filter(s=>{
+    if(s.date===date) return false;
+    if(!theme) return true;
+    return ((s.theme||"").trim().toLowerCase())===theme;
+  });
+  const players=[];
+  list.forEach(s=>["3/4","Avant"].forEach(g=>((s.groups&&s.groups[g])||[]).forEach(p=>players.push(p))));
+  const out={ sessions:list.length, players:players.length };
+  COACH_METRICS.forEach(m=>out[m.key]=coachAvg(players,m.key));
+  return out;
+}
+
+function coachPctColor(p){
+  if(p===null) return "#c9c9d0";
+  if(p>=90) return "#1f7a3d";
+  if(p>=70) return "#c98a00";
+  return "#c1121f";
+}
+
+function renderCoachCover(){
+  const host=document.getElementById("coachCoverPage");
+  if(!host) return;
+  const players=coachSessionPlayers();
+  if(!players.length){ host.innerHTML=""; return; }
+  const ref=coachMatchRef(players);
+  const ov=coachLoadRef();
+
+  const cards=COACH_METRICS.map(m=>{
+    const val=coachAvg(players,m.key);
+    const r=ref[m.key];
+    const pct=(val!==null&&r)?(val/r)*100:null;
+    const col=coachPctColor(pct);
+    return `<div class="coach-kpi">
+      <div class="coach-kpi-label">${m.label}</div>
+      <div class="coach-kpi-val">${coachFmt(val,m.dec)}<span class="coach-kpi-unit">${m.unit}</span></div>
+      <div class="coach-kpi-ref">
+        <div class="coach-kpi-pct" style="color:${col}">${pct===null?"—":coachFmt(pct,0)+" %"}</div>
+        <div class="coach-kpi-sub">du match ${r?"("+coachFmt(r,m.dec)+" "+m.unit+")":"— référence à renseigner"}</div>
+        <div class="coach-bar"><span style="width:${pct===null?0:Math.max(2,Math.min(100,pct))}%;background:${col}"></span></div>
+      </div>
+    </div>`;
+  }).join("");
+
+  const refInputs=COACH_METRICS.map(m=>
+    `<label>${m.label} (${m.unit})<input type="number" step="0.01" value="${ov[m.key]!==undefined?ov[m.key]:""}" placeholder="${ref[m.key]?coachFmt(ref[m.key],m.dec):"à renseigner"}" onchange="coachSetRef('${m.key}', this.value)"></label>`
+  ).join("");
+
+  const club=(document.getElementById("clubName")||{}).textContent||"";
+  const theme=(document.getElementById("sessionTheme")||{}).textContent||"";
+  const date=(document.getElementById("reportDate")||{}).textContent||"";
+  const dur=(document.getElementById("reportDuration")||{}).textContent||"";
+
+  host.innerHTML=`
+    <p class="page-title">Rapport coach — synthèse de séance</p>
+    <div class="coach-cover-head">
+      <h2>Synthèse de séance</h2>
+      <div class="coach-meta">Club<b>${club}</b></div>
+      <div class="coach-meta">Thème<b>${theme}</b></div>
+      <div class="coach-meta">Date<b>${date}</b></div>
+      <div class="coach-meta">Durée<b>${dur}</b></div>
+      <div class="coach-meta">Joueurs<b>${players.length}</b></div>
+    </div>
+    <div class="coach-kpi-grid">${cards}</div>
+    <p class="panel-help" style="margin-top:16px">
+      Moyennes de l'effectif présent sur la ligne « Session ». Le pourcentage compare la séance à la
+      référence match moyenne des postes présents.
+    </p>
+    <div class="coach-refpanel no-print">
+      <h4>Référence match</h4>
+      <p class="panel-help" style="margin:0">Laissez vide pour utiliser la référence par poste déjà enregistrée. Une valeur saisie ici s'applique à tous les rapports coach.</p>
+      <div class="coach-refrow">${refInputs}</div>
+    </div>`;
+}
+
+function coachRadarSvg(axes, series, size, refLabel){
+  const cx=size/2, cy=size/2, R=size*0.31, MAX=160, n=axes.length;
+  const pt=(i,pct)=>{
+    const a=-Math.PI/2+i*2*Math.PI/n;
+    const r=R*Math.max(0,Math.min(pct,MAX))/MAX;
+    return [cx+r*Math.cos(a), cy+r*Math.sin(a)];
+  };
+  let s=`<svg viewBox="0 0 ${size} ${size}" width="100%" style="max-width:${size}px" font-family="Arial, sans-serif">`;
+  [40,80,120,160].forEach(ring=>{
+    s+=`<polygon points="${axes.map((_,i)=>pt(i,ring).join(",")).join(" ")}" fill="none" stroke="#e4e4ea" stroke-width="1"/>`;
+  });
+  s+=`<polygon points="${axes.map((_,i)=>pt(i,100).join(",")).join(" ")}" fill="none" stroke="#1b1b20" stroke-width="1.4" stroke-dasharray="5 4"/>`;
+  axes.forEach((ax,i)=>{
+    const [x,y]=pt(i,MAX);
+    s+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#e4e4ea" stroke-width="1"/>`;
+    const [lx,ly]=pt(i,MAX+34);
+    const anchor=Math.abs(lx-cx)<6?"middle":(lx>cx?"start":"end");
+    s+=`<text x="${lx}" y="${ly}" font-size="11" font-weight="700" fill="#1b1b20" text-anchor="${anchor}">${ax}</text>`;
+  });
+  series.forEach(se=>{
+    const pts=se.values.map((v,i)=>pt(i, v===null?0:v).join(",")).join(" ");
+    s+=`<polygon points="${pts}" fill="${se.color}" fill-opacity="0.12" stroke="${se.color}" stroke-width="2"/>`;
+    se.values.forEach((v,i)=>{ if(v===null) return; const [x,y]=pt(i,v); s+=`<circle cx="${x}" cy="${y}" r="3.2" fill="${se.color}"/>`; });
+  });
+  s+=`<text x="${cx}" y="${cy-R-4}" font-size="9" fill="#8a8a93" text-anchor="middle">100 % = ${refLabel||"match"}</text>`;
+  return s+"</svg>";
+}
+
+function coachLoadThemes(){
+  try{ const a=JSON.parse(localStorage.getItem(COACH_THEMES_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; }
+}
+function coachSaveThemes(list){
+  localStorage.setItem(COACH_THEMES_KEY, JSON.stringify(list));
+  if(typeof markLocalDataChanged==="function") markLocalDataChanged();
+}
+function coachThemeNames(){
+  const names=coachLoadThemes().map(t=>t.name);
+  (typeof savedSessions!=="undefined"?savedSessions:[]).forEach(s=>{
+    const t=(s.theme||"").trim();
+    if(t && !names.some(n=>n.toLowerCase()===t.toLowerCase())) names.push(t);
+  });
+  const cur=((document.getElementById("sessionTheme")||{}).textContent||"").trim();
+  if(cur && !names.some(n=>n.toLowerCase()===cur.toLowerCase())) names.unshift(cur);
+  return names;
+}
+// Cible de comparaison pour un thème : les valeurs saisies dans Réglages si
+// elles existent, sinon la moyenne des séances enregistrées de ce thème.
+function coachThemeTarget(theme){
+  const t=(theme||"").trim().toLowerCase();
+  const saved=coachLoadThemes().find(x=>(x.name||"").trim().toLowerCase()===t);
+  const out={ name:theme, values:{}, source:"", sessions:0 };
+  let hasManual=false;
+  if(saved&&saved.ref){
+    COACH_ALL_METRICS.forEach(m=>{ const v=coachNum(saved.ref[m.key]); out.values[m.key]=v; if(v!==null) hasManual=true; });
+  }
+  const date=(lastParsed&&lastParsed.meta&&lastParsed.meta.date)||"";
+  const list=(typeof savedSessions!=="undefined"?savedSessions:[]).filter(s=>s.date!==date&&((s.theme||"").trim().toLowerCase())===t);
+  const players=[];
+  list.forEach(s=>["3/4","Avant"].forEach(g=>((s.groups&&s.groups[g])||[]).forEach(p=>players.push(p))));
+  out.sessions=list.length;
+  COACH_ALL_METRICS.forEach(m=>{
+    const avg=coachAvg(players,m.key);
+    if(out.values[m.key]===null||out.values[m.key]===undefined) out.values[m.key]=avg;
+  });
+  out.source = hasManual ? "valeurs de référence saisies dans Réglages"
+    : (list.length ? list.length+" séance"+(list.length>1?"s":"")+" enregistrée"+(list.length>1?"s":"")+" de ce thème ("+players.length+" lignes joueurs)"
+                   : "aucune donnée pour ce thème — renseignez-le dans Réglages ou enregistrez une séance");
+  return out;
+}
+
+let coachSelectedTheme = null;
+function coachSetTheme(t){ coachSelectedTheme=t; renderCoachRadar(); }
+
+function coachRadarBlock(title, subtitle, players, target, targetLabel, targetColor){
+  const axes=COACH_RADAR_METRICS.map(m=>m.label);
+  const cur=COACH_RADAR_METRICS.map(m=>{ const v=coachAvg(players,m.key); const r=target[m.key]; return (v!==null&&r)?(v/r)*100:null; });
+  const series=[
+    {name:"Cette séance",color:"#c1121f",values:cur},
+    {name:targetLabel,color:targetColor,values:COACH_RADAR_METRICS.map(m=>target[m.key]?100:null)},
+  ];
+  const rows=COACH_RADAR_METRICS.map((m,i)=>{
+    const v=coachAvg(players,m.key), r=target[m.key];
+    const d=(v!==null&&r)?((v-r)/r)*100:null;
+    return `<tr>
+      <td><b>${m.label}</b></td>
+      <td>${coachFmt(v,m.dec)}</td>
+      <td>${coachFmt(r===undefined?null:r,m.dec)}</td>
+      <td style="color:${d===null?"#8a8a93":(d>=0?"#1f7a3d":"#c1121f")}">${d===null?"—":(d>0?"+":"")+coachFmt(d,0)+" %"}</td>
+      <td style="color:${coachPctColor(cur[i])}">${cur[i]===null?"—":coachFmt(cur[i],0)+" %"}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="coach-radar-card">
+    <h3 class="coach-radar-title">${title}</h3>
+    <p class="panel-help" style="margin:0 0 6px">${subtitle}</p>
+    ${coachRadarSvg(axes,series,430,targetLabel)}
+    <div class="coach-legend">${series.map(s=>`<div><i style="background:${s.color}"></i>${s.name}</div>`).join("")}</div>
+    <table class="coach-delta" style="margin-top:12px">
+      <thead><tr><th>Métrique</th><th>Séance</th><th>${targetLabel}</th><th>Écart</th><th>%</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderCoachRadar(){
+  const host=document.getElementById("coachRadarPage");
+  if(!host) return;
+  const players=coachSessionPlayers();
+  if(!players.length){ host.innerHTML=""; return; }
+  const ref=coachMatchRef(players);
+
+  const names=coachThemeNames();
+  if(coachSelectedTheme===null){
+    coachSelectedTheme=((document.getElementById("sessionTheme")||{}).textContent||"").trim()||names[0]||"";
+  }
+  const theme=coachThemeTarget(coachSelectedTheme);
+  const chips=names.map(n=>{
+    const on=n.toLowerCase()===(coachSelectedTheme||"").toLowerCase();
+    return `<button type="button" class="coach-chip${on?" on":""}" onclick="coachSetTheme(${JSON.stringify(n).replace(/"/g,"&quot;")})">${n}</button>`;
+  }).join("");
+
+  const matchTarget={}; COACH_RADAR_METRICS.forEach(m=>matchTarget[m.key]=ref[m.key]);
+
+  host.innerHTML=`
+    <h2 class="section-title">Profils comparatifs</h2>
+    <p class="page-title">Rapport coach — radars comparatifs</p>
+    <div class="coach-themebar no-print">
+      <span>Type de séance comparé :</span>${chips||'<em style="font-size:12px">aucun thème enregistré</em>'}
+      <button type="button" class="coach-chip" onclick="coachGoToSettings()">+ Gérer les thèmes</button>
+    </div>
+    <div class="coach-radar-grid">
+      ${coachRadarBlock("Séance vs séances du même thème", "Thème : <b>"+(coachSelectedTheme||"—")+"</b> — "+theme.source, players, theme.values, "Réf. thème", "#2b4c7e")}
+      ${coachRadarBlock("Séance vs match", "Référence match moyenne des postes présents (modifiable en page 1).", players, matchTarget, "Match", "#8a8a93")}
+    </div>`;
+}
+
+function openCoachReport(){
+  if(typeof lastParsed==="undefined"||!lastParsed){ alert("Importez d'abord un CSV de séance."); return; }
+  renderCoachCover();
+  renderCoachRadar();
+  document.body.classList.add("coach-mode");
+}
+function closeCoachReport(){ document.body.classList.remove("coach-mode"); }
+function printCoachReport(){
+  const t=document.title;
+  document.title="Rapport coach — séance";
+  setTimeout(()=>{ window.print(); document.title=t; },50);
+}
+
+function renderCoachThemesSettings(){
+  const host=document.getElementById("coachThemesList");
+  if(!host) return;
+  const list=coachLoadThemes();
+  const head='<div class="coach-theme-row"><div class="coach-theme-head">Thème</div>'+
+    COACH_ALL_METRICS.map(m=>'<div class="coach-theme-head">'+m.label+' ('+m.unit+')</div>').join('')+'<div></div></div>';
+  const rows=list.map((t,i)=>
+    '<div class="coach-theme-row">'+
+      '<input type="text" value="'+(t.name||"").replace(/"/g,"&quot;")+'" placeholder="ex: Collectif" onchange="coachUpdateTheme('+i+',\'name\',this.value)">'+
+      COACH_ALL_METRICS.map(m=>'<input type="number" step="0.01" value="'+((t.ref&&t.ref[m.key])!==undefined&&t.ref[m.key]!==null?t.ref[m.key]:"")+'" placeholder="—" onchange="coachUpdateTheme('+i+',\''+m.key+'\',this.value)">').join('')+
+      '<button class="btn btn-secondary" onclick="coachDeleteTheme('+i+')">Suppr.</button>'+
+    '</div>'
+  ).join("");
+  host.innerHTML = head + (rows || '<p class="panel-help" style="margin:0">Aucun thème pour l\'instant.</p>');
+}
+function coachGoToSettings(){
+  closeCoachReport();
+  const btn=document.querySelector('#hub-gps .tab-btn[data-tab="reglages"]');
+  if(btn) btn.click();
+  renderCoachThemesSettings();
+}
+function coachAddTheme(){ const l=coachLoadThemes(); l.push({name:"",ref:{}}); coachSaveThemes(l); renderCoachThemesSettings(); }
+function coachDeleteTheme(i){ const l=coachLoadThemes(); l.splice(i,1); coachSaveThemes(l); renderCoachThemesSettings(); renderCoachRadar(); }
+function coachUpdateTheme(i,key,val){
+  const l=coachLoadThemes(); if(!l[i]) return;
+  if(key==="name") l[i].name=val;
+  else { l[i].ref=l[i].ref||{}; if(val==="") delete l[i].ref[key]; else l[i].ref[key]=val; }
+  coachSaveThemes(l); renderCoachRadar();
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  renderCoachThemesSettings();
+  const btn=document.getElementById("coachReportBtn");
+  if(btn) btn.addEventListener("click",openCoachReport);
+  const banner=document.createElement("div");
+  banner.id="coachBanner";
+  banner.className="no-print";
+  banner.innerHTML='<span>Mode rapport coach</span>'+
+    '<button style="background:#c1121f;color:#fff" onclick="printCoachReport()">Imprimer / PDF</button>'+
+    '<button style="background:rgba(255,255,255,.14);color:#fff" onclick="closeCoachReport()">Quitter</button>';
+  document.body.insertBefore(banner, document.body.firstChild);
 });
 </script>
 </body>
