@@ -2723,6 +2723,13 @@ table.roster-table select { padding: 4px; }
       <div id="storageDiagResult" style="margin-top:12px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap"></div>
     </div>
 
+    <div class="settings-card" id="syncDiagCard" style="margin-bottom:16px;border:2px solid #D6001C">
+      <h2 class="section-title" style="margin-top:0">🔍 Comparer cet appareil et le cloud</h2>
+      <p class="panel-help">Avant de synchroniser ou de restaurer quoi que ce soit, vérifie ici ce qu'il y a réellement sur CET appareil et dans le cloud, côte à côte. Ce bouton ne modifie rien.</p>
+      <button onclick="runSyncComparisonDiagnostic()" class="btn btn-primary">Comparer maintenant</button>
+      <div id="syncDiagResult" style="margin-top:12px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap"></div>
+    </div>
+
     <!-- BOUTON TEMPORAIRE - SUPPRIMER APRÈS USAGE -->
     <div class="settings-card" style="border:2px solid #e0b341;margin-bottom:16px">
       <h2 class="section-title" style="margin-top:0;color:#e0b341">🛠 Correction horodateurs</h2>
@@ -6643,6 +6650,80 @@ function runStorageDiagnostic() {
   } else {
     finish();
   }
+}
+
+// Compare, SANS RIEN MODIFIER, ce qu'il y a sur CET appareil (localStorage)
+// et ce qu'il y a dans le cloud à l'instant T — pour savoir enfin où se
+// trouve réellement chaque donnée avant de synchroniser quoi que ce soit.
+function countThing(raw) {
+  if (!raw) return 0;
+  try {
+    var v = JSON.parse(raw);
+    if (Array.isArray(v)) return v.length;
+    if (v && typeof v === "object") return Object.keys(v).length;
+  } catch (e) {}
+  return raw ? 1 : 0;
+}
+async function runSyncComparisonDiagnostic() {
+  const el = document.getElementById("syncDiagResult");
+  if (!el) return;
+  el.textContent = "⏳ Lecture en cours…";
+
+  const label = {
+    "gpsReportRoster_v1": "Joueurs dans Réglages (roster)",
+    "gpsRosterPositions_v1": "Postes assignés",
+    "gpsSavedSessions_v1": "Séances GPS enregistrées",
+    "gpsSavedMatches_v1": "Matchs enregistrés",
+    "gpsSeasonRecords_v1": "Records de saison",
+    "gpsMedicalRecords_v1": "Dossiers médicaux",
+    "nissaPhysicalTests_v1": "Tests physiques",
+    "nissaPlayerProfiles_v1": "Profils joueurs",
+    "gpsMatchObjectives_v1": "Objectifs match",
+    "gpsReportObjectives_v1": "Objectifs séance",
+    "nissa_espoirs_rpe_overrides_v1": "Corrections RPE",
+    "gpsP1Roster_v1": "Effectif Suivi P1",
+  };
+
+  const localCounts = {};
+  Object.keys(label).forEach((k) => { localCounts[k] = countThing(localStorage.getItem(k)); });
+
+  let cloud = null, cloudError = null;
+  try {
+    const resp = await fetch(SUPABASE_REST_URL + "?id=eq." + SUPABASE_ROW_ID + "&select=data,updated_at", {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
+    });
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows && rows.length) cloud = rows[0];
+    } else {
+      cloudError = "Erreur HTTP " + resp.status;
+    }
+  } catch (e) {
+    cloudError = e.message;
+  }
+
+  const lines = [];
+  lines.push("APPAREIL ACTUEL (local)                          CLOUD");
+  lines.push("─".repeat(66));
+  Object.keys(label).forEach((k) => {
+    const localN = localCounts[k];
+    const cloudN = cloud && cloud.data ? countThing(JSON.stringify(cloud.data[k])) : (cloudError ? "?" : 0);
+    const name = label[k].padEnd(34, " ");
+    lines.push(name + String(localN).padStart(4, " ") + "        " + String(cloudN).padStart(4, " "));
+  });
+  lines.push("");
+  if (cloudError) {
+    lines.push("⚠ Impossible de lire le cloud : " + cloudError);
+  } else if (cloud) {
+    lines.push("Dernière sauvegarde cloud : " + (cloud.data && cloud.data._date ? new Date(cloud.data._date).toLocaleString("fr-FR") : "date inconnue"));
+  } else {
+    lines.push("⚠ Aucune sauvegarde cloud trouvée du tout.");
+  }
+  const backupRaw = localStorage.getItem("nissaPreRestoreBackup_v1");
+  lines.push("Sauvegarde de secours locale : " + (backupRaw ? ("présente, prise le " + new Date(JSON.parse(backupRaw)._date).toLocaleString("fr-FR")) : "aucune"));
+  lines.push("");
+  lines.push("Ce tableau ne modifie rien — c'est juste un état des lieux.");
+  el.textContent = lines.join("\n");
 }
 
 function loadSavedSessions() {
@@ -11504,7 +11585,7 @@ function scheduleAutoSync() {
   if (_syncAutoSaveTimer) clearTimeout(_syncAutoSaveTimer);
   _syncPendingFlush = true;
   if (typeof setSyncPill === 'function') setSyncPill('pending', 'Modifié…', 'Modifications en attente d\'envoi au cloud');
-  _syncAutoSaveTimer = setTimeout(function(){ syncSave(); _syncPendingFlush = false; }, 3000);
+  _syncAutoSaveTimer = setTimeout(function(){ syncSave(); _syncPendingFlush = false; }, 1200);
 }
 var _origSavePhysTests = savePhysicalTests;
 savePhysicalTests = function() { _origSavePhysTests(); scheduleAutoSync(); };
