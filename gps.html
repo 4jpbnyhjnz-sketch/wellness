@@ -7218,7 +7218,22 @@ async function parseGpsReportPdfFile(file) {
       let i = startIdx + 1;
       while (i < lines.length && lines[i][0] !== "JOUEUR") i++;
       if (i >= lines.length) return [];
-      const headerLine = lines[i];
+      // Certains libellés d'en-tête ("DISTANCE (M)", "CONTACT"...) sont assez
+      // longs pour être coupés sur DEUX lignes de texte par le PDF (une moitié
+      // juste au-dessus de la ligne "JOUEUR", l'autre juste en-dessous). On
+      // fusionne donc les fragments des lignes voisines (courtes = bouts
+      // d'en-tête, pas des données) en les remettant dans l'ordre horizontal
+      // (x croissant) plutôt que de se fier à une seule ligne de texte.
+      const HEADER_FRAGMENT_MAX_TOKENS = 5;
+      let headerItems = rowsMap[ys[i]].slice();
+      if (i > 0 && rowsMap[ys[i - 1]] && rowsMap[ys[i - 1]].length <= HEADER_FRAGMENT_MAX_TOKENS) {
+        headerItems = headerItems.concat(rowsMap[ys[i - 1]]);
+      }
+      if (i + 1 < ys.length && rowsMap[ys[i + 1]] && rowsMap[ys[i + 1]].length <= HEADER_FRAGMENT_MAX_TOKENS) {
+        headerItems = headerItems.concat(rowsMap[ys[i + 1]]);
+        i++; // cette ligne de fragments ne doit pas être relue comme une ligne de données
+      }
+      const headerLine = headerItems.sort((a, b) => a.x - b.x).map((it) => it.str);
       const detectedKeys = detectColumnsFromHeaderTokens(headerLine.slice(1));
       const effectiveKeys = detectedKeys.length ? detectedKeys : PDF_METRIC_KEYS;
       i++; // passe l'entête
