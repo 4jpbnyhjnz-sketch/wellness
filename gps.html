@@ -7771,19 +7771,33 @@ function p1SafeParseDate(dateStr) {
 // Retrouve, dans les séances enregistrées, les noms complets correspondant
 // aux bouts de noms du roster P1 (ex : "Faucher" -> "Aston Faucher").
 function p1MatchedFullNames() {
-  const names = new Set();
+  // Regroupe les variantes de casse d'un même joueur ("Faucher" / "faucher")
+  // en une seule entrée, pour éviter les doublons dans la liste de suivi P1 —
+  // même s'il s'agit d'une simple erreur de majuscule lors d'un import.
+  const byLower = {};
   savedSessions.forEach((s) => {
     ["3/4", "Avant"].forEach((g) => {
       (s.groups[g] || []).forEach((p) => {
         const full = p.displayName || p.player;
         if (!full) return;
         if (p1Roster.some((r) => r && full.toLowerCase().indexOf(r.toLowerCase()) !== -1)) {
-          names.add(full);
+          const key = full.toLowerCase();
+          if (!byLower[key]) byLower[key] = full;
+          // Préfère la casse qui correspond exactement au roster officiel s'il y en a une
+          const officialMatch = (typeof FIXED_ROSTER !== "undefined") && FIXED_ROSTER.find((r) => r.toLowerCase() === key);
+          if (officialMatch) byLower[key] = officialMatch;
         }
       });
     });
   });
-  return Array.from(names).sort();
+  return Object.values(byLower).sort();
+}
+
+// Compare deux noms de joueur en ignorant la casse — pour que "Faucher" et
+// "faucher" (une simple erreur de majuscule à l'import) soient reconnus
+// comme la même personne partout dans le suivi P1.
+function p1SameName(a, b) {
+  return String(a || "").toLowerCase() === String(b || "").toLowerCase();
 }
 
 function p1PlayerWeekEntries(fullName, weekMonday) {
@@ -7792,7 +7806,7 @@ function p1PlayerWeekEntries(fullName, weekMonday) {
   savedSessions.forEach((s) => {
     if (days.indexOf(s.date) === -1) return;
     ["3/4", "Avant"].forEach((g) => {
-      const p = (s.groups[g] || []).find((pp) => (pp.displayName || pp.player) === fullName);
+      const p = (s.groups[g] || []).find((pp) => p1SameName(pp.displayName || pp.player, fullName));
       if (p) entries.push(p);
     });
   });
@@ -7817,7 +7831,7 @@ function p1PlayerWeekAgg(fullName, weekMonday) {
 
 function p1TeamWeekAgg(weekMonday) {
   const excluded = p1WeekExclusions[weekMonday] || [];
-  const included = p1MatchedFullNames().filter((n) => excluded.indexOf(n) === -1);
+  const included = p1MatchedFullNames().filter((n) => !excluded.some((e) => p1SameName(e, n)));
   const perPlayer = included.map((n) => p1PlayerWeekAgg(n, weekMonday)).filter(Boolean);
   if (!perPlayer.length) return null;
   const agg = { playerCount: perPlayer.length };
@@ -7834,7 +7848,7 @@ function p1PlayerDayAgg(fullName, dateStr) {
   savedSessions.forEach((s) => {
     if (s.date !== dateStr) return;
     ["3/4", "Avant"].forEach((g) => {
-      const p = (s.groups[g] || []).find((pp) => (pp.displayName || pp.player) === fullName);
+      const p = (s.groups[g] || []).find((pp) => p1SameName(pp.displayName || pp.player, fullName));
       if (p) entries.push(p);
     });
   });
@@ -7844,7 +7858,7 @@ function p1PlayerDayAgg(fullName, dateStr) {
 // Moyenne d'équipe pour UN jour précis (respecte les exclusions de la semaine affichée).
 function p1TeamDayAgg(dateStr, weekMonday) {
   const excluded = p1WeekExclusions[weekMonday] || [];
-  const included = p1MatchedFullNames().filter((n) => excluded.indexOf(n) === -1);
+  const included = p1MatchedFullNames().filter((n) => !excluded.some((e) => p1SameName(e, n)));
   const perPlayer = included.map((n) => p1PlayerDayAgg(n, dateStr)).filter(Boolean);
   if (!perPlayer.length) return null;
   const agg = { playerCount: perPlayer.length };
@@ -7905,7 +7919,7 @@ function saveP1RosterFromInput() {
 function toggleP1WeekExclusion(fullName, checked) {
   initP1Week();
   const list = p1WeekExclusions[p1CurrentWeek] || [];
-  const idx = list.indexOf(fullName);
+  const idx = list.findIndex((n) => p1SameName(n, fullName));
   if (checked && idx !== -1) list.splice(idx, 1);
   if (!checked && idx === -1) list.push(fullName);
   p1WeekExclusions[p1CurrentWeek] = list;
@@ -8013,7 +8027,7 @@ function renderP1Tab() {
     matched.forEach((name) => {
       const wrap = document.createElement("label");
       wrap.className = "p1-roster-check";
-      const checked = excluded.indexOf(name) === -1;
+      const checked = !excluded.some((e) => p1SameName(e, name));
       wrap.innerHTML = `<input type="checkbox" ${checked ? "checked" : ""}> ${name}`;
       wrap.querySelector("input").addEventListener("change", (e) => {
         toggleP1WeekExclusion(name, e.target.checked);
@@ -8091,7 +8105,7 @@ function printP1Report() {
   const prev = p1TeamWeekAgg(prevWeek);
   const days = weekDayKeys(p1CurrentWeek);
   const excluded = p1WeekExclusions[p1CurrentWeek] || [];
-  const included = p1MatchedFullNames().filter((n) => excluded.indexOf(n) === -1);
+  const included = p1MatchedFullNames().filter((n) => !excluded.some((e) => p1SameName(e, n)));
   const collectiveDefs = P1_METRIC_DEFS.filter((m) => m.collective);
 
   const teamRowsHtml = collectiveDefs.map((m) => {
