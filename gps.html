@@ -9192,6 +9192,14 @@ function reprocessData() {
   RPE=res.rpeOut;RPEDAYS=res.rpeDates;
   SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;SRPE_WEEKS_ALL=res.srpeWeeks.slice();SRPE_DAY=res.srpeByDate;
   buildRpeRoster();
+  // Recalcule aussi la liste des jours disponibles (menu déroulant de dates) —
+  // sans ça, une date qui n'existe que dans un import RPE fraîchement ajouté
+  // (aucune donnée GPS/wellness ce jour-là) n'apparaissait jamais dans le
+  // sélecteur tant que la page n'était pas rechargée depuis le Google Sheet.
+  ALLDAYS=Object.keys(WD).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
+  ALLDAYS_UNION=Array.from(new Set(ALLDAYS.concat(RPEDAYS))).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
+  if (typeof buildSeasons === 'function') buildSeasons();
+  if (typeof populateDateSelectForSeason === 'function') populateDateSelectForSeason();
   render();
 }
 
