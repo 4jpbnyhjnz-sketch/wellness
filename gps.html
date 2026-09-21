@@ -8752,12 +8752,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initRosterUI();
   initExport();
-  // Ajoute une fois pour toutes les joueurs repérés dans des imports (GPS,
-  // tests physiques...) mais jamais rentrés dans le listing pro — pour
-  // qu'ils cessent d'apparaître comme "absents de l'effectif" partout.
-  [["Nevicky", "3/4", ""], ["Perrot", "3/4", ""], ["Fender", "Avant", ""]].forEach(([name, group, pos]) => {
-    if (!roster[name]) addPlayerToRoster(name, group, pos);
-  });
   renderObjectivesPanel();
   renderColumnToggles();
   renderStatsTab();
