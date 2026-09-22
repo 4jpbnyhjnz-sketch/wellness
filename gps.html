@@ -4739,6 +4739,7 @@ function renderRecordsTab() {
   }
 
   const sorted = names;
+  var anyRecordFixed = false;
 
   sorted.forEach((name) => {
     const justBroke = lastBrokenRecords.includes(name);
@@ -4757,20 +4758,22 @@ function renderRecordsTab() {
     // Auto-correction : si l'historique contient une valeur supérieure au record
     // enregistré (import manquant, session corrigée après coup, etc.), on aligne
     // le record affiché sur le vrai maximum avant de construire les cartes.
+    // La sauvegarde elle-même se fait UNE SEULE FOIS après la boucle (pas à
+    // chaque joueur) — l'écrire ici à chaque itération pouvait déclencher
+    // jusqu'à ~80 écritures localStorage d'affilée et ralentir nettement
+    // l'ouverture de cet onglet avec un effectif complet.
     const history = getPlayerHistory(name);
-    let recordFixed = false;
-    if (!seasonRecords[name]) { seasonRecords[name] = { vmax: 0, accel: 0 }; recordFixed = true; }
+    if (!seasonRecords[name]) { seasonRecords[name] = { vmax: 0, accel: 0 }; anyRecordFixed = true; }
     history.forEach((h) => {
       if (h.vmax > seasonRecords[name].vmax) {
         seasonRecords[name].vmax = Math.round(h.vmax * 100) / 100;
-        recordFixed = true;
+        anyRecordFixed = true;
       }
       if (h.accelMax > seasonRecords[name].accel) {
         seasonRecords[name].accel = Math.round(h.accelMax * 100) / 100;
-        recordFixed = true;
+        anyRecordFixed = true;
       }
     });
-    if (recordFixed) saveSeasonRecords(seasonRecords);
 
     const podiumRow = document.createElement("div");
     podiumRow.className = "podium-row";
@@ -4807,6 +4810,12 @@ function renderRecordsTab() {
     podiumRow.appendChild(buildEditableCard("Accel max record", "accel", ""));
     body.appendChild(podiumRow);
 
+    // L'historique complet (jusqu'à une ligne par séance de la saison) est
+    // coûteux à construire pour chaque joueur — avec un effectif complet, le
+    // faire pour tout le monde d'un coup à l'ouverture de l'onglet est ce qui
+    // ralentissait nettement cette page. On ne le construit donc qu'au
+    // moment où le joueur est effectivement déplié (et une seule fois,
+    // ensuite c'est mis en cache dans le DOM).
     if (history.length) {
       const histTitle = document.createElement("p");
       histTitle.style.margin = "14px 0 6px";
@@ -4815,25 +4824,33 @@ function renderRecordsTab() {
       histTitle.textContent = `Historique des séances (${history.length})`;
       body.appendChild(histTitle);
 
-      const visibleColumns = getVisibleMetricColumns();
-      const histTable = document.createElement("table");
-      histTable.className = "data-table player-history-table";
-      const thead = document.createElement("thead");
-      thead.innerHTML = "<tr><th>Date</th>" + visibleColumns.map((c) => `<th>${c.label}</th>`).join("") + "</tr>";
-      histTable.appendChild(thead);
+      const histContainer = document.createElement("div");
+      body.appendChild(histContainer);
 
-      const tbody = document.createElement("tbody");
-      history.forEach((row) => {
-        const tr = document.createElement("tr");
-        let cells = `<td>${row.date}</td>`;
-        visibleColumns.forEach((col) => {
-          cells += `<td>${fmt(row[col.key], col.decimals)}</td>`;
+      let histBuilt = false;
+      details.addEventListener("toggle", () => {
+        if (!details.open || histBuilt) return;
+        histBuilt = true;
+        const visibleColumns = getVisibleMetricColumns();
+        const histTable = document.createElement("table");
+        histTable.className = "data-table player-history-table";
+        const thead = document.createElement("thead");
+        thead.innerHTML = "<tr><th>Date</th>" + visibleColumns.map((c) => `<th>${c.label}</th>`).join("") + "</tr>";
+        histTable.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        history.forEach((row) => {
+          const tr = document.createElement("tr");
+          let cells = `<td>${row.date}</td>`;
+          visibleColumns.forEach((col) => {
+            cells += `<td>${fmt(row[col.key], col.decimals)}</td>`;
+          });
+          tr.innerHTML = cells;
+          tbody.appendChild(tr);
         });
-        tr.innerHTML = cells;
-        tbody.appendChild(tr);
+        histTable.appendChild(tbody);
+        histContainer.appendChild(histTable);
       });
-      histTable.appendChild(tbody);
-      body.appendChild(histTable);
     }
 
     const delBtn = document.createElement("button");
@@ -4849,6 +4866,8 @@ function renderRecordsTab() {
     details.appendChild(body);
     container.appendChild(details);
   });
+
+  if (anyRecordFixed) saveSeasonRecords(seasonRecords);
 }
 
 function initRecordsUI() {
@@ -7649,9 +7668,24 @@ function renderStatsTab() {
    fiches de l'onglet Records (Statistiques)
    ------------------------------------------------------------------------- */
 
+// Évite de re-trier savedSessions à chaque appel de getPlayerHistory : avec
+// tout l'effectif (renderRecordsTab boucle sur ~80 joueurs), retrier le même
+// tableau 80 fois de suite était une vraie perte de temps mesurable. Le tri
+// se fait par id (jamais modifié après coup), donc ce cache reste valide
+// tant que le nombre de séances et le dernier id ne changent pas.
+var _sortedSessionsCache = null;
+var _sortedSessionsCacheKey = null;
+function getSortedSavedSessions() {
+  var key = savedSessions.length + ":" + (savedSessions.length ? savedSessions[savedSessions.length - 1].id : "");
+  if (_sortedSessionsCache && _sortedSessionsCacheKey === key) return _sortedSessionsCache;
+  _sortedSessionsCache = [...savedSessions].sort((a, b) => a.id - b.id);
+  _sortedSessionsCacheKey = key;
+  return _sortedSessionsCache;
+}
+
 function getPlayerHistory(name) {
   const rows = [];
-  const sorted = [...savedSessions].sort((a, b) => a.id - b.id); // ordre chronologique
+  const sorted = getSortedSavedSessions();
   sorted.forEach((session) => {
     const found = [...session.groups["3/4"], ...session.groups.Avant].find(
       (s) => (s.displayName || s.player) === name
@@ -8767,6 +8801,41 @@ document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initRosterUI();
   initExport();
+  // Récupération ponctuelle des joueurs retrouvés dans records-saison-2.json
+  // mais toujours absents du Listing pro. Sûr à exécuter à chaque
+  // chargement désormais : la fusion "jamais de perte" (mergeNeverLose)
+  // empêche qu'une synchro/restauration ultérieure ne les efface à nouveau.
+  (function seedRosterFromRecoveredRecords() {
+    var groupKnown = { "Fender": "Avant", "Perrot": "3/4" };
+    var records = {
+      "Diaz":{vmax:25.68,accel:4.12},"Niel":{vmax:34,accel:4.87},"Pies":{vmax:34.15,accel:5.2},
+      "Pusi":{vmax:0,accel:0},"Arsac":{vmax:32.65,accel:5.01},"Bouye":{vmax:32.77,accel:4.79},
+      "Gomis":{vmax:33.49,accel:4.92},"Berger":{vmax:33.17,accel:7.16},"Fender":{vmax:0,accel:0},
+      "Morley":{vmax:31.5,accel:4.54},"Papini":{vmax:22.03,accel:3.17},"Parodi":{vmax:32.24,accel:4.89},
+      "Perrot":{vmax:31.16,accel:4.35},"Ricord":{vmax:29.63,accel:4.18},"Scotto":{vmax:29.11,accel:4.24},
+      "Lesage":{vmax:30.33,accel:5.11},"Blondin":{vmax:30.82,accel:5.32},"Bouquet":{vmax:0,accel:0},
+      "Delpias":{vmax:33.61,accel:5.06},"Faustin":{vmax:28.59,accel:3.89},"Goyffon":{vmax:30.03,accel:4.55},
+      "Jouglas":{vmax:29.95,accel:4.75},"Kefford":{vmax:0,accel:0},"Nevicky":{vmax:0,accel:0},
+      "Rebbadj":{vmax:0,accel:0},"Tuiteci":{vmax:32.08,accel:4.39},"Baconnet":{vmax:0,accel:0},
+      "Bedjaoui":{vmax:31.1,accel:4.62},"Clément":{vmax:32.39,accel:5.31},"Corbelli":{vmax:34.21,accel:4.69},
+      "Flambart":{vmax:33.44,accel:4.75},"Kaufmann":{vmax:33.75,accel:5.1},"Ruzzante":{vmax:24.1,accel:3.57},
+      "Testelin":{vmax:29.64,accel:4.36},"oulerich":{vmax:34.9,accel:4.95},"pedrochi":{vmax:28.93,accel:4.15},
+      "Conceicao":{vmax:34.87,accel:5.4},"Lamacchia":{vmax:27.87,accel:3.96},"Marcillon":{vmax:31.42,accel:4.55},
+      "Marschall":{vmax:31.42,accel:4.65},"Navarrate":{vmax:29.02,accel:4.19},"Ouedraogo":{vmax:33.51,accel:4.87},
+      "Ravinetto":{vmax:27.21,accel:4.33},"Chikhladze":{vmax:29.36,accel:4.24},"Decourteix":{vmax:30.92,accel:4.47},
+      "Lacquement":{vmax:31.67,accel:4.82},"Blooworth":{vmax:32.46,accel:4.82},"Brandinelli":{vmax:30.19,accel:4.35},
+      "Castaignede":{vmax:33.97,accel:4.95},"De Montpezat":{vmax:0,accel:0},"Berthaud-Massé":{vmax:0,accel:0},
+    };
+    var rosterChanged = false, recordsChanged = false;
+    Object.keys(records).forEach(function(name) {
+      if (!roster[name]) { addPlayerToRoster(name, groupKnown[name] || "3/4", ""); rosterChanged = true; }
+      var r = records[name];
+      if (!seasonRecords[name]) seasonRecords[name] = { vmax: 0, accel: 0 };
+      if (r.vmax > seasonRecords[name].vmax) { seasonRecords[name].vmax = r.vmax; recordsChanged = true; }
+      if (r.accel > seasonRecords[name].accel) { seasonRecords[name].accel = r.accel; recordsChanged = true; }
+    });
+    if (recordsChanged) saveSeasonRecords(seasonRecords);
+  })();
   renderObjectivesPanel();
   renderColumnToggles();
   renderStatsTab();
