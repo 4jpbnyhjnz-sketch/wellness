@@ -4209,7 +4209,7 @@ function loadRoster() {
 }
 
 function saveRoster(roster) {
-  localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+  safeLocalStorageSet(ROSTER_STORAGE_KEY, JSON.stringify(roster));
   markLocalDataChanged();
 }
 
@@ -4218,7 +4218,7 @@ let roster = loadRoster();
 function loadRosterPositions() {
   try { return JSON.parse(localStorage.getItem(ROSTER_POSITIONS_KEY) || "{}"); } catch(e) { return {}; }
 }
-function saveRosterPositions(p) { localStorage.setItem(ROSTER_POSITIONS_KEY, JSON.stringify(p)); markLocalDataChanged(); }
+function saveRosterPositions(p) { safeLocalStorageSet(ROSTER_POSITIONS_KEY, JSON.stringify(p)); markLocalDataChanged(); }
 
 let rosterPositions = loadRosterPositions();
 
@@ -4228,7 +4228,7 @@ function loadMatchObjectives() {
     return raw ? JSON.parse(raw) : {};
   } catch(e) { return {}; }
 }
-function saveMatchObjectives(o) { localStorage.setItem(MATCH_OBJECTIVES_KEY, JSON.stringify(o)); markLocalDataChanged(); }
+function saveMatchObjectives(o) { safeLocalStorageSet(MATCH_OBJECTIVES_KEY, JSON.stringify(o)); markLocalDataChanged(); }
 let matchObjectives = loadMatchObjectives();
 
 // Préremplit les objectifs match (par poste) avec les valeurs par défaut du groupe
@@ -4445,7 +4445,7 @@ function loadColumnVisibility() {
 }
 
 function saveColumnVisibility(v) {
-  localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(v));
+  safeLocalStorageSet(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(v));
   markLocalDataChanged();
 }
 
@@ -4665,7 +4665,7 @@ function loadSeasonRecords() {
 }
 
 function saveSeasonRecords(records) {
-  localStorage.setItem(SEASON_RECORDS_STORAGE_KEY, JSON.stringify(records));
+  safeLocalStorageSet(SEASON_RECORDS_STORAGE_KEY, JSON.stringify(records));
   markLocalDataChanged();
 }
 
@@ -4978,7 +4978,7 @@ function loadObjectives() {
 }
 
 function saveObjectives(obj) {
-  localStorage.setItem(OBJECTIVES_STORAGE_KEY, JSON.stringify(obj));
+  safeLocalStorageSet(OBJECTIVES_STORAGE_KEY, JSON.stringify(obj));
   markLocalDataChanged();
 }
 
@@ -6432,7 +6432,7 @@ function loadSavedMatches() {
   } catch(e) { return []; }
 }
 function saveSavedMatchesList(list) {
-  localStorage.setItem(SAVED_MATCHES_STORAGE_KEY, JSON.stringify(list));
+  safeLocalStorageSet(SAVED_MATCHES_STORAGE_KEY, JSON.stringify(list));
   markLocalDataChanged();
 }
 let savedMatches = loadSavedMatches();
@@ -6802,9 +6802,38 @@ function markLocalDataChanged() {
   try { localStorage.setItem("nissaLastLocalChange_v1", Date.now().toString()); } catch (e) {}
 }
 
+// Écriture localStorage centralisée et SANS échec silencieux : si le
+// stockage du navigateur est plein (quota dépassé) ou écrit refuse pour
+// toute autre raison, la modification semblait "passer" alors qu'elle
+// n'était en réalité jamais enregistrée — c'est ce qui donnait l'impression
+// que des modifications disparaissaient sans raison. Désormais, tout échec
+// déclenche une alerte visible sur tous les onglets, comme un échec de
+// synchro cloud.
+var _storageErrorWarned = false;
+function safeLocalStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.error("Échec d'écriture localStorage (" + key + ") :", e);
+    if (!_storageErrorWarned) {
+      _storageErrorWarned = true;
+      if (typeof showGlobalSyncWarning === "function") {
+        showGlobalSyncWarning("— stockage local plein, la dernière modification n'a PAS été enregistrée. Vide de l'espace (Réglages → Diagnostic stockage) puis réessaie.");
+      }
+      alert(
+        "⚠ La modification n'a PAS pu être enregistrée : le stockage local de ce navigateur est plein.\n\n" +
+        "Va dans Réglages → 🔧 Diagnostic stockage pour voir ce qui prend de la place, " +
+        "et libère de l'espace (export + suppression d'anciennes séances par ex.) avant de continuer à saisir des données."
+      );
+    }
+    return false;
+  }
+}
+
 function saveSavedSessions(sessions) {
   try {
-    localStorage.setItem(SAVED_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+    safeLocalStorageSet(SAVED_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
     markLocalDataChanged();
     return true;
   } catch (e) {
@@ -7776,7 +7805,7 @@ function loadP1Roster() {
   } catch (e) { return DEFAULT_P1_ROSTER.slice(); }
 }
 function saveP1Roster(list) {
-  try { localStorage.setItem(P1_ROSTER_KEY, JSON.stringify(list)); markLocalDataChanged(); } catch (e) {}
+  safeLocalStorageSet(P1_ROSTER_KEY, JSON.stringify(list)); markLocalDataChanged();
 }
 let p1Roster = loadP1Roster();
 
@@ -7785,7 +7814,7 @@ function loadP1WeekExclusions() {
   catch (e) { return {}; }
 }
 function saveP1WeekExclusions(obj) {
-  try { localStorage.setItem(P1_WEEK_EXCLUSIONS_KEY, JSON.stringify(obj)); markLocalDataChanged(); } catch (e) {}
+  safeLocalStorageSet(P1_WEEK_EXCLUSIONS_KEY, JSON.stringify(obj)); markLocalDataChanged();
 }
 let p1WeekExclusions = loadP1WeekExclusions();
 
@@ -8445,7 +8474,7 @@ function importAllData(file) {
       Object.entries(data).forEach(([key, val]) => {
         if (BACKUP_KEYS.includes(key)) {
           var mergedVal = (typeof mergeNeverLose === "function") ? mergeNeverLose(key, localStorage.getItem(key), val) : val;
-          localStorage.setItem(key, JSON.stringify(mergedVal));
+          safeLocalStorageSet(key, JSON.stringify(mergedVal));
           count++;
         }
       });
@@ -8982,7 +9011,7 @@ function loadOverrides() {
   } catch(e) { return {durations:{}, typeFixes:{}, scoreFixes:{}, tsFixes:{}, srpeExclusions:{}, week1Starts:Object.assign({},DEFAULT_WEEK1_STARTS), weekAbsences:{}}; }
 }
 function saveOverrides() {
-  try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(RPE_OVERRIDES)); markLocalDataChanged(); } catch(e) {}
+  safeLocalStorageSet(OVERRIDES_KEY, JSON.stringify(RPE_OVERRIDES)); markLocalDataChanged();
 }
 var RPE_OVERRIDES = loadOverrides();
 
@@ -10439,7 +10468,7 @@ function loadPlayerProfiles() {
   catch(e) { return {}; }
 }
 function savePlayerProfiles() {
-  localStorage.setItem(PLAYER_PROFILES_KEY, JSON.stringify(playerProfiles));
+  safeLocalStorageSet(PLAYER_PROFILES_KEY, JSON.stringify(playerProfiles));
   markLocalDataChanged();
 }
 function stripAccentsGlobal(s) {
@@ -10467,7 +10496,7 @@ function loadPhysicalTests() {
   return list;
 }
 function savePhysicalTests() {
-  localStorage.setItem(PHYSICAL_TESTS_KEY, JSON.stringify(physicalTests));
+  safeLocalStorageSet(PHYSICAL_TESTS_KEY, JSON.stringify(physicalTests));
   markLocalDataChanged();
 }
 
@@ -11510,7 +11539,7 @@ function restoreLocalBackup() {
   try { snapshot = JSON.parse(raw); } catch(e) { alert("Sauvegarde de secours illisible."); return; }
   if (!confirm('Restaurer la sauvegarde locale du ' + new Date(snapshot._date).toLocaleString('fr-FR') + ' ? Ceci va remplacer les données actuellement affichées sur cet appareil (mais pas encore le cloud).')) return;
   SYNC_DATA_KEYS.forEach(function(k) {
-    if (snapshot[k] !== undefined) localStorage.setItem(k, snapshot[k]);
+    if (snapshot[k] !== undefined) safeLocalStorageSet(k, snapshot[k]);
   });
   reloadAllVariablesAndRerender();
   alert('Sauvegarde locale restaurée. Pense à cliquer sur la pastille de synchro pour la renvoyer au cloud si elle est correcte.');
@@ -11585,7 +11614,7 @@ function restoreAllData(data) {
     if (data[k] === undefined) return;
     var localRaw = localStorage.getItem(k);
     var merged = mergeNeverLose(k, localRaw, data[k]);
-    localStorage.setItem(k, JSON.stringify(merged));
+    safeLocalStorageSet(k, JSON.stringify(merged));
   });
   reloadAllVariablesAndRerender();
 }
@@ -12530,7 +12559,7 @@ function loadMedicalRecords() {
   } catch (e) { return {}; }
 }
 function saveMedicalRecords(records) {
-  localStorage.setItem(MEDICAL_STORAGE_KEY, JSON.stringify(records));
+  safeLocalStorageSet(MEDICAL_STORAGE_KEY, JSON.stringify(records));
   if (typeof markLocalDataChanged === 'function') markLocalDataChanged();
 }
 let medicalRecords = loadMedicalRecords();
@@ -12543,7 +12572,7 @@ function loadMedicalExcluded() {
   } catch (e) { return []; }
 }
 function saveMedicalExcluded(list) {
-  localStorage.setItem(MEDICAL_EXCLUDED_KEY, JSON.stringify(list));
+  safeLocalStorageSet(MEDICAL_EXCLUDED_KEY, JSON.stringify(list));
   if (typeof markLocalDataChanged === 'function') markLocalDataChanged();
 }
 let medicalExcludedPlayers = loadMedicalExcluded(); // noms normalisés (lowercase, trim)
