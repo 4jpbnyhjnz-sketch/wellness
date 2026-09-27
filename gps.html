@@ -2873,6 +2873,7 @@ Petit Enzo ; 9</pre>
   <!-- Conteneurs d'impression -->
 
 <div id="sessionPrintRoot"></div>
+<div id="matchPrintRoot"></div>
 
 </main>
 
@@ -6541,9 +6542,20 @@ function renderMatchesTab() {
       delBtn.textContent = "Supprimer";
       delBtn.addEventListener("click", e => {
         e.preventDefault();
+        e.stopPropagation();
         if (confirm("Supprimer ce match ?")) deleteMatch(m.id);
       });
       actions.appendChild(delBtn);
+
+      const pdfBtn = document.createElement("button");
+      pdfBtn.className = "btn btn-primary";
+      pdfBtn.textContent = "Télécharger en PDF";
+      pdfBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        printSavedMatch(m);
+      });
+      actions.appendChild(pdfBtn);
       details.appendChild(actions);
 
       // Aperçu des tableaux
@@ -6651,6 +6663,80 @@ function printSavedSession(session) {
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport séance</title><style>' +
       css +
       '\nbody{background:#fff;margin:0}\nbody *{visibility:visible!important}\n#sessionPrintRoot{position:static!important;width:auto!important;display:block!important}\n</style></head><body><div id="sessionPrintRoot">' +
+      reportHtml +
+      "</div></body></html>"
+  );
+  w.document.close();
+  setTimeout(function () {
+    w.focus();
+    w.print();
+  }, 350);
+}
+
+function buildMatchPrintRoot(match) {
+  const root = document.getElementById("matchPrintRoot");
+  root.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "report-card";
+
+  const page1 = document.createElement("div");
+  page1.className = "page1-block";
+  const totalClassified = (match.groups["3/4"] || []).length + (match.groups.Avant || []).length;
+  applyDensityScale(page1, totalClassified);
+
+  const pageTitle = document.createElement("p");
+  pageTitle.className = "page-title";
+  pageTitle.textContent = "Rapport de match";
+  page1.appendChild(pageTitle);
+
+  const header = document.createElement("div");
+  header.className = "report-header";
+  header.innerHTML = `
+    <div class="report-logo-block"><img src="${NISSA_LOGO_B64}" alt="Nissa Rugby"></div>
+    <div class="report-header-block"><span class="report-header-label">Club</span><span class="report-header-value">${match.club || "—"}</span></div>
+    <div class="report-header-block"><span class="report-header-label">Adversaire</span><span class="report-header-value">${match.opponent || "—"}</span></div>
+    <div class="report-header-block"><span class="report-header-label">Journée</span><span class="report-header-value">${match.journee || "—"}</span></div>
+    <div class="report-header-block"><span class="report-header-label">Date</span><span class="report-header-value">${match.date || "—"}</span></div>
+    <div class="report-header-block"><span class="report-header-label">Durée</span><span class="report-header-value">${match.durationMinutes ? match.durationMinutes + " min" : "—"}</span></div>
+  `;
+  page1.appendChild(header);
+
+  const savedColumnVisibility = columnVisibility;
+  columnVisibility = match.columnVisibility || columnVisibility;
+
+  page1.appendChild(renderMatchGroupTableReadonly("3/4", sortByPosition(match.groups["3/4"] || [], "3/4")));
+  page1.appendChild(renderMatchGroupTableReadonly("Avant", sortByPosition(match.groups.Avant || [], "Avant")));
+
+  const medianWrap = document.createElement("div");
+  medianWrap.className = "avoid-break";
+  const medianTitle = document.createElement("h2");
+  medianTitle.className = "section-title";
+  medianTitle.textContent = "Médianes par groupe";
+  medianWrap.appendChild(medianTitle);
+  medianWrap.appendChild(renderMedianTable(match.groups));
+  page1.appendChild(medianWrap);
+
+  card.appendChild(page1);
+  columnVisibility = savedColumnVisibility;
+
+  root.appendChild(card);
+}
+
+function printSavedMatch(match) {
+  buildMatchPrintRoot(match);
+  var reportHtml = document.getElementById("matchPrintRoot").innerHTML;
+  var css = document.querySelector("style") ? document.querySelector("style").innerHTML : "";
+  var w = window.open("", "_blank", "width=900,height=700");
+  if (!w) {
+    alert("La fenêtre d'impression a été bloquée par le navigateur. Autorise les pop-ups pour ce site puis réessaie.");
+    return;
+  }
+  w.document.open();
+  w.document.write(
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport match</title><style>' +
+      css +
+      '\nbody{background:#fff;margin:0}\nbody *{visibility:visible!important}\n#matchPrintRoot{position:static!important;width:auto!important;display:block!important}\n</style></head><body><div id="matchPrintRoot">' +
       reportHtml +
       "</div></body></html>"
   );
