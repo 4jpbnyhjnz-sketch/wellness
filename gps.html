@@ -1095,6 +1095,7 @@ table.data-table td.cell-overridden {
 .saved-session-actions { display: flex; gap: 10px; }
 
 #sessionPrintRoot { display: none; }
+#matchPrintRoot { display: none; }
 
 .player-history-table th, .player-history-table td { font-size: 12px; }
 
@@ -6726,6 +6727,9 @@ function buildMatchPrintRoot(match) {
 function printSavedMatch(match) {
   buildMatchPrintRoot(match);
   var reportHtml = document.getElementById("matchPrintRoot").innerHTML;
+  // Le contenu est copié dans la fenêtre d'impression : on vide le conteneur pour qu'il
+  // ne reste jamais affiché (ni imprimé) dans les autres onglets.
+  document.getElementById("matchPrintRoot").innerHTML = "";
   var css = document.querySelector("style") ? document.querySelector("style").innerHTML : "";
   var w = window.open("", "_blank", "width=900,height=700");
   if (!w) {
