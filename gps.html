@@ -13759,12 +13759,19 @@ switchHub = function(name) {
   .pid-tcard{cursor:pointer;transition:box-shadow .12s,border-color .12s}
   .pid-tcard:hover{border-color:#c1121f !important;box-shadow:0 2px 10px rgba(193,18,31,.16)}
   @media print{
-    body>*{display:none !important}
-    #pidOverlay{display:block !important;position:static !important;background:#fff !important;padding:0 !important;overflow:visible !important}
-    #pidToolbar,#pidChartModal,#pidFoot{display:none !important}
-    #pidSheet>div{box-shadow:none !important;border:none !important;margin:0 !important}
-    @page{size:A4 landscape;margin:0}
+    /* Portée strictement à l'impression de la Fiche PID (déclenchée via
+       pidPrint(), qui pose la classe body.pid-printing) : sans cette
+       condition, ces règles s'appliquaient à N'IMPORTE QUEL "Imprimer / PDF"
+       du site (séance, match, coach...), masquaient tout le vrai contenu et
+       forçaient la page en paysage — d'où les PDF mélangés/pivotés.
+    */
+    body.pid-printing>*{display:none !important}
+    body.pid-printing #pidOverlay{display:block !important;position:static !important;background:#fff !important;padding:0 !important;overflow:visible !important}
+    body.pid-printing #pidToolbar,body.pid-printing #pidChartModal,body.pid-printing #pidFoot{display:none !important}
+    body.pid-printing #pidSheet>div{box-shadow:none !important;border:none !important;margin:0 !important}
+    body.pid-printing{ }
   }
+  @page.pid-printing{size:A4 landscape;margin:0}
 </style>
 <div id="pidOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:#e9e9ec;overflow:auto;padding:16px 16px 40px">
   <div id="pidToolbar" style="width:1123px;max-width:100%;margin:0 auto 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -13774,7 +13781,7 @@ switchHub = function(name) {
     <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6a6a72">Joueur</label>
     <select id="pidPlayerSelect" onchange="pidSelect(this.value)" style="font-family:inherit;font-size:13px;font-weight:700;padding:8px 12px;border:1px solid #c9c9d0;border-radius:8px;background:#fff;color:#17171a;min-width:190px;cursor:pointer"></select>
     <button onclick="pidOpenDetailedProfile()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:9px 16px;border:1px solid #c9c9d0;border-radius:8px;background:#fff;color:#3a3a42;cursor:pointer">📊 GPS / Wellness / Charge</button>
-    <button onclick="window.print()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:9px 16px;border:none;border-radius:8px;background:#c1121f;color:#fff;cursor:pointer">Imprimer / PDF</button>
+    <button onclick="pidPrint()" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:9px 16px;border:none;border-radius:8px;background:#c1121f;color:#fff;cursor:pointer">Imprimer / PDF</button>
   </div>
   <div id="pidSheet"></div>
   <div id="pidFoot" style="width:1123px;max-width:100%;margin:12px auto 0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7a7a82">Données : Perf Physique (tests) · Profils joueurs · Médical (blessures) · GPS (séances + matchs). Clique une carte pour voir son évolution.</div>
