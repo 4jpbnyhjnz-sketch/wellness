@@ -6947,6 +6947,12 @@ function buildSessionSnapshot() {
     objectives: JSON.parse(JSON.stringify(objectives)),
     columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
     category: null,
+    // Lignes brutes (une par joueur et par période détectée dans le CSV, ex.
+    // "séparé"/"collectif") — conservées pour pouvoir revoir les différentes
+    // parties de la séance et les graphiques une fois la séance enregistrée,
+    // pas seulement au moment de l'import. Absent sur les séances enregistrées
+    // avant cette fonctionnalité.
+    rawRows: JSON.parse(JSON.stringify(lastParsed.rows)),
     groups: {
       "3/4": grouped["3/4"],
       Avant: grouped["Avant"],
@@ -7091,8 +7097,8 @@ function renderSavedSessionBody(session, bodyContainer, summaryEl) {
   const refresh = () => renderSavedSessionBody(session, bodyContainer, summaryEl);
 
   const makeOpts = (groupKey) => ({
-    editable: true,
-    deletable: true,
+    editable: !session._selectedPeriod,
+    deletable: !session._selectedPeriod,
     objectivesData: session.objectives,
     onEdit: (csvPlayerName, statKey, value) => {
       updateSavedSessionPlayer(session, groupKey, csvPlayerName, statKey, value);
@@ -7104,9 +7110,67 @@ function renderSavedSessionBody(session, bodyContainer, summaryEl) {
     },
   });
 
-  bodyContainer.appendChild(renderGroupTable("3/4", session.groups["3/4"], makeOpts("3/4")));
-  bodyContainer.appendChild(renderGroupTable("Avant", session.groups.Avant, makeOpts("Avant")));
-  bodyContainer.appendChild(renderMedianTable(session.groups));
+  // Onglets de période (Session / séparé / collectif / mi-temps...), quand la
+  // séance a été enregistrée avec les lignes brutes du CSV. Absent sur les
+  // séances plus anciennes enregistrées avant cette fonctionnalité.
+  const periods = session.rawRows ? detectPeriods(session.rawRows) : [];
+  if (periods.length) {
+    const tabBar = document.createElement("div");
+    tabBar.className = "saved-session-period-tabs";
+    tabBar.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px";
+    const allLabels = ["Session (total)", ...periods];
+    allLabels.forEach((label) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn " + (label === session._selectedPeriod || (!session._selectedPeriod && label === "Session (total)") ? "btn-primary" : "btn-secondary");
+      btn.style.cssText = "padding:6px 14px;font-size:12px";
+      btn.textContent = label;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        session._selectedPeriod = label === "Session (total)" ? null : label;
+        refresh();
+      });
+      tabBar.appendChild(btn);
+    });
+    bodyContainer.appendChild(tabBar);
+    if (session._selectedPeriod) {
+      const note = document.createElement("p");
+      note.style.cssText = "font-size:12px;color:#888;margin:-6px 0 10px";
+      note.textContent = "Vue d'une période spécifique : lecture seule. Repasse sur « Session (total) » pour modifier ou retirer un joueur.";
+      bodyContainer.appendChild(note);
+    }
+  }
+
+  // Groupes de joueurs à afficher : soit le total de séance déjà stocké,
+  // soit recalculés pour la période sélectionnée à partir des lignes brutes.
+  let groupsToShow = session.groups;
+  if (session._selectedPeriod && session.rawRows) {
+    const periodStats = buildPeriodStats(session.rawRows, session._selectedPeriod);
+    groupsToShow = groupPlayers(periodStats);
+  }
+
+  bodyContainer.appendChild(renderGroupTable("3/4", groupsToShow["3/4"], makeOpts("3/4")));
+  bodyContainer.appendChild(renderGroupTable("Avant", groupsToShow.Avant, makeOpts("Avant")));
+  bodyContainer.appendChild(renderMedianTable(groupsToShow));
+
+  // Graphiques (mêmes présentations que sur l'import en direct), pour la
+  // période actuellement affichée.
+  const graphTitle = document.createElement("h3");
+  graphTitle.className = "section-title";
+  graphTitle.style.marginTop = "24px";
+  graphTitle.textContent = "Graphiques" + (session._selectedPeriod ? " — " + session._selectedPeriod : "");
+  bodyContainer.appendChild(graphTitle);
+  ["3/4", "Avant"].forEach((g) => {
+    if (!groupsToShow[g] || !groupsToShow[g].length) return;
+    const wrap = document.createElement("div");
+    wrap.style.marginBottom = "10px";
+    const h4 = document.createElement("p");
+    h4.style.cssText = "font-weight:700;font-size:13px;margin:6px 0";
+    h4.textContent = g;
+    wrap.appendChild(h4);
+    bodyContainer.appendChild(wrap);
+    renderScatterGalleryInto(wrap, g, groupsToShow[g]);
+  });
 
   columnVisibility = savedColumnVisibility;
 
