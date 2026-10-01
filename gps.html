@@ -1636,8 +1636,12 @@ table.roster-table select { padding: 4px; }
 .medical-body-svg { width:100%; height:auto; max-height:400px; border-radius:6px; }
 .medical-view-label { font-size:10px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
 .medical-region { fill:transparent; stroke:none; cursor:pointer; transition:fill .12s; }
-.medical-region:hover { fill:rgba(214,0,28,.35); }
-.medical-region.selected { fill:rgba(214,0,28,.55); stroke:#D6001C; stroke-width:0.3; }
+.medical-region:hover, .medical-region.selected { fill:transparent; stroke:none; }
+.medical-dot { pointer-events:none; }
+.medical-dot-core { fill:#D6001C; stroke:#fff; stroke-width:0.6; }
+.medical-dot-ring { fill:none; stroke:#D6001C; stroke-width:0.5; opacity:.6; transform-box:fill-box; transform-origin:center; animation:medicalDotPulse 1.6s ease-out infinite; }
+@keyframes medicalDotPulse { 0% { transform:scale(.6); opacity:.7; } 100% { transform:scale(1.8); opacity:0; } }
+@media (prefers-reduced-motion:reduce) { .medical-dot-ring { animation:none; } }
 .medical-fields-col { display:flex; flex-direction:column; gap:12px; }
 .medical-injury-table-wrap { overflow-x:auto; }
 .medical-injury-table { width:100%; border-collapse:collapse; font-size:12px; }
@@ -13312,31 +13316,78 @@ function initMedicalBodySvg() {
     svgs[i].addEventListener('click', function(e) {
       var el = e.target.closest ? e.target.closest('[data-key]') : null;
       if (!el) return;
-      selectMedicalBodyPartByKey(el.getAttribute('data-key'));
+      // Point posé à l'endroit exact du clic
+      var svg = this, pt = null;
+      try {
+        var p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+        var m = svg.getScreenCTM();
+        if (m) { p = p.matrixTransform(m.inverse()); pt = { view: svg.getAttribute('data-view'), x: p.x, y: p.y }; }
+      } catch (err) {}
+      selectMedicalBodyPartByKey(el.getAttribute('data-key'), pt);
     });
   }
-  if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey);
+  if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey, medicalSelectedPoint);
 }
 
-function highlightMedicalPart(key) {
+// Centre d'une zone (centroïde du plus grand polygone, ou centre de l'ellipse)
+function medicalShapeCenter(shape) {
+  if (shape.ellipse) return { x: shape.ellipse[0], y: shape.ellipse[1] };
+  var best = null, bestA = -1;
+  (shape.polys || []).forEach(function(str) {
+    var pts = str.trim().split(/\s+/).map(function(t){ var a = t.split(','); return [parseFloat(a[0]), parseFloat(a[1])]; });
+    var A = 0, cx = 0, cy = 0;
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i], q = pts[(i + 1) % pts.length], c = p[0] * q[1] - q[0] * p[1];
+      A += c; cx += (p[0] + q[0]) * c; cy += (p[1] + q[1]) * c;
+    }
+    A /= 2;
+    if (Math.abs(A) > bestA && A !== 0) { bestA = Math.abs(A); best = { x: cx / (6 * A), y: cy / (6 * A) }; }
+  });
+  return best;
+}
+
+let medicalSelectedPoint = null; // {view,x,y} : point cliqué (sinon centre de la zone)
+
+function highlightMedicalPart(key, point) {
   var container = document.getElementById('medicalBodyContainer');
   if (!container) return;
-  var prev = container.querySelectorAll('.medical-region.selected');
-  for (var i = 0; i < prev.length; i++) prev[i].classList.remove('selected');
+  var old = container.querySelectorAll('.medical-dot');
+  for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
   if (!key) return;
-  var current = container.querySelectorAll('[data-key="' + key + '"]');
-  for (var j = 0; j < current.length; j++) current[j].classList.add('selected');
+  var svgs = container.querySelectorAll('svg[data-view]');
+  for (var j = 0; j < svgs.length; j++) {
+    var view = svgs[j].getAttribute('data-view');
+    var pos = null;
+    if (point && point.view) {
+      if (point.view !== view) continue; // point uniquement sur la vue cliquée
+      pos = point;
+    } else {
+      var shape = (MEDICAL_SHAPES[view] || []).filter(function(s){ return s.key === key; })[0];
+      if (!shape) continue;
+      pos = medicalShapeCenter(shape);
+    }
+    if (!pos) continue;
+    var NS = 'http://www.w3.org/2000/svg';
+    var g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'medical-dot');
+    var ring = document.createElementNS(NS, 'circle');
+    ring.setAttribute('class', 'medical-dot-ring'); ring.setAttribute('cx', pos.x); ring.setAttribute('cy', pos.y); ring.setAttribute('r', 3.2);
+    var core = document.createElementNS(NS, 'circle');
+    core.setAttribute('class', 'medical-dot-core'); core.setAttribute('cx', pos.x); core.setAttribute('cy', pos.y); core.setAttribute('r', 2);
+    g.appendChild(ring); g.appendChild(core);
+    svgs[j].appendChild(g);
+  }
 }
 
-function selectMedicalBodyPartByKey(key) {
+function selectMedicalBodyPartByKey(key, point) {
   if (!key || !MEDICAL_BODY_PARTS_BY_KEY[key]) return;
   medicalSelectedKey = key;
+  medicalSelectedPoint = point || null;
   var label = MEDICAL_BODY_PARTS_BY_KEY[key].label;
   var lbl = document.getElementById('medicalLieuLabel');
   if (lbl) { lbl.textContent = label; lbl.style.color = '#D6001C'; }
   var sel = document.getElementById('medicalLieuSelect');
   if (sel) sel.value = key;
-  highlightMedicalPart(key);
+  highlightMedicalPart(key, medicalSelectedPoint);
 }
 
 function populateMedicalLieuSelect() {
@@ -13412,6 +13463,7 @@ let medicalEditingId = null;
 function resetMedicalForm() {
   medicalEditingId = null;
   medicalSelectedKey = null;
+  medicalSelectedPoint = null;
   const titleEl = document.getElementById('medicalFormTitle');
   if (titleEl) titleEl.textContent = '➕ Déclarer une blessure';
   const cancelBtn = document.getElementById('medicalCancelEditBtn');
@@ -13472,7 +13524,7 @@ function openMedicalInjuryForm(injuryId) {
 
   const overlay = document.getElementById('medicalFormOverlay');
   if (overlay) overlay.classList.remove('hidden');
-  setTimeout(function(){ initMedicalBodySvg(); if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey); }, 30);
+  setTimeout(function(){ initMedicalBodySvg(); }, 30);
 }
 
 function closeMedicalInjuryForm() {
