@@ -2212,6 +2212,12 @@ table.roster-table select { padding: 4px; }
 .acx-chip em{font-style:normal; font-weight:600; color:var(--cc,var(--acx-muted)); font-size:12px}
 .acx-chip-more{cursor:default; color:var(--acx-muted); background:transparent}
 .acx-empty{font-size:13px; color:var(--acx-muted)}
+.acx-col-well{--c:var(--acx-apte)}
+.acx-col-count small{font-size:13px; font-weight:700; color:var(--acx-muted)}
+.acx-well-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px}
+.acx-well-item{display:flex; align-items:baseline; justify-content:space-between; gap:8px; background:#fff; border:1px solid var(--acx-line); border-radius:10px; padding:7px 10px}
+.acx-well-lbl{font-size:12px; font-weight:600; color:var(--acx-muted)}
+.acx-well-val{font-size:14px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--wc,var(--acx-ink))}
 
 /* Compteurs */
 .acx-pills{display:flex; flex-wrap:wrap; gap:10px}
@@ -2381,8 +2387,6 @@ table.roster-table select { padding: 4px; }
       <span class="acx-greet-meta" id="acxGreetMeta"></span>
     </div>
 
-    <div class="acx-match" id="acxMatch" style="display:none" role="button" tabindex="0"
-         onclick="switchHub('gps')" onkeydown="if(event.key==='Enter')switchHub('gps')"></div>
 
     <section class="acx-watch" id="acxWatch">
       <button class="acx-watch-head" type="button" onclick="acxToggleWatch()" aria-expanded="true" id="acxWatchBtn">
@@ -2401,10 +2405,10 @@ table.roster-table select { padding: 4px; }
           <div class="acx-col-note" id="acxRedNote">Dernière réponse</div>
           <div class="acx-chips" id="acxRedList"><span class="acx-empty">Chargement…</span></div>
         </div>
-        <div class="acx-col acx-col-miss">
-          <div class="acx-col-head"><span class="acx-col-name">Wellness non reçu</span><span class="acx-col-count" id="acxMissCount">–</span></div>
-          <div class="acx-col-note" id="acxMissNote">Joueurs sans réponse</div>
-          <div class="acx-chips" id="acxMissList"><span class="acx-empty">Chargement…</span></div>
+        <div class="acx-col acx-col-well">
+          <div class="acx-col-head"><span class="acx-col-name">Wellness · moyennes</span><span class="acx-col-count" id="acxWellTotal">–</span></div>
+          <div class="acx-col-note" id="acxWellNote">Dernière réponse</div>
+          <div class="acx-well-grid" id="acxWellGrid"><span class="acx-empty">Chargement…</span></div>
         </div>
       </div>
     </section>
@@ -2414,11 +2418,6 @@ table.roster-table select { padding: 4px; }
     <div class="acx-section-head">Récap de la semaine</div>
 
     <div class="ac-recap-grid">
-      <div class="recap-card recap-card-full">
-        <div class="recap-card-title"><span class="acx-card-name"><span class="acx-dot" style="--c:#1F9D62"></span>Wellness · dernière réponse</span></div>
-        <div id="recapWellnessBody"><div class="recap-empty">Chargement…</div></div>
-      </div>
-
       <div class="recap-card">
         <div class="recap-card-title"><span class="acx-card-name"><span class="acx-dot" style="--c:#2A7FBF"></span>RPE · cette semaine</span></div>
         <div id="recapRpeBody"><div class="recap-empty">Chargement…</div></div>
@@ -13957,8 +13956,7 @@ function computeAccueilGpsRecap() {
 }
 
 function renderAccueilRecap() {
-  var wrap = document.getElementById('recapWellnessBody');
-  if (!wrap) return; // page pas encore rendue
+  if (!document.getElementById('acxWellGrid')) return; // page pas encore rendue
 
   // Wellness
   var wellness = computeAccueilWellnessRecap();
@@ -13985,7 +13983,8 @@ function renderAccueilRecap() {
       + '</div>'
       + '<div class="recap-date-note">Dernière réponse : ' + wellness.date + ' · ' + wellness.n + ' joueur(s) répondu(s)</div>';
   }
-  document.getElementById('recapWellnessBody').innerHTML = wellnessHtml;
+  var recapWellEl = document.getElementById('recapWellnessBody');
+  if (recapWellEl) recapWellEl.innerHTML = wellnessHtml;
 
   // RPE
   var rpe = computeAccueilRpeRecap();
@@ -14281,8 +14280,8 @@ function renderAccueilHeader(wellness, med) {
 
   // Wellness : rouges + non-répondants (dernière journée connue)
   var redList = document.getElementById('acxRedList');
-  var missList = document.getElementById('acxMissList');
-  if (wellness && redList && missList) {
+  var wellGrid = document.getElementById('acxWellGrid');
+  if (wellness && redList) {
     var agg = (typeof WD !== 'undefined' && WD[wellness.date]) || null;
     var scores = {};
     ((agg && agg.r) || []).forEach(function(r){ scores[r.n] = r.S; });
@@ -14294,18 +14293,29 @@ function renderAccueilHeader(wellness, med) {
           return '<button type="button" class="acx-chip" style="--cc:var(--acx-blesse)" onclick="switchHub(\'wellness\')">' + acxEsc(n) + ' ' + sc + '</button>';
         }), 14)
       : '<span class="acx-empty">Aucun joueur en rouge.</span>';
-
-    var ab = ((agg && agg.ab) || []).slice().sort();
-    document.getElementById('acxMissNote').textContent = 'Sans réponse le ' + wellness.date;
-    document.getElementById('acxMissCount').textContent = ab.length;
-    missList.innerHTML = ab.length
-      ? acxChips(ab.map(function(n){
-          return '<button type="button" class="acx-chip" onclick="switchHub(\'wellness\')">' + acxEsc(n) + '</button>';
-        }), 14)
-      : '<span class="acx-empty">Tout le monde a répondu.</span>';
-  } else if (redList && missList && !wellness) {
+  } else if (redList && !wellness) {
     redList.innerHTML = '<span class="acx-empty">Chargement des données wellness…</span>';
-    missList.innerHTML = '<span class="acx-empty">Chargement des données wellness…</span>';
+  }
+
+  // Moyennes wellness (dernière réponse)
+  if (wellGrid) {
+    var totEl = document.getElementById('acxWellTotal');
+    var noteEl = document.getElementById('acxWellNote');
+    if (!wellness) {
+      wellGrid.innerHTML = '<span class="acx-empty">Chargement des données wellness…</span>';
+    } else if (!wellness.n) {
+      if (totEl) totEl.textContent = '–';
+      wellGrid.innerHTML = '<span class="acx-empty">Aucune réponse wellness pour le moment.</span>';
+    } else {
+      var avw = wellness.averages;
+      if (totEl) totEl.innerHTML = fmt1(avw.S) + '<small>/35</small>';
+      if (noteEl) noteEl.textContent = 'Réponses du ' + wellness.date + ' · ' + wellness.n + ' joueur(s) répondu(s)';
+      var items = [['Sommeil', avw.s], ['Courb. haut', avw.H], ['Courb. bas', avw.B], ['Fatigue', avw.f], ['Stress', avw.t]];
+      wellGrid.innerHTML = items.map(function(it){
+        var c = (typeof sc === 'function') ? sc(it[1]) : '';
+        return '<div class="acx-well-item"><span class="acx-well-lbl">' + it[0] + '</span><span class="acx-well-val"' + (c ? ' style="--wc:' + c + '"' : '') + '>' + fmt1(it[1]) + '/7</span></div>';
+      }).join('');
+    }
   }
 
   // Compteurs
