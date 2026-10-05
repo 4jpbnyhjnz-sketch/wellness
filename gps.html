@@ -1636,12 +1636,8 @@ table.roster-table select { padding: 4px; }
 .medical-body-svg { width:100%; height:auto; max-height:400px; border-radius:6px; }
 .medical-view-label { font-size:10px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
 .medical-region { fill:transparent; stroke:none; cursor:pointer; transition:fill .12s; }
-.medical-region:hover, .medical-region.selected { fill:transparent; stroke:none; }
-.medical-dot { pointer-events:none; }
-.medical-dot-core { fill:#D6001C; stroke:#fff; stroke-width:0.6; }
-.medical-dot-ring { fill:none; stroke:#D6001C; stroke-width:0.5; opacity:.6; transform-box:fill-box; transform-origin:center; animation:medicalDotPulse 1.6s ease-out infinite; }
-@keyframes medicalDotPulse { 0% { transform:scale(.6); opacity:.7; } 100% { transform:scale(1.8); opacity:0; } }
-@media (prefers-reduced-motion:reduce) { .medical-dot-ring { animation:none; } }
+.medical-region:hover { fill:rgba(214,0,28,.35); }
+.medical-region.selected { fill:rgba(214,0,28,.55); stroke:#D6001C; stroke-width:0.3; }
 .medical-fields-col { display:flex; flex-direction:column; gap:12px; }
 .medical-injury-table-wrap { overflow-x:auto; }
 .medical-injury-table { width:100%; border-collapse:collapse; font-size:12px; }
@@ -2117,154 +2113,6 @@ table.roster-table select { padding: 4px; }
 .p1-metric-chart-wrap{height:70px;margin-top:10px;position:relative}
 .p1-empty{font-size:13px;color:#777;padding:12px 0}
 
-
-/* ═══════════════════════════════════════════════════════════════
-   ACCUEIL v2 — bandeau club + « À surveiller » + récap
-   ═══════════════════════════════════════════════════════════════ */
-#hub-accueil{
-  --acx-bg:#F2F0ED; --acx-card:#FFFFFF; --acx-ink:#1B1215; --acx-muted:#766A6E;
-  --acx-line:#E4DEDA; --acx-soft:#F7F5F2; --acx-red:#D6001C;
-  --acx-blesse:#C8102E; --acx-reath:#D97A1E; --acx-adapte:#2A7FBF; --acx-apte:#1F9D62;
-  background:var(--acx-bg) !important; background-image:none !important;
-  align-items:stretch !important; color:var(--acx-ink); font-family:'Inter',system-ui,sans-serif;
-}
-#hub-accueil *{box-sizing:border-box}
-
-/* Bandeau */
-.acx-hero{
-  position:relative; overflow:hidden; width:100%;
-  background:linear-gradient(112deg,#8A0019 0%,#4A0812 42%,#16070B 100%);
-  color:#fff;
-}
-.acx-hero::after{ /* fine rayure rappelant le maillot */
-  content:''; position:absolute; inset:0; pointer-events:none;
-  background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 14px);
-  -webkit-mask-image:linear-gradient(90deg,transparent 35%,#000 100%); mask-image:linear-gradient(90deg,transparent 35%,#000 100%);
-}
-.acx-hero-mark{
-  position:absolute; right:-70px; top:50%; width:360px; height:360px; transform:translateY(-50%) rotate(-8deg);
-  opacity:.09; filter:grayscale(1) brightness(3); pointer-events:none;
-}
-.acx-hero-inner{
-  position:relative; z-index:1; max-width:1180px; margin:0 auto;
-  padding:34px 32px 36px; display:flex; align-items:center; gap:26px;
-}
-.acx-hero-logo{
-  width:96px; height:96px; flex-shrink:0; border-radius:50%;
-  background-color:#fff; background-size:72% !important; background-position:center; background-repeat:no-repeat;
-  box-shadow:0 0 0 4px rgba(255,255,255,.12),0 10px 30px rgba(0,0,0,.35);
-}
-.acx-hero-kicker{font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.62); margin-bottom:6px}
-.acx-hero-title{font-size:44px; line-height:1.02; font-weight:800; letter-spacing:-.025em; margin:0}
-.acx-hero-sub{font-size:16px; color:rgba(255,255,255,.72); margin-top:10px}
-
-/* Corps */
-.acx-body{width:100%; max-width:1180px; margin:0 auto; padding:26px 32px 64px; display:flex; flex-direction:column; gap:18px}
-.acx-greet{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap}
-.acx-greet-hello{font-size:24px; font-weight:800; letter-spacing:-.01em; margin:0; color:var(--acx-ink)}
-.acx-greet-meta{font-size:15px; color:var(--acx-muted)}
-
-/* Dernier match */
-.acx-match{
-  display:flex; align-items:center; gap:18px; padding:16px 22px; border-radius:16px; cursor:pointer;
-  background:linear-gradient(100deg,#D6001C 0%,#A80016 60%,#7C0012 100%); color:#fff;
-  box-shadow:0 10px 26px rgba(170,0,22,.22); transition:transform .15s, box-shadow .15s;
-}
-.acx-match:hover{transform:translateY(-2px); box-shadow:0 14px 32px rgba(170,0,22,.3)}
-.acx-match:focus-visible{outline:3px solid #1B1215; outline-offset:3px}
-.acx-match-badge{
-  flex-shrink:0; min-width:56px; height:56px; padding:0 10px; border-radius:14px;
-  background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22);
-  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; letter-spacing:-.01em;
-}
-.acx-match-main{flex:1; min-width:0}
-.acx-match-label{font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.78)}
-.acx-match-teams{font-size:22px; font-weight:800; letter-spacing:-.01em; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.acx-match-teams small{font-size:14px; font-weight:600; opacity:.8; margin-left:6px}
-.acx-match-when{text-align:right; flex-shrink:0}
-.acx-match-rel{font-size:20px; font-weight:800}
-.acx-match-date{font-size:13px; color:rgba(255,255,255,.8); margin-top:2px}
-
-/* À surveiller */
-.acx-watch{background:var(--acx-card); border:1px solid var(--acx-line); border-radius:18px; box-shadow:0 1px 2px rgba(27,18,21,.04)}
-.acx-watch-head{
-  width:100%; display:flex; align-items:center; gap:12px; background:none; border:none; cursor:pointer;
-  padding:18px 24px; font-family:inherit; color:var(--acx-ink); text-align:left;
-}
-.acx-watch-head:focus-visible{outline:2px solid var(--acx-red); outline-offset:-2px; border-radius:18px}
-.acx-watch-title{font-size:17px; font-weight:800}
-.acx-watch-week{font-size:13px; color:var(--acx-muted); flex:1}
-.acx-watch-chev{color:var(--acx-muted); transition:transform .2s}
-.acx-watch.collapsed .acx-watch-chev{transform:rotate(-90deg)}
-.acx-watch.collapsed .acx-watch-grid{display:none}
-.acx-watch-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; padding:0 24px 24px}
-.acx-col{background:var(--acx-soft); border:1px solid var(--acx-line); border-radius:14px; padding:16px 18px; min-width:0; border-top:3px solid var(--c)}
-.acx-col-med{--c:var(--acx-blesse)} .acx-col-red{--c:var(--acx-reath)} .acx-col-miss{--c:#8A7F83}
-.acx-col-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
-.acx-col-name{font-size:14px; font-weight:800; color:var(--c)}
-.acx-col-miss .acx-col-name{color:var(--acx-ink)}
-.acx-col-count{font-size:26px; font-weight:800; line-height:1; color:var(--acx-ink); font-variant-numeric:tabular-nums}
-.acx-col-note{font-size:12.5px; color:var(--acx-muted); margin:6px 0 12px}
-.acx-chips{display:flex; flex-wrap:wrap; gap:7px}
-.acx-chip{
-  display:inline-flex; align-items:baseline; gap:6px; padding:6px 12px; border-radius:999px;
-  background:#fff; border:1px solid var(--acx-line); font-size:13px; font-weight:700; color:var(--acx-ink);
-  cursor:pointer; font-family:inherit; transition:border-color .15s, box-shadow .15s;
-}
-.acx-chip:hover{border-color:var(--cc,var(--acx-red)); box-shadow:0 2px 8px rgba(27,18,21,.08)}
-.acx-chip:focus-visible{outline:2px solid var(--acx-red); outline-offset:1px}
-.acx-chip em{font-style:normal; font-weight:600; color:var(--cc,var(--acx-muted)); font-size:12px}
-.acx-chip-more{cursor:default; color:var(--acx-muted); background:transparent}
-.acx-empty{font-size:13px; color:var(--acx-muted)}
-.acx-col-well{--c:var(--acx-apte)}
-.acx-col-count small{font-size:13px; font-weight:700; color:var(--acx-muted)}
-.acx-well-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px}
-.acx-well-item{display:flex; align-items:baseline; justify-content:space-between; gap:8px; background:#fff; border:1px solid var(--acx-line); border-radius:10px; padding:7px 10px}
-.acx-well-lbl{font-size:12px; font-weight:600; color:var(--acx-muted)}
-.acx-well-val{font-size:14px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--wc,var(--acx-ink))}
-
-/* Compteurs */
-.acx-pills{display:flex; flex-wrap:wrap; gap:10px}
-.acx-pill{
-  display:inline-flex; align-items:center; gap:8px; padding:8px 16px; border-radius:999px;
-  background:var(--acx-card); border:1px solid var(--acx-line); font-size:14px; color:var(--acx-ink);
-}
-.acx-pill b{font-size:16px; font-weight:800; font-variant-numeric:tabular-nums}
-.acx-pill i{width:9px; height:9px; border-radius:50%; background:var(--c); display:inline-block}
-
-/* Récap */
-.acx-section-head{font-size:17px; font-weight:800; color:var(--acx-ink); margin-top:10px}
-#hub-accueil .ac-recap-grid{gap:18px}
-#hub-accueil .recap-card{border:1px solid var(--acx-line); border-radius:18px; box-shadow:0 1px 2px rgba(27,18,21,.04); padding:20px 22px}
-#hub-accueil .recap-card-title{font-size:15px; font-weight:800; color:var(--acx-ink); margin-bottom:14px}
-.acx-card-name{display:inline-flex; align-items:center; gap:9px}
-.acx-dot{width:10px; height:10px; border-radius:3px; background:var(--c); display:inline-block}
-#hub-accueil .recap-mini, #hub-accueil .recap-gps-chart-cell{background:var(--acx-soft); border:1px solid var(--acx-line)}
-#hub-accueil .recap-big-stat{border:1px solid rgba(200,16,46,.18)}
-#hub-accueil .recap-week-btn{background:#fff; border-color:var(--acx-line)}
-#hub-accueil .recap-chip{background:var(--acx-soft); border:1px solid var(--acx-line)}
-
-@media (max-width:900px){
-  .acx-watch-grid{grid-template-columns:1fr}
-  .acx-hero-title{font-size:34px}
-}
-@media (max-width:600px){
-  .acx-hero-inner{padding:24px 18px 26px; gap:16px}
-  .acx-hero-logo{width:64px; height:64px}
-  .acx-hero-title{font-size:28px}
-  .acx-hero-sub{font-size:14px}
-  .acx-body{padding:20px 16px 48px}
-  .acx-watch-head{padding:16px 16px}
-  .acx-watch-grid{padding:0 16px 16px}
-  .acx-match{flex-wrap:wrap; padding:14px 16px}
-  .acx-match-when{text-align:left; width:100%}
-  .acx-match-teams{white-space:normal}
-  .acx-watch-week{display:none}
-  #hub-accueil .recap-mini-grid{flex:none}
-}
-@media (prefers-reduced-motion:reduce){
-  .acx-match,.acx-watch-chev,.acx-chip{transition:none}
-}
 </style>
 </head>
 <body>
@@ -2371,70 +2219,65 @@ table.roster-table select { padding: 4px; }
 
 <!-- PAGE D'ACCUEIL -->
 <div id="hub-accueil" class="active">
-
-  <header class="acx-hero">
-    <div class="acx-hero-mark" id="accueilHeroMark" aria-hidden="true"></div>
-    <div class="acx-hero-inner">
-      <div class="acx-hero-logo" id="accueilLogo"></div>
-      <div class="acx-hero-text">
-        <div class="acx-hero-kicker">Nissa Rugby · Espoirs</div>
-        <h1 class="acx-hero-title">Performance Hub</h1>
-        <div class="acx-hero-sub" id="acxHeroSub">Effectif, charge et santé des joueurs</div>
-      </div>
-    </div>
-  </header>
-
-  <div class="acx-body">
-
-    <div class="acx-greet">
-      <h2 class="acx-greet-hello" id="acxGreetHello">Bonjour</h2>
-      <span class="acx-greet-meta" id="acxGreetMeta"></span>
-    </div>
-
-
-    <section class="acx-watch" id="acxWatch">
-      <button class="acx-watch-head" type="button" onclick="acxToggleWatch()" aria-expanded="true" id="acxWatchBtn">
-        <span class="acx-watch-title">À surveiller</span>
-        <span class="acx-watch-week" id="acxWatchWeek"></span>
-        <svg class="acx-watch-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+  <div class="ac-side-nav-overlay" id="acSideNavOverlay" onclick="closeAcSideNav()"></div>
+  <aside class="ac-side-nav" id="acSideNav">
+    <div class="ac-side-logo" id="accueilLogo"></div>
+    <div class="ac-side-name">Nissa Rugby</div>
+    <div class="ac-side-sub">Performance Hub · Saison 2025-2026</div>
+    <div class="ac-side-links">
+      <button class="ac-side-link" style="--c:#D6001C" onclick="switchHub('gps');closeAcSideNav()">
+        <span class="ac-side-icon">📊</span><span class="ac-side-label">Rapport GPS</span><span class="ac-side-arrow">›</span>
       </button>
-      <div class="acx-watch-grid">
-        <div class="acx-col acx-col-med">
-          <div class="acx-col-head"><span class="acx-col-name">Infirmerie</span><span class="acx-col-count" id="acxMedCount">–</span></div>
-          <div class="acx-col-note">Blessés, réathlétisation et adaptés</div>
-          <div class="acx-chips" id="acxMedList"><span class="acx-empty">Chargement…</span></div>
-        </div>
-        <div class="acx-col acx-col-red">
-          <div class="acx-col-head"><span class="acx-col-name">Wellness en rouge</span><span class="acx-col-count" id="acxRedCount">–</span></div>
-          <div class="acx-col-note" id="acxRedNote">Dernière réponse</div>
-          <div class="acx-chips" id="acxRedList"><span class="acx-empty">Chargement…</span></div>
-        </div>
-        <div class="acx-col acx-col-well">
-          <div class="acx-col-head"><span class="acx-col-name">Wellness · moyennes</span><span class="acx-col-count" id="acxWellTotal">–</span></div>
-          <div class="acx-col-note" id="acxWellNote">Dernière réponse</div>
-          <div class="acx-well-grid" id="acxWellGrid"><span class="acx-empty">Chargement…</span></div>
-        </div>
-      </div>
-    </section>
+      <button class="ac-side-link" style="--c:#2ecc8a" onclick="switchHub('wellness');closeAcSideNav()">
+        <span class="ac-side-icon">💚</span><span class="ac-side-label">Wellness</span><span class="ac-side-arrow">›</span>
+      </button>
+      <button class="ac-side-link" style="--c:#5bc4f5" onclick="switchHub('rpe');closeAcSideNav()">
+        <span class="ac-side-icon">💪</span><span class="ac-side-label">RPE</span><span class="ac-side-arrow">›</span>
+      </button>
+      <button class="ac-side-link" style="--c:#c9a84c" onclick="switchHub('joueur');closeAcSideNav()">
+        <span class="ac-side-icon">👤</span><span class="ac-side-label">Joueur</span><span class="ac-side-arrow">›</span>
+      </button>
+      <button class="ac-side-link" style="--c:#ff9500" onclick="switchHub('perf-physique');closeAcSideNav()">
+        <span class="ac-side-icon">🏋️</span><span class="ac-side-label">Perf Physique</span><span class="ac-side-arrow">›</span>
+      </button>
+      <button class="ac-side-link" style="--c:#D6001C" onclick="switchHub('medical');closeAcSideNav()">
+        <span class="ac-side-icon">🏥</span><span class="ac-side-label">Médical</span><span class="ac-side-arrow">›</span>
+      </button>
+    </div>
+  </aside>
 
-    <div class="acx-pills" id="acxPills"></div>
+  <div class="ac-main-wrap">
+    <div class="ac-main-topbar">
+      <button class="ac-toggle-nav-btn" onclick="toggleAcSideNav()" title="Menu">☰</button>
+      <div class="ac-main-topbar-title">Nissa Rugby <span>· Performance Hub</span></div>
+    </div>
 
-    <div class="acx-section-head">Récap de la semaine</div>
+    <div class="ac-recap-heading">📋 Récap de la semaine</div>
 
     <div class="ac-recap-grid">
+      <div class="recap-card recap-card-full">
+        <div class="recap-card-title">💚 Wellness — dernière réponse</div>
+        <div id="recapWellnessBody"><div class="recap-empty">Chargement…</div></div>
+      </div>
+
       <div class="recap-card">
-        <div class="recap-card-title"><span class="acx-card-name"><span class="acx-dot" style="--c:#2A7FBF"></span>RPE · cette semaine</span></div>
+        <div class="recap-card-title">💪 RPE — cette semaine</div>
         <div id="recapRpeBody"><div class="recap-empty">Chargement…</div></div>
       </div>
 
       <div class="recap-card">
-        <div class="recap-card-title"><span class="acx-card-name"><span class="acx-dot" style="--c:#D97A1E"></span>Perf physique · cette semaine</span></div>
+        <div class="recap-card-title">🏋️ Perf Physique — cette semaine</div>
         <div id="recapPerfSection"><div class="recap-empty">Chargement…</div></div>
       </div>
 
       <div class="recap-card recap-card-full">
+        <div class="recap-card-title">🏥 Médical</div>
+        <div id="recapMedicalBody"><div class="recap-empty">Chargement…</div></div>
+      </div>
+
+      <div class="recap-card recap-card-full">
         <div class="recap-card-title" style="justify-content:space-between">
-          <span class="acx-card-name"><span class="acx-dot" style="--c:#D6001C"></span>GPS · moyennes Avant / 3/4</span>
+          <span>📊 GPS — moyennes Avant / 3/4 (Espoirs)</span>
           <div class="recap-week-nav">
             <button class="recap-week-btn" onclick="accueilGpsShiftWeek(-1)" title="Semaine précédente">‹</button>
             <span class="recap-week-label" id="recapGpsWeekLabel">—</span>
@@ -2700,6 +2543,13 @@ table.roster-table select { padding: 4px; }
 
       </div>
       <div class="actions-row no-print">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700">
+          Catégorie
+          <select id="matchCategory" class="perf-input" style="width:auto;padding:6px 10px;font-size:13px">
+            <option value="Espoir">Espoir</option>
+            <option value="Crabos">Crabos (compte dans le suivi P1)</option>
+          </select>
+        </label>
         <button id="saveMatchBtn" class="btn btn-primary">Enregistrer le match</button>
         <button id="matchPrintBtn" class="btn btn-secondary">Imprimer / PDF</button>
       </div>
@@ -4052,7 +3902,7 @@ function hubRefresh() { if(typeof refreshData==='function') refreshData(); }
 function injectLogos() {
   if(typeof NISSA_LOGO_B64==='undefined') return;
   var url="url('"+NISSA_LOGO_B64+"')";
-  ['accueilLogo','accueilHeroMark','sidebarLogo','topbarLogoSmall'].forEach(function(id){
+  ['accueilLogo','sidebarLogo','topbarLogoSmall'].forEach(function(id){
     var el=document.getElementById(id); if(!el) return;
     el.style.backgroundImage=url; el.style.backgroundSize='contain';
     el.style.backgroundRepeat='no-repeat'; el.style.backgroundPosition='center';
@@ -6652,7 +6502,11 @@ function initMatchTab() {
 function loadSavedMatches() {
   try {
     const raw = localStorage.getItem(SAVED_MATCHES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const list = raw ? JSON.parse(raw) : [];
+    // Matchs enregistrés avant l'ajout du choix de catégorie : Espoir par défaut
+    // (Crabos si le nom du club l'indique).
+    list.forEach((m) => { if (!m.category) m.category = /crabos/i.test(m.club || "") ? "Crabos" : "Espoir"; });
+    return list;
   } catch(e) { return []; }
 }
 function saveSavedMatchesList(list) {
@@ -6682,6 +6536,7 @@ function buildMatchSnapshot() {
     journee: document.getElementById("matchJournee")?.textContent.trim() || "",
     competition: document.getElementById("matchCompetition")?.textContent.trim() || "",
     club: document.getElementById("matchClubName")?.textContent.trim() || "",
+    category: (document.getElementById("matchCategory") || {}).value || "Espoir",
     opponent: document.getElementById("matchOpponent")?.textContent.trim() || "Adversaire",
     date: document.getElementById("matchDate")?.textContent.trim() || "—",
     durationMinutes: matchLastParsed.meta.durationSeconds ? Math.round(matchLastParsed.meta.durationSeconds / 60) : null,
@@ -6707,8 +6562,21 @@ function saveCurrentMatch() {
   renderAnalyseTab();
   renderJoueurTab();
   renderRecordsTab();
-  alert(`✓ Match enregistré : ${snapshot.club} vs ${snapshot.opponent} — ${snapshot.journee}`
+  alert(`✓ Match ${snapshot.category} enregistré : ${snapshot.club} vs ${snapshot.opponent} — ${snapshot.journee}`
+    + (snapshot.category === "Crabos" ? "\n(Il compte dans le suivi P1.)" : "")
     + (brokenInMatch.length ? "\n🌟 Nouveau record en match pour : " + brokenInMatch.join(", ") : ""));
+}
+
+let matchesCategoryFilter = "all";
+
+// Un match Crabos compte dans le suivi P1 (voir p1DataSources).
+function setSavedMatchCategory(id, cat) {
+  const m = savedMatches.find((x) => x.id === id);
+  if (!m) return;
+  m.category = cat || "Espoir";
+  saveSavedMatchesList(savedMatches);
+  renderMatchesTab();
+  if (typeof p1RenderIfOpen === "function") p1RenderIfOpen();
 }
 
 function deleteMatch(id) {
@@ -6732,9 +6600,35 @@ function renderMatchesTab() {
     return;
   }
 
+  // Filtre par catégorie (Espoir / Crabos)
+  const mCats = ["all", "Espoir", "Crabos"];
+  const mCatLabels = { all: "Tous", Espoir: "Espoir", Crabos: "Crabos" };
+  const mFilterRow = document.createElement("div");
+  mFilterRow.style.cssText = "display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap";
+  mCats.forEach((cat) => {
+    const count = cat === "all" ? savedMatches.length : savedMatches.filter((m) => m.category === cat).length;
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "btn " + (matchesCategoryFilter === cat ? "btn-primary" : "btn-secondary");
+    pill.style.cssText = "padding:6px 14px;font-size:12px";
+    pill.textContent = `${mCatLabels[cat]} (${count})`;
+    pill.addEventListener("click", () => { matchesCategoryFilter = cat; renderMatchesTab(); });
+    mFilterRow.appendChild(pill);
+  });
+  container.appendChild(mFilterRow);
+
+  const visibleMatches = savedMatches.filter((m) => matchesCategoryFilter === "all" || m.category === matchesCategoryFilter);
+  if (!visibleMatches.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Aucun match dans cette catégorie.";
+    container.appendChild(empty);
+    return;
+  }
+
   // Grouper par journée
   const byJournee = {};
-  [...savedMatches].sort((a, b) => b.id - a.id).forEach(m => {
+  [...visibleMatches].sort((a, b) => b.id - a.id).forEach(m => {
     const key = m.journee || "Sans journée";
     if (!byJournee[key]) byJournee[key] = [];
     byJournee[key].push(m);
@@ -6754,11 +6648,25 @@ function renderMatchesTab() {
       details.className = "saved-session";
 
       const summary2 = document.createElement("summary");
-      summary2.textContent = `${m.date} — ${m.club} vs ${m.opponent}${m.durationMinutes ? " (" + m.durationMinutes + " min)" : ""}`;
+      summary2.textContent = `${m.date} — ${m.club} vs ${m.opponent}${m.durationMinutes ? " (" + m.durationMinutes + " min)" : ""} · ${m.category || "Espoir"}`;
       details.appendChild(summary2);
 
       const actions = document.createElement("div");
       actions.className = "saved-session-actions";
+
+      const mCatSelect = document.createElement("select");
+      mCatSelect.className = "perf-input";
+      mCatSelect.style.cssText = "width:auto;padding:6px 10px;font-size:12px";
+      mCatSelect.title = "Un match Crabos compte dans le suivi P1";
+      [["Espoir", "Espoir"], ["Crabos", "Crabos (compte dans le suivi P1)"]].forEach(([val, label]) => {
+        const opt = document.createElement("option");
+        opt.value = val; opt.textContent = label;
+        if ((m.category || "Espoir") === val) opt.selected = true;
+        mCatSelect.appendChild(opt);
+      });
+      mCatSelect.addEventListener("click", (e) => e.stopPropagation());
+      mCatSelect.addEventListener("change", (e) => setSavedMatchCategory(m.id, e.target.value));
+      actions.appendChild(mCatSelect);
 
       const delBtn = document.createElement("button");
       delBtn.className = "btn btn-secondary";
@@ -8216,6 +8124,18 @@ const P1_METRIC_DEFS = [
   { key: "accelMax", label: "Meilleur ACCEL MAX", decimals: 2, collective: false },
 ];
 
+// Sources de données du suivi P1 : les séances enregistrées + les matchs Crabos
+// (même structure : date + groupes de joueurs avec distance, HSR, contacts...).
+function p1DataSources() {
+  const crabos = (typeof savedMatches !== "undefined" ? savedMatches : []).filter((m) => m.category === "Crabos");
+  return savedSessions.concat(crabos);
+}
+
+// Rafraîchit le suivi P1 s'il est construit (après un changement de catégorie de match).
+function p1RenderIfOpen() {
+  try { if (typeof renderP1Tab === "function") renderP1Tab(); } catch (e) { console.warn(e); }
+}
+
 function p1SafeParseDate(dateStr) {
   if (!dateStr || !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(dateStr)) return null;
   try { return parseFR(dateStr); } catch (e) { return null; }
@@ -8228,7 +8148,7 @@ function p1MatchedFullNames() {
   // en une seule entrée, pour éviter les doublons dans la liste de suivi P1 —
   // même s'il s'agit d'une simple erreur de majuscule lors d'un import.
   const byLower = {};
-  savedSessions.forEach((s) => {
+  p1DataSources().forEach((s) => {
     ["3/4", "Avant"].forEach((g) => {
       (s.groups[g] || []).forEach((p) => {
         const full = p.displayName || p.player;
@@ -8256,7 +8176,7 @@ function p1SameName(a, b) {
 function p1PlayerWeekEntries(fullName, weekMonday) {
   const days = weekDayKeys(weekMonday);
   const entries = [];
-  savedSessions.forEach((s) => {
+  p1DataSources().forEach((s) => {
     if (days.indexOf(s.date) === -1) return;
     ["3/4", "Avant"].forEach((g) => {
       const p = (s.groups[g] || []).find((pp) => p1SameName(pp.displayName || pp.player, fullName));
@@ -8298,7 +8218,7 @@ function p1TeamWeekAgg(weekMonday) {
 // Agrégat d'UN joueur pour UN jour précis (utilisé par le récap par jour du rapport PDF P1).
 function p1PlayerDayAgg(fullName, dateStr) {
   const entries = [];
-  savedSessions.forEach((s) => {
+  p1DataSources().forEach((s) => {
     if (s.date !== dateStr) return;
     ["3/4", "Avant"].forEach((g) => {
       const p = (s.groups[g] || []).find((pp) => p1SameName(pp.displayName || pp.player, fullName));
@@ -8325,7 +8245,7 @@ function p1TeamDayAgg(dateStr, weekMonday) {
 // Tous les lundis de la saison où au moins une séance enregistrée existe.
 function p1AllSeasonWeeks() {
   const weeks = new Set();
-  savedSessions.forEach((s) => {
+  p1DataSources().forEach((s) => {
     const d = p1SafeParseDate(s.date);
     if (d) weeks.add(fmtFR(mondayOf(d)));
   });
@@ -8389,7 +8309,7 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
   p1DestroyCharts(chartsArr);
   containerEl.innerHTML = "";
   if (!currentAgg) {
-    containerEl.innerHTML = '<p class="p1-empty">Aucune séance enregistrée pour cette semaine.</p>';
+    containerEl.innerHTML = '<p class="p1-empty">Aucune séance ou match Crabos enregistré pour cette semaine.</p>';
     return;
   }
   (defs || P1_METRIC_DEFS).forEach((m) => {
@@ -12087,19 +12007,6 @@ function mergeNeverLose(key, localRaw, incomingRaw) {
     return merged;
   }
 
-  // Listes simples de noms (exclusions médicales, effectif P1...) : ce ne
-  // sont pas des enregistrements avec un id, la fusion par id les vidait
-  // entièrement à chaque chargement cloud (joueurs retirés qui
-  // réapparaissaient). syncLoad ne restaure que si le cloud est plus récent
-  // que le dernier changement local : on prend donc la version cloud telle
-  // quelle, ce qui permet aussi de RÉ-inclure un joueur.
-  var isPrimitiveList = function(arr) {
-    return arr.every(function(x) { return x === null || typeof x !== 'object'; });
-  };
-  if (Array.isArray(local) && Array.isArray(incoming) && isPrimitiveList(local) && isPrimitiveList(incoming)) {
-    return incoming;
-  }
-
   // Tableaux d'enregistrements avec un id (séances GPS, matchs, tests
   // physiques...) : union par id — rien de local n'est jamais retiré, ce qui
   // arrive de l'extérieur avec un id nouveau est ajouté.
@@ -12212,10 +12119,6 @@ function reloadAllVariablesAndRerender() {
   }
   if (typeof medicalExcludedPlayers !== 'undefined' && typeof loadMedicalExcluded === 'function') {
     try { medicalExcludedPlayers = loadMedicalExcluded(); } catch(e) {}
-    // Re-rendre le médical APRÈS avoir rechargé les exclusions (avant, il
-    // était rendu avec l'ancienne liste en mémoire).
-    if (typeof renderMedicalHub === 'function') { try { renderMedicalHub(); } catch(e) {} }
-    if (typeof renderAccueilRecap === 'function') { try { renderAccueilRecap(); } catch(e) {} }
   }
 }
 
@@ -13316,78 +13219,31 @@ function initMedicalBodySvg() {
     svgs[i].addEventListener('click', function(e) {
       var el = e.target.closest ? e.target.closest('[data-key]') : null;
       if (!el) return;
-      // Point posé à l'endroit exact du clic
-      var svg = this, pt = null;
-      try {
-        var p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
-        var m = svg.getScreenCTM();
-        if (m) { p = p.matrixTransform(m.inverse()); pt = { view: svg.getAttribute('data-view'), x: p.x, y: p.y }; }
-      } catch (err) {}
-      selectMedicalBodyPartByKey(el.getAttribute('data-key'), pt);
+      selectMedicalBodyPartByKey(el.getAttribute('data-key'));
     });
   }
-  if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey, medicalSelectedPoint);
+  if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey);
 }
 
-// Centre d'une zone (centroïde du plus grand polygone, ou centre de l'ellipse)
-function medicalShapeCenter(shape) {
-  if (shape.ellipse) return { x: shape.ellipse[0], y: shape.ellipse[1] };
-  var best = null, bestA = -1;
-  (shape.polys || []).forEach(function(str) {
-    var pts = str.trim().split(/\s+/).map(function(t){ var a = t.split(','); return [parseFloat(a[0]), parseFloat(a[1])]; });
-    var A = 0, cx = 0, cy = 0;
-    for (var i = 0; i < pts.length; i++) {
-      var p = pts[i], q = pts[(i + 1) % pts.length], c = p[0] * q[1] - q[0] * p[1];
-      A += c; cx += (p[0] + q[0]) * c; cy += (p[1] + q[1]) * c;
-    }
-    A /= 2;
-    if (Math.abs(A) > bestA && A !== 0) { bestA = Math.abs(A); best = { x: cx / (6 * A), y: cy / (6 * A) }; }
-  });
-  return best;
-}
-
-let medicalSelectedPoint = null; // {view,x,y} : point cliqué (sinon centre de la zone)
-
-function highlightMedicalPart(key, point) {
+function highlightMedicalPart(key) {
   var container = document.getElementById('medicalBodyContainer');
   if (!container) return;
-  var old = container.querySelectorAll('.medical-dot');
-  for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+  var prev = container.querySelectorAll('.medical-region.selected');
+  for (var i = 0; i < prev.length; i++) prev[i].classList.remove('selected');
   if (!key) return;
-  var svgs = container.querySelectorAll('svg[data-view]');
-  for (var j = 0; j < svgs.length; j++) {
-    var view = svgs[j].getAttribute('data-view');
-    var pos = null;
-    if (point && point.view) {
-      if (point.view !== view) continue; // point uniquement sur la vue cliquée
-      pos = point;
-    } else {
-      var shape = (MEDICAL_SHAPES[view] || []).filter(function(s){ return s.key === key; })[0];
-      if (!shape) continue;
-      pos = medicalShapeCenter(shape);
-    }
-    if (!pos) continue;
-    var NS = 'http://www.w3.org/2000/svg';
-    var g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'medical-dot');
-    var ring = document.createElementNS(NS, 'circle');
-    ring.setAttribute('class', 'medical-dot-ring'); ring.setAttribute('cx', pos.x); ring.setAttribute('cy', pos.y); ring.setAttribute('r', 3.2);
-    var core = document.createElementNS(NS, 'circle');
-    core.setAttribute('class', 'medical-dot-core'); core.setAttribute('cx', pos.x); core.setAttribute('cy', pos.y); core.setAttribute('r', 2);
-    g.appendChild(ring); g.appendChild(core);
-    svgs[j].appendChild(g);
-  }
+  var current = container.querySelectorAll('[data-key="' + key + '"]');
+  for (var j = 0; j < current.length; j++) current[j].classList.add('selected');
 }
 
-function selectMedicalBodyPartByKey(key, point) {
+function selectMedicalBodyPartByKey(key) {
   if (!key || !MEDICAL_BODY_PARTS_BY_KEY[key]) return;
   medicalSelectedKey = key;
-  medicalSelectedPoint = point || null;
   var label = MEDICAL_BODY_PARTS_BY_KEY[key].label;
   var lbl = document.getElementById('medicalLieuLabel');
   if (lbl) { lbl.textContent = label; lbl.style.color = '#D6001C'; }
   var sel = document.getElementById('medicalLieuSelect');
   if (sel) sel.value = key;
-  highlightMedicalPart(key, medicalSelectedPoint);
+  highlightMedicalPart(key);
 }
 
 function populateMedicalLieuSelect() {
@@ -13463,7 +13319,6 @@ let medicalEditingId = null;
 function resetMedicalForm() {
   medicalEditingId = null;
   medicalSelectedKey = null;
-  medicalSelectedPoint = null;
   const titleEl = document.getElementById('medicalFormTitle');
   if (titleEl) titleEl.textContent = '➕ Déclarer une blessure';
   const cancelBtn = document.getElementById('medicalCancelEditBtn');
@@ -13524,7 +13379,7 @@ function openMedicalInjuryForm(injuryId) {
 
   const overlay = document.getElementById('medicalFormOverlay');
   if (overlay) overlay.classList.remove('hidden');
-  setTimeout(function(){ initMedicalBodySvg(); }, 30);
+  setTimeout(function(){ initMedicalBodySvg(); if (medicalSelectedKey) highlightMedicalPart(medicalSelectedKey); }, 30);
 }
 
 function closeMedicalInjuryForm() {
@@ -14008,7 +13863,8 @@ function computeAccueilGpsRecap() {
 }
 
 function renderAccueilRecap() {
-  if (!document.getElementById('acxWellGrid')) return; // page pas encore rendue
+  var wrap = document.getElementById('recapWellnessBody');
+  if (!wrap) return; // page pas encore rendue
 
   // Wellness
   var wellness = computeAccueilWellnessRecap();
@@ -14028,15 +13884,17 @@ function renderAccueilRecap() {
       ['Stress', fmt1(av.t) + '/7', (typeof sc === 'function' ? sc(av.t) : '#1a0003')]
     ];
     wellnessHtml = '<div class="recap-top-row">'
-      + '<div class="recap-big-stat" style="--rc:#cc1122"><div class="recap-big-val">' + wellness.rougeCount + '</div><div class="recap-big-lbl">Joueur(s) en rouge</div></div>'
+      + '<div class="recap-big-stat" style="--rc:#cc1122"><div class="recap-big-val">' + wellness.rougeCount + '</div><div class="recap-big-lbl">🔴 Joueur(s) en rouge</div></div>'
       + '<div class="recap-mini-grid">' + miniDefs.map(function(p){
           return '<div class="recap-mini" style="--mc:' + p[2] + '"><div class="recap-mini-val">' + p[1] + '</div><div class="recap-mini-lbl">' + p[0] + '</div></div>';
         }).join('') + '</div>'
       + '</div>'
+      + (wellness.rougeNames.length
+          ? '<div class="recap-chip-row">' + wellness.rougeNames.map(function(n){ return '<span class="recap-chip recap-chip-red">' + n + '</span>'; }).join('') + '</div>'
+          : '')
       + '<div class="recap-date-note">Dernière réponse : ' + wellness.date + ' · ' + wellness.n + ' joueur(s) répondu(s)</div>';
   }
-  var recapWellEl = document.getElementById('recapWellnessBody');
-  if (recapWellEl) recapWellEl.innerHTML = wellnessHtml;
+  document.getElementById('recapWellnessBody').innerHTML = wellnessHtml;
 
   // RPE
   var rpe = computeAccueilRpeRecap();
@@ -14081,8 +13939,7 @@ function renderAccueilRecap() {
             + '</div>'
           : '<div class="recap-empty">Aucun joueur blessé actuellement. ✅</div>');
   }
-  var recapMedEl = document.getElementById('recapMedicalBody');
-  if (recapMedEl) recapMedEl.innerHTML = medHtml;
+  document.getElementById('recapMedicalBody').innerHTML = medHtml;
 
   // Perf physique
   var perf = computeAccueilPerfPhysiqueRecap();
@@ -14121,8 +13978,6 @@ function renderAccueilRecap() {
     if (gpsLegendEl) gpsLegendEl.style.display = 'flex';
     renderAccueilGpsChart(gps);
   }
-
-  try { renderAccueilHeader(wellness, med); } catch (e) { console.warn('Accueil header:', e); }
 }
 
 function accueilGpsShiftWeek(delta) {
@@ -14222,169 +14077,6 @@ function renderAccueilGpsChart(gps) {
   });
 
   setTimeout(function(){ accueilGpsChartInsts.forEach(function(c){ if (c) c.resize(); }); }, 50);
-}
-
-
-/* ── ACCUEIL v2 : salutation, dernier match, « À surveiller », compteurs ── */
-function acxEsc(v) {
-  return String(v === null || v === undefined ? '' : v).replace(/[&<>"']/g, function(c) {
-    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
-  });
-}
-function acxShort(d) { return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); }
-function acxFirstName() {
-  var u = (typeof currentUser !== 'undefined' && currentUser && currentUser.user) || '';
-  var parts = String(u).split(/[._\s-]+/).filter(Boolean);
-  var n = parts.length > 1 ? parts[parts.length - 1] : (parts[0] || '');
-  return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : '';
-}
-function acxLatestMatch() {
-  if (typeof savedMatches === 'undefined' || !savedMatches || !savedMatches.length) return null;
-  var best = null;
-  savedMatches.forEach(function(m) {
-    if (!m || !m.date) return;
-    if (m.category && m.category !== 'Espoir') return;
-    var d = null;
-    try { d = parseFR(m.date); } catch (e) { d = null; }
-    if (!d || isNaN(d.getTime())) return;
-    if (!best || d > best.d) best = { m: m, d: d };
-  });
-  return best;
-}
-function acxChips(list, max) {
-  if (list.length <= max) return list.join('');
-  return list.slice(0, max).join('') + '<span class="acx-chip acx-chip-more">+' + (list.length - max) + '</span>';
-}
-function acxToggleWatch() {
-  var w = document.getElementById('acxWatch');
-  var b = document.getElementById('acxWatchBtn');
-  if (!w) return;
-  var collapsed = w.classList.toggle('collapsed');
-  if (b) b.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-  try { localStorage.setItem('acxWatchCollapsed', collapsed ? '1' : '0'); } catch (e) {}
-}
-function renderAccueilHeader(wellness, med) {
-  var hello = document.getElementById('acxGreetHello');
-  if (!hello) return;
-
-  // Semaine en cours
-  var wk = accueilWeekRange(new Date());
-  var wkTxt = 'Semaine du ' + acxShort(wk.monday) + ' au ' + acxShort(wk.sunday);
-  var sub = document.getElementById('acxHeroSub');
-  if (sub) sub.textContent = wkTxt + ' · Saison 2025-2026';
-  var ww = document.getElementById('acxWatchWeek');
-  if (ww) ww.textContent = wkTxt;
-  try {
-    var w = document.getElementById('acxWatch');
-    if (w && localStorage.getItem('acxWatchCollapsed') === '1' && !w.classList.contains('collapsed')) acxToggleWatch();
-  } catch (e) {}
-
-  // Salutation
-  var fn = acxFirstName();
-  hello.textContent = fn ? 'Bonjour ' + fn : 'Bonjour';
-  var meta = document.getElementById('acxGreetMeta');
-  if (meta) {
-    meta.textContent = med
-      ? med.total + ' joueurs · ' + med.blesseNames.length + ' blessé' + (med.blesseNames.length > 1 ? 's' : '')
-      : '';
-  }
-
-  // Dernier match
-  var mEl = document.getElementById('acxMatch');
-  var lm = acxLatestMatch();
-  if (mEl) {
-    if (!lm) {
-      mEl.style.display = 'none';
-    } else {
-      var today = new Date(); today.setHours(0,0,0,0);
-      var md = new Date(lm.d); md.setHours(0,0,0,0);
-      var diff = Math.round((today - md) / 864e5);
-      var future = diff < 0;
-      var rel = diff === 0 ? "Aujourd'hui" : diff === 1 ? 'Hier' : diff === -1 ? 'Demain'
-              : future ? 'Dans ' + (-diff) + ' jours' : 'Il y a ' + diff + ' jours';
-      var m = lm.m;
-      var jr = (m.journee || '').trim();
-      var badge = jr ? (jr.match(/\d+/) ? 'J' + jr.match(/\d+/)[0] : jr.slice(0, 4)) : '🏉';
-      var label = (future ? 'Prochain match' : 'Dernier match') + (m.competition ? ' · ' + m.competition : (jr ? ' · ' + jr : ''));
-      mEl.innerHTML = '<div class="acx-match-badge">' + acxEsc(badge) + '</div>'
-        + '<div class="acx-match-main"><div class="acx-match-label">' + acxEsc(label) + '</div>'
-        + '<div class="acx-match-teams">' + (m.club ? acxEsc(m.club) + ' vs ' : 'vs ') + acxEsc(m.opponent || 'Adversaire')
-        + (m.durationMinutes ? '<small>' + m.durationMinutes + ' min</small>' : '') + '</div></div>'
-        + '<div class="acx-match-when"><div class="acx-match-rel">' + rel + '</div><div class="acx-match-date">' + acxEsc(m.date) + ' · voir le rapport GPS</div></div>';
-      mEl.style.display = 'flex';
-    }
-  }
-
-  // Infirmerie
-  var medList = document.getElementById('acxMedList');
-  if (medList && med) {
-    var items = [];
-    med.blesseNames.forEach(function(n){ items.push({ n:n, t:'Blessé', c:'var(--acx-blesse)' }); });
-    med.reathNames.forEach(function(n){ items.push({ n:n, t:'Réathlé', c:'var(--acx-reath)' }); });
-    med.adapteNames.forEach(function(n){ items.push({ n:n, t:'Adapté', c:'var(--acx-adapte)' }); });
-    document.getElementById('acxMedCount').textContent = items.length;
-    medList.innerHTML = items.length
-      ? acxChips(items.map(function(it){
-          return '<button type="button" class="acx-chip" style="--cc:' + it.c + '" onclick="switchHub(\'medical\')">' + acxEsc(it.n) + ' <em>' + it.t + '</em></button>';
-        }), 14)
-      : '<span class="acx-empty">Aucun joueur à l\'infirmerie.</span>';
-  }
-
-  // Wellness : rouges + non-répondants (dernière journée connue)
-  var redList = document.getElementById('acxRedList');
-  var wellGrid = document.getElementById('acxWellGrid');
-  if (wellness && redList) {
-    var agg = (typeof WD !== 'undefined' && WD[wellness.date]) || null;
-    var scores = {};
-    ((agg && agg.r) || []).forEach(function(r){ scores[r.n] = r.S; });
-    document.getElementById('acxRedNote').textContent = 'Réponses du ' + wellness.date;
-    document.getElementById('acxRedCount').textContent = wellness.rougeCount;
-    redList.innerHTML = wellness.rougeNames.length
-      ? acxChips(wellness.rougeNames.map(function(n){
-          var sc = scores[n] != null ? '<em>' + fmt1(scores[n]) + '/35</em>' : '';
-          return '<button type="button" class="acx-chip" style="--cc:var(--acx-blesse)" onclick="switchHub(\'wellness\')">' + acxEsc(n) + ' ' + sc + '</button>';
-        }), 14)
-      : '<span class="acx-empty">Aucun joueur en rouge.</span>';
-  } else if (redList && !wellness) {
-    redList.innerHTML = '<span class="acx-empty">Chargement des données wellness…</span>';
-  }
-
-  // Moyennes wellness (dernière réponse)
-  if (wellGrid) {
-    var totEl = document.getElementById('acxWellTotal');
-    var noteEl = document.getElementById('acxWellNote');
-    if (!wellness) {
-      wellGrid.innerHTML = '<span class="acx-empty">Chargement des données wellness…</span>';
-    } else if (!wellness.n) {
-      if (totEl) totEl.textContent = '–';
-      wellGrid.innerHTML = '<span class="acx-empty">Aucune réponse wellness pour le moment.</span>';
-    } else {
-      var avw = wellness.averages;
-      if (totEl) totEl.innerHTML = fmt1(avw.S) + '<small>/35</small>';
-      if (noteEl) noteEl.textContent = 'Réponses du ' + wellness.date + ' · ' + wellness.n + ' joueur(s) répondu(s)';
-      var items = [['Sommeil', avw.s], ['Courb. haut', avw.H], ['Courb. bas', avw.B], ['Fatigue', avw.f], ['Stress', avw.t]];
-      wellGrid.innerHTML = items.map(function(it){
-        var c = (typeof sc === 'function') ? sc(it[1]) : '';
-        return '<div class="acx-well-item"><span class="acx-well-lbl">' + it[0] + '</span><span class="acx-well-val"' + (c ? ' style="--wc:' + c + '"' : '') + '>' + fmt1(it[1]) + '/7</span></div>';
-      }).join('');
-    }
-  }
-
-  // Compteurs
-  var pills = document.getElementById('acxPills');
-  if (pills && med) {
-    var apte = med.total - med.blesseNames.length - med.reathNames.length - med.adapteNames.length;
-    var defs = [
-      [med.total, 'joueurs', null],
-      [apte, 'aptes', 'var(--acx-apte)'],
-      [med.blesseNames.length, 'blessés', 'var(--acx-blesse)'],
-      [med.reathNames.length, 'réathlé', 'var(--acx-reath)'],
-      [med.adapteNames.length, 'adaptés', 'var(--acx-adapte)']
-    ];
-    pills.innerHTML = defs.map(function(p){
-      return '<span class="acx-pill">' + (p[2] ? '<i style="--c:' + p[2] + '"></i>' : '') + '<b>' + p[0] + '</b>' + p[1] + '</span>';
-    }).join('');
-  }
 }
 
 var _origSwitchHubAccueilRecap = switchHub;
