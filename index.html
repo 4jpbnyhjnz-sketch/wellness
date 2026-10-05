@@ -142,6 +142,9 @@
   .dash-table tr:hover td{background:rgba(255,255,255,.02)}
   .nom-cell{font-weight:600}
   .comment-cell{font-size:11px;color:var(--text2);max-width:220px}
+  .player-remark{margin-top:8px;padding:8px 10px;border-radius:7px;background:rgba(108,99,255,.08);border-left:3px solid #6c63ff;font-size:12px;line-height:1.4;color:var(--text);white-space:pre-wrap;word-break:break-word}
+  .player-remark .rk-lbl{display:block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8b84ff;margin-bottom:2px}
+  .remark-cell{font-size:12px;color:var(--text);max-width:260px;white-space:pre-wrap;word-break:break-word}
   .leg-wrap{display:flex;flex-direction:column;gap:20px}
   .leg-section{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px}
   .leg-section-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:16px;letter-spacing:.02em}
@@ -276,7 +279,7 @@
           <div class="dash-title">&#128203; Tableau de bord staff — classé par niveau d'alerte</div>
           <div style="overflow-x:auto">
             <table class="dash-table">
-              <thead><tr><th>Statut</th><th>Joueur</th><th>Score</th><th>Forme abs.</th><th>vs 21j</th><th>vs 3j</th><th>Persist.</th><th>Commentaire</th></tr></thead>
+              <thead><tr><th>Statut</th><th>Joueur</th><th>Score</th><th>Forme abs.</th><th>vs 21j</th><th>vs 3j</th><th>Persist.</th><th>Commentaire</th><th>Remarque joueur</th></tr></thead>
               <tbody id="dash-tbody"></tbody>
             </table>
           </div>
@@ -460,37 +463,94 @@ var SRPE_WEEK = {}, SRPE_WEEKS = [];
 var SEASON_ROSTER = ['Falgoux','Berenguel','Ciancio','Idjellidaine','Martinez C','Gimbert','Gonzalez','Labadie','Lafond','Martinez J','Moreno','Rattez','Goutard','Powell','Pupuma','Rey','Strippoli','Vignolles','Dakuwaqa','Egiziano','Kapanadze','Mudariki','Kurukuruvakatini','Ortolan','Taufua','Williams','Barraque','Olmstead','Leafa','Rouet','Septar','Thompson-Stringer','Sirgel','Saili','Van der Merwe','Asquini','Patilla','Bachelier','Flambart','Farrance','Laurans','Sarrasin','Scotto','Zelioli','Berger','Blondin','Chauvin','Motoc','Kpoku','Morgan','Farnoux','Ezcurra','Bielle Biarrey','Wolsink','Navarette','Fender','Kodad','Bergamaschi','Provencel','Bosseray','Aouad','Castaignede','Niel','Zamora'];
 
 function parseCSV(text) {
-  var lines = text.trim().split('\n');
-  return lines.map(function(line) {
-    var cols = [], cur = '', inQ = false;
-    for (var i = 0; i < line.length; i++) {
-      var ch = line[i];
-      if (ch === '"') { inQ = !inQ; }
-      else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
-      else { cur += ch; }
-    }
-    cols.push(cur.trim());
-    return cols;
-  });
+  // Parser robuste : retours a la ligne dans les remarques, \r, "" echappes
+  var rows = [], row = [], cur = '', inQ = false;
+  text = text.replace(/^\uFEFF/, '');
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ',') { row.push(cur.trim()); cur = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i+1] === '\n') i++;
+      row.push(cur.trim()); cur = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else cur += ch;
+  }
+  row.push(cur.trim());
+  if (row.length > 1 || row[0] !== '') rows.push(row);
+  return rows;
 }
+
+// Normalise une date (5/9/2026, 05/09/2026 08:12, 2026-09-05...) en JJ/MM/AAAA
+function normDate(raw) {
+  var v = String(raw||'').trim().split(/[ T]/)[0];
+  var m = v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/), d, mo, y;
+  if (m) { y=m[1]; mo=m[2]; d=m[3]; }
+  else {
+    m = v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/);
+    if (!m) return '';
+    d=m[1]; mo=m[2]; y=m[3]; if (y.length===2) y='20'+y;
+  }
+  return String(parseInt(d,10)).padStart(2,'0')+'/'+String(parseInt(mo,10)).padStart(2,'0')+'/'+y;
+}
+function parseDateFR(dstr){ var p=dstr.split('/'); return new Date(+p[2], +p[1]-1, +p[0]); }
+function cmpFR(a,b){ return parseDateFR(a) - parseDateFR(b); }
+function normKey(v){ return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function rowDate(r){ return normDate(r[1]) || normDate(r[0]); }
+function escapeHtml(v){ return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+// Colonne des remarques : detectee via l'en-tete du sheet (sinon colonne N)
+var REMARK_COL_FALLBACK = 13;
+function findRemarkCol(header) {
+  for (var i = 0; i < (header||[]).length; i++) {
+    if (/remarq|comment|observ|precision|message/.test(normKey(header[i]))) return i;
+  }
+  return REMARK_COL_FALLBACK;
+}
+function isNum(v){ return v!==undefined && String(v).trim()!=='' && !isNaN(parseFloat(v)); }
+// Type de ligne. Si la colonne G est vide (formule non etiree), on devine d'apres les colonnes remplies.
+function rowKind(r) {
+  var k = normKey(r[6]);
+  if (k==='welness' || k==='wellness') return 'W';
+  if (k==='rpe') return 'R';
+  if (k==='') {
+    if ([8,9,10,11,12].every(function(c){return isNum(r[c]);})) return 'W';
+    if ((r[3]||'').trim() && isNum(r[5])) return 'R';
+  }
+  return '';
+}
+var SKIP_STATS = {};
 
 function processData(rows) {
   var wByDate = {}, wRowsByDate = {};
+  var RK = findRemarkCol(rows[0]);
+  var skip = {colonneRemarque: RK+' ('+((rows[0]||[])[RK]||'sans en-tete')+')', gardees:0, date:0, nom:0, notes:0, typesInconnus:{}};
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
-    if (r.length < 13) continue;
-    if ((r[6]||'').trim() !== 'Welness') continue;
-    var date = (r[1]||'').trim() || (r[0]||'').trim().split(' ')[0];
+    var kind = rowKind(r);
+    if (kind !== 'W') {
+      if (kind === '') { var tk=(r[6]||'(vide)').trim(); skip.typesInconnus[tk]=(skip.typesInconnus[tk]||0)+1; }
+      continue;
+    }
+    var date = rowDate(r);
     var nom = (r[4]||'').trim();
-    if (!date || !nom || nom.toLowerCase() === 'test') continue;
+    if (!date) { skip.date++; continue; }
+    if (!nom || nom.toLowerCase() === 'test') { skip.nom++; continue; }
     var s=parseInt(r[8]),H=parseInt(r[9]),B=parseInt(r[10]),f=parseInt(r[11]),t=parseInt(r[12]);
-    if (isNaN(s)||isNaN(H)||isNaN(B)||isNaN(f)||isNaN(t)) continue;
+    if (isNaN(s)||isNaN(H)||isNaN(B)||isNaN(f)||isNaN(t)) { skip.notes++; continue; }
+    skip.gardees++;
+    var rem=(r[RK]||'').trim();
+    if (/^(-|\.|ras|r\.a\.s\.?|rien|non|aucune?|\/)$/i.test(rem)) rem='';
     var sRaw=(r[7]||'').trim();
-    var S=sRaw?parseInt(sRaw):s+H+B+f+t;
+    var S=isNum(sRaw)?parseInt(sRaw):s+H+B+f+t;
     if (!wByDate[date]) wByDate[date]=[];
     if (wByDate[date].indexOf(nom)===-1) wByDate[date].push(nom);
     if (!wRowsByDate[date]) wRowsByDate[date]=[];
-    wRowsByDate[date].push({n:nom,s:s,H:H,B:B,f:f,t:t,S:S});
+    wRowsByDate[date].push({n:nom,s:s,H:H,B:B,f:f,t:t,S:S,rem:rem});
   }
   var roster=SEASON_ROSTER.slice().sort();
   function avg(arr){return arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*100)/100:null;}
@@ -505,15 +565,15 @@ function processData(rows) {
   var rpeRowsByDate = {};
   for (var ri = 1; ri < rows.length; ri++) {
     var rr = rows[ri];
-    if (rr.length < 7) continue;
-    if ((rr[6]||'').trim() !== 'Rpe') continue;
-    var rdate = (rr[1]||'').trim() || (rr[0]||'').trim().split(' ')[0];
+    if (rowKind(rr) !== 'R') continue;
+    var rdate = rowDate(rr);
     var rnom = (rr[4]||'').trim();
     var rtype = (rr[3]||'').trim();
     var rscore = parseFloat(rr[5]);
     if (!rdate || !rnom || rnom.toLowerCase()==='test' || isNaN(rscore) || !rtype) continue;
     if (!rpeRowsByDate[rdate]) rpeRowsByDate[rdate] = [];
-    rpeRowsByDate[rdate].push({n:rnom, type:rtype, score:rscore, ts:(rr[0]||'').trim()});
+    var rrem=(rr[RK]||'').trim(); if (/^(-|\.|ras|r\.a\.s\.?|rien|non|aucune?|\/)$/i.test(rrem)) rrem='';
+    rpeRowsByDate[rdate].push({n:rnom, type:rtype, score:rscore, ts:(rr[0]||'').trim(), rem:rrem});
   }
   var rpeOut = {};
   Object.keys(rpeRowsByDate).forEach(function(date) {
@@ -528,7 +588,7 @@ function processData(rows) {
     }).sort(function(a,b){ return b.avg - a.avg; });
     rpeOut[date] = {sessions: rws, typeAvgs: typeAvgs, n: rws.length};
   });
-  var rpeDates = Object.keys(rpeOut).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
+  var rpeDates = Object.keys(rpeOut).sort(cmpFR);
 
   // ── sRPE collectif : duree par type de seance ──────────────
   function sessionDuration(type) {
@@ -584,7 +644,7 @@ function processData(rows) {
     return parseFR(a) - parseFR(b);
   });
 
-  var sd=Object.keys(out).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
+  var sd=Object.keys(out).sort(cmpFR);
   var pa21={},pa3={},pp={};
   for (var di=0;di<sd.length;di++) {
     var d=sd[di];pa21[d]={};pa3[d]={};pp[d]={};
@@ -609,6 +669,8 @@ function processData(rows) {
       pp[d][pl]=streak;
     }
   }
+  SKIP_STATS = skip;
+  console.log('[Wellness] lignes gardées / ignorées :', skip);
   return {out:out,total:rows.length-1,roster:roster,pa21:pa21,pa3:pa3,pp:pp,rpeOut:rpeOut,rpeDates:rpeDates,srpeByWeek:srpeByWeek,srpeWeeks:srpeWeeks};
 }
 
@@ -651,9 +713,9 @@ async function loadData() {
     RPE=res.rpeOut;RPEDAYS=res.rpeDates;
     SRPE_WEEK=res.srpeByWeek;SRPE_WEEKS=res.srpeWeeks;
     buildRpeRoster();
-    ALLDAYS=Object.keys(WD).sort(function(a,b){return a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''));});
+    ALLDAYS=Object.keys(WD).sort(cmpFR);
     setProgress(100,'Pret !');
-    document.getElementById('stats-badge').textContent=res.total+' entrees · '+ALLDAYS.length+' jours · '+res.roster.length+' joueurs';
+    document.getElementById('stats-badge').textContent=res.total+' entrees · '+ALLDAYS.length+' jours · '+res.roster.length+' joueurs'+(ALLDAYS.length?' · dernier jour : '+ALLDAYS[ALLDAYS.length-1]:'');
     document.getElementById('last-updated').textContent='Mis a jour le '+new Date().toLocaleString('fr-FR');
     return true;
   } catch(e) {
@@ -767,7 +829,7 @@ function render() {
       var e3=avg3!==null?((r.S-avg3)/avg3)*100:null;
       var streak=pp[r.n]||0;
       var statut=calcStatut(fa,e21,e3,streak,r);
-      return {n:r.n,s:r.s,H:r.H,B:r.B,f:r.f,t:r.t,S:r.S,_fa:fa,_avg21:avg21,_avg3:avg3,_e21:e21,_e3:e3,_streak:streak,_statut:statut};
+      return {n:r.n,s:r.s,H:r.H,B:r.B,f:r.f,t:r.t,S:r.S,rem:r.rem,_fa:fa,_avg21:avg21,_avg3:avg3,_e21:e21,_e3:e3,_streak:streak,_statut:statut};
     });
     var sorted=enriched.slice().sort(function(a,b){var od=SORD[a._statut]-SORD[b._statut];return od!==0?od:b.S-a.S;});
 
@@ -816,6 +878,7 @@ function render() {
         +p21+p3
         +'</div>'
         +ph+ah+bars
+        +(r.rem?'<div class="player-remark"><span class="rk-lbl">&#128172; Remarque</span>'+escapeHtml(r.rem)+'</div>':'')
         +'</div>';
     }).join('');
 
@@ -833,6 +896,7 @@ function render() {
         +'<td>'+fmtPct(r._e3)+'</td>'
         +'<td>'+sk+'</td>'
         +'<td class="comment-cell">'+buildComment(r,statut)+'</td>'
+        +'<td class="remark-cell">'+(r.rem?escapeHtml(r.rem):'<span style="color:var(--text2)">-</span>')+'</td>'
         +'</tr>';
     }).join('');
   }
@@ -906,6 +970,7 @@ function renderRpePlayersGrid(rpeDay) {
       + '<span class="statut-badge" style="background:'+col+';color:#fff">'+sessions.length+' séance'+(sessions.length>1?'s':'')+'</span>'
       + '</div>'
       + sessionsHTML
+      + sessions.filter(function(s){return s.rem;}).map(function(s){return '<div class="player-remark"><span class="rk-lbl">&#128172; '+escapeHtml(s.type)+'</span>'+escapeHtml(s.rem)+'</div>';}).join('')
       + '</div>';
   }).join('');
 }
