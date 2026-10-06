@@ -12010,6 +12010,19 @@ function mergeNeverLose(key, localRaw, incomingRaw) {
   // Tableaux d'enregistrements avec un id (séances GPS, matchs, tests
   // physiques...) : union par id — rien de local n'est jamais retiré, ce qui
   // arrive de l'extérieur avec un id nouveau est ajouté.
+  // Listes simples SANS id (exclusions médicales, effectif P1 : tableaux de
+  // noms) : l'union par id ci-dessous les vidait entièrement (aucun élément
+  // n'a d'id → résultat []), ce qui faisait « revenir » les joueurs exclus.
+  // On ne restaure que si le cloud est plus récent que le local (cf.
+  // syncLoad), donc on prend simplement la version du cloud telle quelle —
+  // une union empêcherait de ré-inclure un joueur.
+  if (Array.isArray(local) && Array.isArray(incoming)) {
+    var hasIds = local.concat(incoming).some(function(item) {
+      return item && typeof item === 'object' && item.id !== undefined;
+    });
+    if (!hasIds) return incoming;
+  }
+
   if (Array.isArray(local) && Array.isArray(incoming)) {
     var byId = {};
     local.forEach(function(item) { if (item && item.id !== undefined) byId[item.id] = item; });
@@ -12097,6 +12110,10 @@ function reloadAllVariablesAndRerender() {
   }
   if (typeof loadMedicalRecords === 'function') {
     try { medicalRecords = loadMedicalRecords(); } catch(e) {}
+  }
+  // Recharger les exclusions AVANT de redessiner l'onglet Médical
+  if (typeof medicalExcludedPlayers !== 'undefined' && typeof loadMedicalExcluded === 'function') {
+    try { medicalExcludedPlayers = loadMedicalExcluded(); } catch(e) {}
   }
   if (typeof renderMedicalHub === 'function') {
     try { renderMedicalHub(); } catch(e) {}
