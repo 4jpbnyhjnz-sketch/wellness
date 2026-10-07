@@ -6595,6 +6595,7 @@ function setSavedMatchCategory(id, cat) {
 }
 
 function deleteMatch(id) {
+  markDeleted(SAVED_MATCHES_STORAGE_KEY, id);
   savedMatches = savedMatches.filter(m => m.id !== id);
   saveSavedMatchesList(savedMatches);
   renderMatchesTab();
@@ -6663,7 +6664,22 @@ function renderMatchesTab() {
       details.className = "saved-session";
 
       const summary2 = document.createElement("summary");
-      summary2.textContent = `${m.date} — ${m.club} vs ${m.opponent}${m.durationMinutes ? " (" + m.durationMinutes + " min)" : ""} · ${m.category || "Espoir"}`;
+      summary2.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:10px";
+      const summary2Text = document.createElement("span");
+      summary2Text.textContent = `${m.date} — ${m.club} vs ${m.opponent}${m.durationMinutes ? " (" + m.durationMinutes + " min)" : ""} · ${m.category || "Espoir"}`;
+      summary2.appendChild(summary2Text);
+      // Bouton de suppression rapide, visible sans avoir à déplier le match.
+      const quickDelMatchBtn = document.createElement("button");
+      quickDelMatchBtn.type = "button";
+      quickDelMatchBtn.className = "btn btn-secondary";
+      quickDelMatchBtn.textContent = "🗑 Supprimer";
+      quickDelMatchBtn.style.cssText = "flex-shrink:0;font-size:12px;padding:4px 10px;background:rgba(214,0,28,.1) !important;color:#D6001C !important;border:1px solid #D6001C !important";
+      quickDelMatchBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm(`Supprimer définitivement le match ${m.journee ? m.journee + " " : ""}contre ${m.opponent} (${m.date}) ?`)) deleteMatch(m.id);
+      });
+      summary2.appendChild(quickDelMatchBtn);
       details.appendChild(summary2);
 
       const actions = document.createElement("div");
@@ -7037,6 +7053,21 @@ function markLocalDataChanged() {
   try { localStorage.setItem("nissaLastLocalChange_v1", Date.now().toString()); } catch (e) {}
 }
 
+// Suppressions mémorisées (« pierres tombales ») : la synchro cloud fusionne
+// les listes par id sans jamais rien retirer, donc un match ou une séance
+// supprimé sur un appareil revenait dès qu'un autre appareil (ou une copie
+// cloud plus ancienne) le contenait encore. On garde la trace de chaque id
+// supprimé, synchronisée elle aussi, et la fusion écarte ces ids partout.
+const DELETED_IDS_KEY = "gpsDeletedIds_v1";
+function loadDeletedIds() {
+  try { return JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || "{}") || {}; } catch (e) { return {}; }
+}
+function markDeleted(storageKey, id) {
+  const del = loadDeletedIds();
+  del[storageKey + ":" + id] = new Date().toISOString();
+  try { localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(del)); } catch (e) {}
+}
+
 // Écriture localStorage centralisée et SANS échec silencieux : si le
 // stockage du navigateur est plein (quota dépassé) ou écrit refuse pour
 // toute autre raison, la modification semblait "passer" alors qu'elle
@@ -7140,6 +7171,7 @@ function saveCurrentSession() {
 }
 
 function deleteSavedSession(id) {
+  markDeleted(SAVED_SESSIONS_STORAGE_KEY, id);
   savedSessions = savedSessions.filter((s) => s.id !== id);
   saveSavedSessions(savedSessions);
   deletePdfBlob(id);
@@ -7901,7 +7933,7 @@ function renderStatsTab() {
       quickDelBtn.type = "button";
       quickDelBtn.className = "btn btn-secondary";
       quickDelBtn.textContent = "🗑 Supprimer";
-      quickDelBtn.style.cssText = "flex-shrink:0;font-size:12px;padding:4px 10px";
+      quickDelBtn.style.cssText = "flex-shrink:0;font-size:12px;padding:4px 10px;background:rgba(214,0,28,.1) !important;color:#D6001C !important;border:1px solid #D6001C !important";
       quickDelBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -8755,6 +8787,7 @@ const BACKUP_KEYS = [
   "nissaPlayerProfiles_v1",
   "nissaPhysicalTests_v1",
   "gpsMedicalRecords_v1",
+  "gpsDeletedIds_v1",
 ];
 
 function exportAllData() {
@@ -11937,6 +11970,7 @@ var SUPABASE_ROW_ID = 'nissa_gps';
 var SUPABASE_REST_URL = SUPABASE_URL + '/rest/v1/app_data';
 
 var SYNC_DATA_KEYS = [
+  'gpsDeletedIds_v1', // en premier : les suppressions doivent être connues avant de fusionner les listes
   'nissaPhysicalTests_v1',
   'nissaPlayerProfiles_v1',
   'gpsSavedSessions_v1',
@@ -12052,7 +12086,9 @@ function mergeNeverLose(key, localRaw, incomingRaw) {
       var incKeys = Object.keys(item || {}).length;
       byId[item.id] = incKeys >= localKeys ? item : byId[item.id];
     });
-    return Object.values(byId);
+    var deleted = {};
+    try { deleted = JSON.parse(localStorage.getItem('gpsDeletedIds_v1') || '{}') || {}; } catch (e) {}
+    return Object.values(byId).filter(function(item) { return !deleted[key + ':' + item.id]; });
   }
 
   // Objets simples indexés par nom de joueur (roster, postes, exclusions
