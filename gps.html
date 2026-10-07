@@ -3513,20 +3513,6 @@ Petit Enzo ; 9</pre>
         <div style="display:flex;gap:8px;align-items:center">
           <select id="perfFilterTest" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
             <option value="">Tous les tests</option>
-            <option value="10m">10m</option>
-            <option value="20m">20m</option>
-            <option value="30m">30m</option>
-            <option value="50m">50m</option>
-            <option value="yoyo">Yo-Yo</option>
-            <option value="bronco">Bronco</option>
-            <option value="vmax">Vmax</option>
-            <option value="dcsquat">DC Squat</option>
-            <option value="backsquat">Back Squat</option>
-            <option value="clean">Clean</option>
-            <option value="traction">Traction</option>
-            <option value="cmj">CMJ</option>
-            <option value="sj">SJ</option>
-            <option value="broadjump">Broad Jump</option>
           </select>
           <select id="perfFilterPlayer" class="perf-input" style="font-size:11px;padding:4px 8px" onchange="renderPerfHistory()">
             <option value="">Tous les joueurs</option>
@@ -10846,12 +10832,36 @@ function savePlayerProfiles() {
 function stripAccentsGlobal(s) {
   return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
+// Date d'un test au format unique AAAA-MM-JJ (accepte jj/mm/aaaa, jj-mm-aa,
+// AAAA-MM-JJ avec ou sans heure). Indispensable pour trier correctement
+// l'historique et trouver le « dernier » résultat d'un joueur.
+function normTestDate(s) {
+  if (s === null || s === undefined) return '';
+  var str = String(s).trim(), m;
+  if ((m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return m[1] + '-' + m[2].padStart(2,'0') + '-' + m[3].padStart(2,'0');
+  if ((m = str.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/))) {
+    var y = m[3].length === 2 ? '20' + m[3] : m[3];
+    return y + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+  }
+  return str;
+}
+// Clé de comparaison d'un nom : sans accents, sans casse, espaces normalisés.
+function testPlayerKey(n) { return stripAccentsGlobal(String(n || '')).toLowerCase().replace(/\s+/g, ' ').trim(); }
+
 function normalizePhysicalTestNames(list) {
   var changed = false;
   list.forEach(function(t) {
+    if (!t) return;
+    var d = normTestDate(t.date);
+    if (d !== t.date) { t.date = d; changed = true; }
+    if (typeof t.value === 'string' && t.value.trim() !== '' && !isNaN(parseFloat(t.value.replace(',', '.')))) {
+      t.value = parseFloat(t.value.replace(',', '.')); changed = true;
+    }
     if (!t.player) return;
-    var norm = stripAccentsGlobal(t.player).toLowerCase();
-    var found = (typeof FIXED_ROSTER !== 'undefined') && FIXED_ROSTER.find(function(n){ return stripAccentsGlobal(n).toLowerCase() === norm; });
+    var trimmed = String(t.player).replace(/\s+/g, ' ').trim();
+    if (trimmed !== t.player) { t.player = trimmed; changed = true; }
+    var norm = testPlayerKey(t.player);
+    var found = (typeof FIXED_ROSTER !== 'undefined') && FIXED_ROSTER.find(function(n){ return testPlayerKey(n) === norm; });
     if (found && found !== t.player) { t.player = found; changed = true; }
   });
   return changed;
@@ -11034,12 +11044,13 @@ function getISOWeek(date) {
 }
 
 function getPlayerTests(playerName, testId) {
-  var nameLower = playerName.toLowerCase();
+  var key = testPlayerKey(playerName);
   return physicalTests
     .filter(function(t){
-      return t.player.toLowerCase() === nameLower && t.type === testId;
+      return t && t.player && testPlayerKey(t.player) === key && t.type === testId
+        && t.value !== null && t.value !== '' && !isNaN(parseFloat(t.value));
     })
-    .sort(function(a,b){ return a.date.localeCompare(b.date); });
+    .sort(function(a,b){ return normTestDate(a.date).localeCompare(normTestDate(b.date)); });
 }
 
 function getStatusClass(data) {
@@ -11222,6 +11233,9 @@ function renderProfileSrpe(name) {
 var PROFILE_TEST_IDS = ['taille','poids','10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump'];
 
 function renderProfileTests(name) {
+  // Toujours la version à jour (sparklines, tendance juste pour les sprints) :
+  // avant, après chaque ajout/modif de test, l'ancienne version revenait.
+  if (typeof renderProfileTestsV2 === 'function') return renderProfileTestsV2(name);
   var el = document.getElementById('profileTests');
   var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_TEST_IDS.includes(t.id); });
   el.innerHTML = testsToShow.map(function(test) {
@@ -11490,11 +11504,27 @@ function renderPerfHistory() {
     return 0;
   });
 
-  // Populate player filter
+  // Liste des tests du filtre : générée depuis TEST_DEFS (tous les tests de
+  // l'appli, y compris Taille et Poids) au lieu d'une liste écrite à la main.
+  var tSel = document.getElementById('perfFilterTest');
+  if (tSel && tSel.options.length !== TEST_DEFS.length + 1) {
+    var tCur = tSel.value;
+    tSel.innerHTML = '<option value="">Tous les tests</option>' + TEST_DEFS.map(function(d){
+      return '<option value="'+d.id+'"'+(d.id===tCur?' selected':'')+'>'+d.icon+' '+d.label+'</option>';
+    }).join('');
+  }
+
+  // Liste des joueurs du filtre : reconstruite à chaque fois pour inclure les
+  // joueurs ajoutés depuis (avant, elle n'était remplie qu'une seule fois).
   var sel = document.getElementById('perfFilterPlayer');
-  if (sel && sel.options.length <= 1) {
-    var players = [...new Set(physicalTests.map(function(t){ return t.player; }))].sort();
-    players.forEach(function(p){ var o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
+  if (sel) {
+    var pCur = sel.value;
+    var players = [...new Set(physicalTests.map(function(t){ return t.player; }))].filter(Boolean)
+      .sort(function(a, b){ return a.localeCompare(b, 'fr'); });
+    if (sel.options.length !== players.length + 1) {
+      sel.innerHTML = '<option value="">Tous les joueurs</option>';
+      players.forEach(function(p){ var o=document.createElement('option'); o.value=p; o.textContent=p; if (p===pCur) o.selected=true; sel.appendChild(o); });
+    }
   }
 
   if (!tests.length) {
@@ -11651,6 +11681,27 @@ function findClosestRosterName(playerRaw) {
   return { exact: false, match: null, distance: bestDist };
 }
 
+// Reconnaît le nom d'un test dans un fichier importé, même écrit un peu
+// différemment : casse, accents, unité entre parenthèses, espaces.
+function resolvePerfTestId(raw, testMap) {
+  var base = stripAccentsGlobal(String(raw || '')).toLowerCase().trim();
+  var cands = [
+    base,
+    base.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim(),       // sans « (cm) », « (s) »...
+  ];
+  cands.push(cands[1].replace(/\s+/g, ''));                                   // « 10 m » -> « 10m »
+  cands.push(cands[1].replace(/\s+(cm|kg|s|m|km\/h|reps)$/, '').trim());     // « cmj cm » -> « cmj »
+  var mapNorm = {};
+  Object.keys(testMap).forEach(function(k){ mapNorm[stripAccentsGlobal(k).toLowerCase()] = testMap[k]; });
+  for (var i = 0; i < cands.length; i++) {
+    if (mapNorm[cands[i]]) return mapNorm[cands[i]];
+    // nom d'un test de l'appli (ex. « Broad Jump », « Trap Bar ») ou son id
+    var def = TEST_DEFS.find(function(d){ return d.id === cands[i] || stripAccentsGlobal(d.label).toLowerCase() === cands[i]; });
+    if (def) return def.id;
+  }
+  return null;
+}
+
 function handleXlsxDrop(e) {
   e.preventDefault();
   document.getElementById('xlsxDrop').classList.remove('drag');
@@ -11720,6 +11771,14 @@ function handleXlsxFile(file) {
         'rsi':'rsi',
         'taille':'taille', 'height':'taille',
         'poids':'poids', 'weight':'poids', 'masse':'poids',
+        'masse corporelle':'poids', 'poids de corps':'poids', 'pdc':'poids',
+        'stature':'taille', 'height (cm)':'taille',
+        'vitesse max':'vmax', 'v max':'vmax', 'vitesse maximale':'vmax',
+        'yo-yo ir1':'yoyo', 'yoyo ir1':'yoyo', 'yyirt1':'yoyo', 'yo yo':'yoyo',
+        'squat jump':'sj', 'counter movement jump':'cmj', 'countermovement jump':'cmj',
+        'tractions':'traction', 'pull up':'traction', 'pull-up':'traction',
+        'developpe couche':'dcsquat', 'développé couché':'dcsquat', 'bench':'dcsquat', 'bench press':'dcsquat',
+        'squat':'backsquat', 'power clean':'clean', 'saut en longueur':'broadjump', 'standing broad jump':'broadjump',
       };
 
       function findVal(row, keys) {
@@ -11743,11 +11802,13 @@ function handleXlsxFile(file) {
 
         if (!playerRaw || !testRaw || valRaw === undefined || valRaw === '') { errors++; return; }
 
-        // Ignorer données anthropo
-        if (['weight','height','mg','masse grasse'].indexOf(testRaw) !== -1) { skipped++; return; }
+        // Ignorer seulement la masse grasse (Poids/Weight et Taille/Height sont
+        // désormais importés vers les tests Poids et Taille — avant, « Weight »
+        // et « Height » étaient jetés avant même d'être reconnus).
+        if (['mg','masse grasse','% mg'].indexOf(testRaw) !== -1) { skipped++; return; }
 
-        // Type de test
-        var testId = testMap[testRaw];
+        // Type de test (tolère accents, unités entre parenthèses, espaces : « 10 m », « CMJ (cm) »...)
+        var testId = resolvePerfTestId(testRaw, testMap);
         if (!testId) { ignoredTests[testRaw] = (ignoredTests[testRaw]||0)+1; errors++; return; }
 
         // Valeur numérique
@@ -11762,7 +11823,7 @@ function handleXlsxFile(file) {
             String(dateParts.m).padStart(2,'0') + '-' +
             String(dateParts.d).padStart(2,'0');
         } else if (typeof dateRaw === 'string' && dateRaw) {
-          dateStr = dateRaw;
+          dateStr = normTestDate(dateRaw);
         }
         if (!dateStr) { errors++; return; }
 
@@ -11821,7 +11882,7 @@ function finishXlsxImport(saved, skipped, errors, ignoredTests, keptAsIsNames) {
 
   var ignoredList = Object.keys(ignoredTests);
   var msg = '✓ ' + saved + ' test(s) importé(s)';
-  if (skipped) msg += ' · ' + skipped + ' ignoré(s) (poids/taille)';
+  if (skipped) msg += ' · ' + skipped + ' ignoré(s) (masse grasse)';
   if (errors) msg += ' · ' + errors + ' erreur(s)';
   if (ignoredList.length) msg += '\nTests non reconnus: ' + ignoredList.slice(0,5).join(', ');
   if (keptAsIsNames && keptAsIsNames.length) msg += '\n⚠ Nom(s) gardé(s) tel quel (absent de l\'effectif) : ' + keptAsIsNames.slice(0,8).join(', ');
@@ -12424,7 +12485,8 @@ function makeSparkline(history, lower) {
 function renderProfileTestsV2(name) {
   var el = document.getElementById('profileTests');
   if (!el) return;
-  var PROFILE_IDS = ['10m','20m','30m','50m','dcsquat','backsquat','clean','traction','cmj','broadjump','taille','poids'];
+  // Mêmes tests que la fiche PID (Bronco, RSI, 5m, Trap Bar, Pendlay, SJ volontairement exclus).
+  var PROFILE_IDS = ['10m','20m','30m','50m','yoyo','vmax','dcsquat','backsquat','clean','traction','cmj','broadjump','taille','poids'];
   var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_IDS.indexOf(t.id) !== -1; });
 
   el.innerHTML = testsToShow.map(function(test) {
@@ -14227,10 +14289,7 @@ function pidPlayers() {
   return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'fr'); });
 }
 function pidHist(name, type) {
-  var low = String(name||'').toLowerCase();
-  return (physicalTests||[])
-    .filter(function(t){ return t && String(t.player).toLowerCase()===low && t.type===type && t.value!==null && t.value!=='' && !isNaN(parseFloat(t.value)); })
-    .sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+  return (typeof getPlayerTests === 'function') ? getPlayerTests(String(name||''), type) : [];
 }
 function pidLast(type) { var h = pidHist(pidPlayer, type); return h.length ? h[h.length-1].value : null; }
 
@@ -14290,8 +14349,9 @@ function pidGpsCard(key, label, dec) {
     + '<div style="font-size:10px;font-weight:600;font-style:italic;color:#9a9aa2">'+(last && last.isMatch ? '🏉 ' : '')+dt+'</div></div>';
 }
 
-function pidBannerCard(label, value, unit) {
-  return '<div style="background:#fff;border:1px solid #dcdce2;border-radius:12px;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px">'
+function pidBannerCard(label, value, unit, onclick, title) {
+  return '<div class="pid-tcard"' + (onclick ? ' onclick="' + onclick + '" title="' + pidEsc(title || '') + '"' : '')
+    + ' style="background:#fff;border:1px solid #dcdce2;border-radius:12px;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px">'
     + '<div style="font-size:11px;font-weight:800;font-style:italic;color:#c1121f;white-space:nowrap">'+pidEsc(label)+'</div>'
     + '<div style="font-size:22px;font-weight:700;color:#17171a;line-height:1">'+value+'</div>'
     + '<div style="font-size:8.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#9a9aa2">'+pidEsc(unit)+'</div></div>';
@@ -14308,11 +14368,11 @@ function pidRender() {
   var taille = prof.taille !== undefined && prof.taille !== '' && prof.taille !== null ? prof.taille : pidLast('taille');
   var poids  = prof.poids  !== undefined && prof.poids  !== '' && prof.poids  !== null ? prof.poids  : pidLast('poids');
 
-  var banner = pidBannerCard('Taille', pidNum(taille,0), 'cm')
-    + pidBannerCard('% MG', pidNum(prof.mg, 2), '%')
-    + pidBannerCard('Poids', pidNum(poids,1), 'kg')
-    + pidBannerCard('Tps jeu', pidNum(prof.tpsjeu, 0), 'min')
-    + pidBannerCard('VMAX', pidNum(pidLast('vmax'), 2), 'km/h');
+  var banner = pidBannerCard('Taille', pidNum(taille,0), 'cm', "pidBannerChart('taille','Taille',0,'cm')", "Voir l'évolution / ajouter une mesure")
+    + pidBannerCard('% MG', pidNum(prof.mg, 2), '%', "pidEditProfileField('mg','% MG','%')", 'Modifier')
+    + pidBannerCard('Poids', pidNum(poids,1), 'kg', "pidBannerChart('poids','Poids',1,'kg')", "Voir l'évolution / ajouter une mesure")
+    + pidBannerCard('Tps jeu', pidNum(prof.tpsjeu, 0), 'min', "pidEditProfileField('tpsjeu','Temps de jeu','min')", 'Modifier')
+    + pidBannerCard('VMAX', pidNum(pidLast('vmax'), 2), 'km/h', "pidBannerChart('vmax','VMAX',2,'km/h')", "Voir l'évolution / ajouter une mesure");
 
   var inj = ((medicalRecords||{})[pidPlayer] || []).slice()
     .sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); })
@@ -14446,6 +14506,66 @@ function pidShowChart(type, label, dec, source) {
   box.innerHTML = head + stats + '<div style="position:relative;width:100%;aspect-ratio:700 / 300">'+svg+labels+'</div>';
   document.getElementById('pidChartModal').style.display = 'flex';
 }
+// ── Cases du bandeau PID cliquables ──
+// Taille / Poids / VMAX : graphique d'évolution + saisie d'une nouvelle mesure
+// (enregistrée comme un test Perf Physique, donc visible partout).
+function pidBannerChart(type, label, dec, unit) {
+  pidShowChart(type, label, dec);
+  var box = document.getElementById('pidChartBox');
+  if (!box) return;
+  var today = new Date(); today = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  var inp = 'font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid #dcdce2;border-radius:8px;background:#fff;color:#17171a';
+  box.insertAdjacentHTML('beforeend',
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #ececf0">'
+    + '<span style="font-size:12px;font-weight:800;color:#3a3a42">Ajouter une mesure</span>'
+    + '<input type="date" id="pidAddDate" value="' + today + '" style="' + inp + '">'
+    + '<input type="text" inputmode="decimal" id="pidAddVal" placeholder="Valeur (' + pidEsc(unit) + ')" style="' + inp + ';width:130px">'
+    + '<button onclick="pidAddMeasure(\'' + type + '\',\'' + pidEsc(label) + '\',' + dec + ',\'' + pidEsc(unit) + '\')" style="font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:8px 14px;border:none;border-radius:8px;background:#c1121f;color:#fff;cursor:pointer">Enregistrer</button>'
+    + '</div>');
+  var v = document.getElementById('pidAddVal');
+  if (v) v.addEventListener('keydown', function(e){ if (e.key === 'Enter') pidAddMeasure(type, label, dec, unit); });
+}
+function pidAddMeasure(type, label, dec, unit) {
+  var dateEl = document.getElementById('pidAddDate'), valEl = document.getElementById('pidAddVal');
+  var val = parseFloat(String(valEl ? valEl.value : '').replace(',', '.'));
+  var date = dateEl ? dateEl.value : '';
+  if (!date) { alert('Choisis une date.'); return; }
+  if (isNaN(val)) { alert('Entre une valeur numérique.'); if (valEl) valEl.focus(); return; }
+  physicalTests.push({ id: Date.now() + Math.random(), player: pidPlayer, type: type, value: val, date: date, context: 'Fiche PID' });
+  savePhysicalTests();
+  // Taille / Poids : la valeur du profil (saisie manuelle) est prioritaire dans
+  // le bandeau — on la met à jour pour que la nouvelle mesure s'affiche.
+  if (type === 'taille' || type === 'poids') {
+    var last = getPlayerTests(pidPlayer, type).slice(-1)[0];
+    if (last) {
+      playerProfiles[pidPlayer] = playerProfiles[pidPlayer] || {};
+      playerProfiles[pidPlayer][type] = last.value;
+      savePlayerProfiles();
+    }
+  }
+  pidRender();
+  pidBannerChart(type, label, dec, unit);
+  if (typeof renderPerfHistory === 'function') { try { renderPerfHistory(); } catch (e) {} }
+}
+// % MG / Temps de jeu : valeurs de profil, modifiables directement.
+function pidEditProfileField(key, label, unit) {
+  if (!pidPlayer) return;
+  var prof = playerProfiles[pidPlayer] || {};
+  var cur = prof[key] !== undefined && prof[key] !== null ? String(prof[key]).replace('.', ',') : '';
+  var input = prompt(label + ' (' + unit + ') pour ' + pidPlayer + ' :\n(laisser vide pour effacer)', cur);
+  if (input === null) return;
+  var s = input.trim();
+  playerProfiles[pidPlayer] = prof;
+  if (s === '') { delete prof[key]; }
+  else {
+    var n = parseFloat(s.replace(',', '.'));
+    if (isNaN(n)) { alert('Valeur invalide : entre un nombre.'); return; }
+    prof[key] = n;
+  }
+  savePlayerProfiles();
+  pidRender();
+}
+
 function pidCloseChart() { document.getElementById('pidChartModal').style.display = 'none'; }
 
 function pidSelect(v) { pidPlayer = v; pidRender(); }
