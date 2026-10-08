@@ -1,6 +1,53 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script>
+/* ══ SYNCHRONISATION — suivi des modifications locales (chargé avant tout le reste) ══
+   Chaque écriture d'une donnée partagée est repérée ici, quel que soit l'écran
+   qui l'a faite : on note QUELLE donnée cet appareil a modifiée (et quels
+   éléments il a supprimés), pour que la synchro sache exactement ce qui doit
+   partir vers le cloud et ce qui doit simplement être repris du cloud. */
+window.NISSA_SYNC_KEYS = ["gpsDeletedIds_v1", "nissaPhysicalTests_v1", "nissaPlayerProfiles_v1", "gpsSavedSessions_v1", "gpsSavedMatches_v1", "gpsSeasonRecords_v1", "gpsReportRoster_v1", "gpsReportObjectives_v1", "gpsReportColumnVisibility_v1", "gpsRosterPositions_v1", "gpsMatchObjectives_v1", "gpsMedicalRecords_v1", "gpsMedicalExcludedPlayers_v1", "nissa_espoirs_rpe_overrides_v1", "gpsP1Roster_v1", "gpsP1WeekExclusions_v1", "nissa_gps_fixed_roster_v1", "gpsCoachMatchRef_v1", "gpsCoachThemes_v1"];
+window.NISSA_ID_ARRAY_KEYS = ['gpsSavedSessions_v1', 'gpsSavedMatches_v1', 'nissaPhysicalTests_v1'];
+(function () {
+  var proto = Storage.prototype, rawSet = proto.setItem, rawRemove = proto.removeItem;
+  window.__nissaSyncApplying = false;
+  window.__nissaRawSet = function (k, v) { rawSet.call(localStorage, k, v); };
+  function readJSON(k, d) { try { var r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } }
+  window.nissaGetDirty = function () { return readJSON('nissaSyncDirty_v1', {}) || {}; };
+  window.nissaMarkDirty = function (k) {
+    var d = window.nissaGetDirty(); d[k] = Date.now();
+    rawSet.call(localStorage, 'nissaSyncDirty_v1', JSON.stringify(d));
+    if (typeof window.nissaOnLocalChange === 'function') { try { window.nissaOnLocalChange(k); } catch (e) {} }
+  };
+  function idsOf(raw) {
+    var s = {};
+    try { var a = JSON.parse(raw); if (Array.isArray(a)) a.forEach(function (it) { if (it && it.id !== undefined && it.id !== null) s[String(it.id)] = 1; }); } catch (e) {}
+    return s;
+  }
+  // Suppression d'une séance / d'un match / d'un test : on mémorise son id
+  // (synchronisé) pour qu'il ne revienne jamais depuis un autre appareil.
+  function trackDeletions(k, prev, next) {
+    if (window.NISSA_ID_ARRAY_KEYS.indexOf(k) === -1) return;
+    var a = idsOf(prev), b = idsOf(next), del = readJSON('gpsDeletedIds_v1', {}) || {}, ch = false, now = new Date().toISOString();
+    Object.keys(a).forEach(function (id) { if (!b[id] && !del[k + ':' + id]) { del[k + ':' + id] = now; ch = true; } });
+    Object.keys(b).forEach(function (id) { if (!a[id] && del[k + ':' + id]) { delete del[k + ':' + id]; ch = true; } });
+    if (ch) { rawSet.call(localStorage, 'gpsDeletedIds_v1', JSON.stringify(del)); window.nissaMarkDirty('gpsDeletedIds_v1'); }
+  }
+  proto.setItem = function (k, v) {
+    if (this !== window.localStorage || window.__nissaSyncApplying || window.NISSA_SYNC_KEYS.indexOf(k) === -1) return rawSet.call(this, k, v);
+    var prev = this.getItem(k); v = String(v);
+    rawSet.call(this, k, v);
+    if (prev !== v) { trackDeletions(k, prev, v); window.nissaMarkDirty(k); }
+  };
+  proto.removeItem = function (k) {
+    if (this !== window.localStorage || window.__nissaSyncApplying || window.NISSA_SYNC_KEYS.indexOf(k) === -1) return rawRemove.call(this, k);
+    var had = this.getItem(k) !== null;
+    rawRemove.call(this, k);
+    if (had) window.nissaMarkDirty(k);
+  };
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nissa Rugby — Performance Hub</title>
@@ -2812,6 +2859,9 @@ table.roster-table select { padding: 4px; }
         </button>
         <button onclick="syncLoad(false)" style="background:rgba(91,196,245,.15);border:1px solid rgba(91,196,245,.4);border-radius:6px;padding:9px 18px;color:#5bc4f5;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
           ⬇ Recharger
+        </button>
+        <button onclick="syncUseThisDeviceAsReference()" title="À utiliser sur l'ordinateur qui a les bonnes données : elles remplacent celles du cloud et des autres ordinateurs" style="background:rgba(214,0,28,.12);border:1px solid rgba(214,0,28,.5);border-radius:6px;padding:9px 18px;color:#ff6b6b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          ⬆ Cet ordinateur fait référence
         </button>
       </div>
       <p id="syncStatus" style="font-size:12px;color:#888;margin:4px 0 0"></p>
@@ -8761,6 +8811,9 @@ function initExport() {
    ========================================================================= */
 
 const BACKUP_KEYS = [
+  "nissa_gps_fixed_roster_v1",
+  "gpsCoachMatchRef_v1",
+  "gpsCoachThemes_v1",
   ROSTER_STORAGE_KEY,
   ROSTER_POSITIONS_KEY,
   OBJECTIVES_STORAGE_KEY,
@@ -12084,24 +12137,7 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 var SUPABASE_ROW_ID = 'nissa_gps';
 var SUPABASE_REST_URL = SUPABASE_URL + '/rest/v1/app_data';
 
-var SYNC_DATA_KEYS = [
-  'gpsDeletedIds_v1', // en premier : les suppressions doivent être connues avant de fusionner les listes
-  'nissaPhysicalTests_v1',
-  'nissaPlayerProfiles_v1',
-  'gpsSavedSessions_v1',
-  'gpsSavedMatches_v1',
-  'gpsSeasonRecords_v1',
-  'gpsReportRoster_v1',
-  'gpsReportObjectives_v1',
-  'gpsReportColumnVisibility_v1',
-  'gpsRosterPositions_v1',
-  'gpsMatchObjectives_v1',
-  'gpsMedicalRecords_v1',
-  'gpsMedicalExcludedPlayers_v1',
-  'nissa_espoirs_rpe_overrides_v1',
-  'gpsP1Roster_v1',
-  'gpsP1WeekExclusions_v1',
-];
+var SYNC_DATA_KEYS = window.NISSA_SYNC_KEYS; // liste unique, définie en tête de page
 
 function collectAllData() {
   var d = { _version:2, _date:new Date().toISOString() };
@@ -12303,6 +12339,18 @@ function reloadAllVariablesAndRerender() {
   if (typeof medicalExcludedPlayers !== 'undefined' && typeof loadMedicalExcluded === 'function') {
     try { medicalExcludedPlayers = loadMedicalExcluded(); } catch(e) {}
   }
+  // Liste des joueurs (onglet Joueurs) : rechargée en place
+  try {
+    var fr = JSON.parse(localStorage.getItem('nissa_gps_fixed_roster_v1') || 'null');
+    if (Array.isArray(fr) && fr.length && typeof FIXED_ROSTER !== 'undefined') {
+      FIXED_ROSTER.length = 0; fr.forEach(function(n){ FIXED_ROSTER.push(n); });
+    }
+  } catch(e) {}
+  // Écrans visibles qui dépendent de ces données
+  try { if (typeof renderMedicalHub === 'function') renderMedicalHub(); } catch(e) {}
+  try { var hj = document.getElementById('hub-joueur'); if (typeof renderJoueurGrid === 'function' && hj && hj.classList.contains('active')) renderJoueurGrid(); } catch(e) {}
+  try { if (typeof pidRender === 'function' && typeof pidPlayer !== 'undefined' && pidPlayer) pidRender(); } catch(e) {}
+  try { if (typeof sendGpsAnalysesData === 'function') sendGpsAnalysesData(); } catch(e) {}
 }
 
 // Pastille de synchro visible en permanence dans la barre du haut (état en temps réel)
@@ -12316,119 +12364,234 @@ function setSyncPill(state, text, title) {
   if (pill && title) pill.title = title;
 }
 
-// Lecture — automatique au démarrage
-async function syncLoad(silent) {
-  try {
-    var resp = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&select=data,updated_at', {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
-    });
-    if (!resp.ok) {
-      if (!silent) syncSetStatus('⚠ Erreur de chargement ('+resp.status+')', '#e8564a');
-      setSyncPill('warn', 'Chargement échoué', 'Impossible de contacter le cloud (erreur ' + resp.status + ')');
-      return;
-    }
-    var rows = await resp.json();
-    if (!rows || !rows.length) { if (!silent) syncSetStatus('Aucune sauvegarde cloud pour l\'instant.', '#888'); return; }
-    var data = rows[0].data;
-    if (!data || !data._version) return;
+/* ══════════════════════════════════════════════════════════════════════
+   MOTEUR DE SYNCHRONISATION
+   Règle : le cloud fait foi. Une donnée que cet appareil n'a PAS modifiée
+   est reprise telle quelle depuis le cloud (identique partout). Une donnée
+   modifiée ici et pas encore envoyée est FUSIONNÉE avec le cloud :
+   - séances / matchs / tests : union par id, les suppressions (mémorisées)
+     sont appliquées partout ;
+   - autres données (RPE, médical, profils, records, effectifs...) : fusion
+     « à 3 points » par rapport à la dernière version reçue du cloud — on
+     garde les changements des deux appareils, champ par champ.
+   L'envoi relit d'abord le cloud et n'écrit que si personne n'a écrit
+   entre-temps (sinon on re-fusionne et on recommence).
+   ══════════════════════════════════════════════════════════════════════ */
+var NISSA_SYNC_INIT_FLAG = 'nissaSyncInit_v2';
+var _nissaLastCloudUpdatedAt = null;
+var _nissaSyncBusy = false, _nissaSyncAgain = false;
 
-    // Ne jamais écraser des données locales plus récentes que ce que le cloud
-    // propose : on ne restaure QUE si le cloud est réellement plus récent que
-    // le dernier changement local connu — quel que soit le temps écoulé
-    // depuis (redémarrage de l'ordi compris). Avant, une fenêtre de 15s
-    // seulement protégeait contre ça : au-delà, une sauvegarde cloud restée
-    // en retard (auto-save interrompu par une extinction, par ex.) pouvait
-    // silencieusement écraser des données locales plus fraîches.
-    var lastLocalChange = parseInt(localStorage.getItem('nissaLastLocalChange_v1') || '0', 10);
-    var cloudTime = data._date ? new Date(data._date).getTime() : 0;
-    if (lastLocalChange && lastLocalChange > cloudTime) {
-      if (!silent) {
-        syncSetStatus('⚠ Vos données locales sont plus récentes que le cloud — sauvegarde en cours, réessayez dans quelques secondes.', '#f5a623');
+function nissaReadBase() { try { return JSON.parse(localStorage.getItem('nissaSyncBase_v1') || '{}') || {}; } catch (e) { return {}; } }
+function nissaWriteBase(b) { try { __nissaRawSet('nissaSyncBase_v1', JSON.stringify(b)); } catch (e) {} }
+function nissaWriteDirty(d) { try { __nissaRawSet('nissaSyncDirty_v1', JSON.stringify(d)); } catch (e) {} }
+function nissaSame(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function nissaIsObj(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
+function nissaHasIds(arr) { return arr.some(function (it) { return it && typeof it === 'object' && it.id !== undefined; }); }
+
+// Fusion à 3 points : l = local, c = cloud, b = dernière version commune.
+function nissaMerge3(l, c, b, depth) {
+  depth = depth || 0;
+  if (nissaSame(l, b)) return c;                     // rien changé ici → version du cloud
+  if (nissaSame(c, b) || nissaSame(l, c)) return l;  // rien changé ailleurs → version locale
+  if (nissaIsObj(l) && nissaIsObj(c) && depth < 6) {
+    var bb = nissaIsObj(b) ? b : {}, out = {}, keys = {};
+    Object.keys(l).concat(Object.keys(c)).forEach(function (k) { keys[k] = 1; });
+    Object.keys(keys).forEach(function (k) {
+      var r = nissaMerge3(l[k], c[k], bb[k], depth + 1);
+      if (r !== undefined) out[k] = r;
+    });
+    return out;
+  }
+  if (Array.isArray(l) && Array.isArray(c) && !nissaHasIds(l) && !nissaHasIds(c)) {
+    var bArr = Array.isArray(b) ? b : [];
+    var key = function (x) { return JSON.stringify(x); };
+    var lS = {}, bS = {}, cS = {};
+    l.forEach(function (x) { lS[key(x)] = 1; }); bArr.forEach(function (x) { bS[key(x)] = 1; }); c.forEach(function (x) { cS[key(x)] = 1; });
+    var out2 = c.filter(function (x) { return !(bS[key(x)] && !lS[key(x)]); });       // retirés ici
+    l.forEach(function (x) { if (!bS[key(x)] && !cS[key(x)]) out2.push(x); });        // ajoutés ici
+    return out2;
+  }
+  return l; // vrai conflit sur la même valeur : la modification locale l'emporte
+}
+function nissaMergeIdArray(k, local, cloud) {
+  var del = {};
+  try { del = JSON.parse(localStorage.getItem('gpsDeletedIds_v1') || '{}') || {}; } catch (e) {}
+  var order = [], byId = {};
+  cloud.forEach(function (it) { if (it && it.id !== undefined) { var id = String(it.id); if (!byId[id]) order.push(id); byId[id] = it; } });
+  local.forEach(function (it) { if (it && it.id !== undefined) { var id = String(it.id); if (!byId[id]) order.push(id); byId[id] = it; } });
+  return order.filter(function (id) { return !del[k + ':' + id]; }).map(function (id) { return byId[id]; });
+}
+
+// Applique les données du cloud sur cet appareil. Retourne true si quelque chose a changé.
+function nissaApplyCloud(data, opts) {
+  opts = opts || {};
+  var dirty = opts.ignoreDirty ? {} : nissaGetDirty();
+  var base = nissaReadBase(), newDirty = Object.assign({}, dirty), changed = false, backedUp = false;
+  window.__nissaSyncApplying = true;
+  try {
+    SYNC_DATA_KEYS.forEach(function (k) {
+      var localRaw = localStorage.getItem(k);
+      var cloudV = data[k];
+      var isIdArr = NISSA_ID_ARRAY_KEYS.indexOf(k) !== -1;
+      if (cloudV === undefined) {                 // le cloud ne connaît pas encore cette donnée → on l'enverra
+        if (localRaw !== null) newDirty[k] = newDirty[k] || Date.now();
+        return;
       }
-      setSyncPill('warn', 'En attente d\'envoi', 'Des modifications locales n\'ont pas encore été envoyées au cloud');
-      scheduleAutoSync(); // tente de repousser la sauvegarde locale vers le cloud plutôt que de l'écraser
-      return;
-    }
-
-    restoreAllData(data);
-    var loadedLabel = data._date ? new Date(data._date).toLocaleString('fr-FR') : '';
-    if (!silent) syncSetStatus('✓ Données chargées (' + (data._date ? new Date(data._date).toLocaleDateString('fr-FR') : '') + ')', '#2ecc8a');
-    setSyncPill('ok', 'À jour', 'Dernières données reçues du cloud : ' + loadedLabel);
-  } catch(e) {
-    if (!silent) syncSetStatus('⚠ ' + e.message, '#e8564a');
-    setSyncPill('warn', 'Hors ligne', 'Connexion au cloud impossible : ' + e.message);
-  }
-}
-
-// Force le rechargement depuis le cloud, en ignorant la protection "mes
-// données locales sont plus récentes" — utile pour un appareil qui vient
-// d'ouvrir l'appli et n'a que des données locales vides/anciennes, mais dont
-// une trace locale (même minime) empêchait le chargement automatique normal.
-async function forceSyncLoad() {
-  if (!confirm('Recharger les données du cloud maintenant ? Toute modification locale non envoyée sera perdue.')) return;
-  try {
-    setSyncPill('pending', 'Chargement…', 'Récupération forcée des données du cloud');
-    var resp = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&select=data,updated_at', {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+      var cloudRaw = JSON.stringify(cloudV), result = cloudRaw;
+      if (dirty[k] && localRaw !== null) {
+        var local = null; try { local = JSON.parse(localRaw); } catch (e) {}
+        if (local !== null) {
+          if (isIdArr && Array.isArray(local) && Array.isArray(cloudV)) result = JSON.stringify(nissaMergeIdArray(k, local, cloudV));
+          else result = JSON.stringify(nissaMerge3(local, cloudV, base[k] !== undefined ? JSON.parse(base[k]) : undefined));
+        }
+      }
+      if (!isIdArr) base[k] = cloudRaw;
+      if (result !== localRaw) {
+        if (!backedUp && !dirty[k]) { try { backupLocalDataBeforeRestore(); } catch (e) {} backedUp = true; }
+        try { localStorage.setItem(k, result); } catch (e) { console.warn('Écriture locale impossible pour', k, e); }
+        changed = true;
+      }
     });
-    if (!resp.ok) { syncSetStatus('⚠ Erreur de chargement ('+resp.status+')', '#e8564a'); setSyncPill('warn', 'Chargement échoué', ''); return; }
-    var rows = await resp.json();
-    if (!rows || !rows.length) { syncSetStatus('Aucune sauvegarde cloud pour l\'instant.', '#888'); return; }
-    var data = rows[0].data;
-    if (!data || !data._version) { syncSetStatus('⚠ Données cloud invalides.', '#e8564a'); return; }
-    localStorage.setItem('nissaLastLocalChange_v1', '0'); // lève la protection pour ce chargement
-    restoreAllData(data);
-    var loadedLabel = data._date ? new Date(data._date).toLocaleString('fr-FR') : '';
-    syncSetStatus('✓ Données rechargées (' + (data._date ? new Date(data._date).toLocaleDateString('fr-FR') : '') + ')', '#2ecc8a');
-    setSyncPill('ok', 'À jour', 'Dernières données reçues du cloud : ' + loadedLabel);
-  } catch(e) {
-    syncSetStatus('⚠ ' + e.message, '#e8564a');
-    setSyncPill('warn', 'Hors ligne', 'Connexion au cloud impossible : ' + e.message);
-  }
+  } finally { window.__nissaSyncApplying = false; }
+  nissaWriteBase(base);
+  nissaWriteDirty(newDirty);
+  // Après l'enregistrement de l'état « modifié » : si le rechargement des
+  // écrans recalcule et réécrit une donnée (ex. records réalignés sur les
+  // séances), elle est bien repérée et envoyée au prochain cycle.
+  if (changed) reloadAllVariablesAndRerender();
+  return changed;
 }
 
-// Sauvegarde vers Supabase
-async function syncSave() {
-  syncSetStatus('⏳ Sauvegarde...', '#f5a623');
-  setSyncPill('pending', 'Sauvegarde…', 'Envoi des données au cloud en cours');
-  try {
-    var payload = collectAllData();
-    var r = await fetch(SUPABASE_REST_URL + '?on_conflict=id', {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({ id: SUPABASE_ROW_ID, data: payload, updated_at: new Date().toISOString() })
+async function nissaFetchCloud() {
+  var resp = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&select=data,updated_at', {
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }, cache: 'no-store'
+  });
+  if (!resp.ok) throw new Error('lecture cloud impossible (erreur ' + resp.status + ')');
+  var rows = await resp.json();
+  if (!rows || !rows.length) return null;
+  _nissaLastCloudUpdatedAt = rows[0].updated_at || null;
+  return { data: rows[0].data, updatedAt: rows[0].updated_at || null };
+}
+// Écriture conditionnelle : n'écrit que si le cloud n'a pas bougé depuis notre lecture.
+async function nissaWriteCloud(payload, updatedAt, opts) {
+  var now = new Date().toISOString();
+  var keep = !!(opts && opts.keepalive);
+  var headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+  if (updatedAt) {
+    var r = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&updated_at=eq.' + encodeURIComponent(updatedAt), {
+      method: 'PATCH', headers: Object.assign({ 'Prefer': 'return=representation' }, headers),
+      body: JSON.stringify({ data: payload, updated_at: now }), keepalive: keep
     });
     if (r.ok) {
-      var savedLabel = new Date().toLocaleString('fr-FR');
-      syncSetStatus('✓ Sauvegardé le '+savedLabel, '#2ecc8a');
-      setSyncPill('ok', 'Envoyé', 'Vos données ont été envoyées au cloud le : ' + savedLabel);
-      hideGlobalSyncWarning();
-    } else {
-      var err = await r.text();
-      syncSetStatus('⚠ Échec de la sauvegarde cloud.', '#e8564a');
-      setSyncPill('error', 'Non synchronisé', 'Échec de la sauvegarde cloud (erreur ' + r.status + ') — tes dernières modifications ne sont peut-être pas sauvegardées');
-      showGlobalSyncWarning('(erreur ' + r.status + ')');
+      var rows = []; try { rows = await r.json(); } catch (e) {}
+      if (rows && rows.length) { _nissaLastCloudUpdatedAt = rows[0].updated_at || now; return 'ok'; }
+      return 'conflict';
     }
-  } catch(e) {
-    syncSetStatus('⚠ '+e.message, '#e8564a');
-    setSyncPill('error', 'Non synchronisé', 'Échec de la sauvegarde cloud : ' + e.message);
-    showGlobalSyncWarning();
+    // PATCH refusé par le serveur : repli sur l'enregistrement classique
   }
+  var r2 = await fetch(SUPABASE_REST_URL + '?on_conflict=id', {
+    method: 'POST', headers: Object.assign({ 'Prefer': 'resolution=merge-duplicates' }, headers),
+    body: JSON.stringify({ id: SUPABASE_ROW_ID, data: payload, updated_at: now }), keepalive: keep
+  });
+  if (!r2.ok) throw new Error('envoi cloud impossible (erreur ' + r2.status + ')');
+  _nissaLastCloudUpdatedAt = now;
+  return 'ok';
+}
+function nissaMarkSent(payload, sentAt) {
+  var d = nissaGetDirty();
+  Object.keys(d).forEach(function (k) { if (d[k] <= sentAt) delete d[k]; });
+  nissaWriteDirty(d);
+  var base = nissaReadBase();
+  SYNC_DATA_KEYS.forEach(function (k) {
+    if (NISSA_ID_ARRAY_KEYS.indexOf(k) === -1 && payload[k] !== undefined) base[k] = JSON.stringify(payload[k]);
+  });
+  nissaWriteBase(base);
+}
+
+// Premier lancement de cette version sur un appareil : si ses données
+// diffèrent du cloud, on demande une seule fois laquelle garder.
+function nissaFirstRunChoice(cloudData) {
+  var differs = SYNC_DATA_KEYS.some(function (k) {
+    var lr = localStorage.getItem(k);
+    return lr !== null && cloudData[k] !== undefined && lr !== JSON.stringify(cloudData[k]);
+  });
+  if (!differs) return 'cloud';
+  return confirm(
+    'Synchronisation : les données de cet ordinateur sont différentes de celles du cloud.\n\n' +
+    'OK = remplacer les données de CET ordinateur par celles du cloud (recommandé si l\'autre ordinateur est à jour).\n\n' +
+    'Annuler = garder les données de CET ordinateur et les envoyer au cloud (elles remplaceront celles de l\'autre ordinateur).'
+  ) ? 'cloud' : 'local';
+}
+
+async function nissaSyncCycle(opts) {
+  opts = opts || {};
+  if (_nissaSyncBusy) { _nissaSyncAgain = true; return; }
+  _nissaSyncBusy = true;
+  try {
+    for (var attempt = 0; attempt < 4; attempt++) {
+      var cloud = await nissaFetchCloud();
+      var firstRun = !localStorage.getItem(NISSA_SYNC_INIT_FLAG);
+      var reference = !!opts.reference;
+      if (cloud && cloud.data && cloud.data._version) {
+        if (firstRun && !reference && !opts.cloudWins) {
+          if (nissaFirstRunChoice(cloud.data) === 'local') reference = true;
+        }
+        if (!reference) nissaApplyCloud(cloud.data, { ignoreDirty: firstRun || opts.cloudWins });
+      }
+      if (reference) { var all = {}; SYNC_DATA_KEYS.forEach(function (k) { if (localStorage.getItem(k) !== null) all[k] = Date.now(); }); nissaWriteDirty(all); }
+      __nissaRawSet(NISSA_SYNC_INIT_FLAG, new Date().toISOString());
+
+      var dirty = nissaGetDirty();
+      if (!Object.keys(dirty).length && !opts.forcePush) {
+        var lbl = new Date().toLocaleString('fr-FR');
+        setSyncPill('ok', 'À jour', 'Identique au cloud (vérifié le ' + lbl + ')');
+        if (!opts.silent) syncSetStatus('✓ Identique au cloud (' + lbl + ')', '#2ecc8a');
+        hideGlobalSyncWarning();
+        break;
+      }
+      setSyncPill('pending', 'Envoi…', 'Envoi des modifications au cloud');
+      var payload = collectAllData();
+      var sentAt = Date.now();
+      var res = await nissaWriteCloud(payload, cloud ? cloud.updatedAt : null);
+      if (res === 'conflict') { opts.reference = false; continue; } // l'autre appareil vient d'écrire → on re-fusionne
+      nissaMarkSent(payload, sentAt);
+      var savedLabel = new Date().toLocaleString('fr-FR');
+      setSyncPill('ok', 'Envoyé', 'Données envoyées au cloud le ' + savedLabel);
+      if (!opts.silent) syncSetStatus('✓ Sauvegardé le ' + savedLabel, '#2ecc8a');
+      hideGlobalSyncWarning();
+      break;
+    }
+  } catch (e) {
+    var pending = Object.keys(nissaGetDirty()).length;
+    setSyncPill(pending ? 'error' : 'warn', pending ? 'Non synchronisé' : 'Hors ligne', 'Synchro impossible : ' + e.message);
+    if (!opts.silent) syncSetStatus('⚠ ' + e.message, '#e8564a');
+    if (pending) showGlobalSyncWarning('(' + e.message + ')');
+  } finally {
+    _nissaSyncBusy = false;
+    if (_nissaSyncAgain) { _nissaSyncAgain = false; setTimeout(function () { nissaSyncCycle({ silent: true }); }, 300); }
+  }
+}
+
+// Noms conservés pour les boutons existants
+async function syncLoad(silent) { return nissaSyncCycle({ silent: !!silent }); }
+async function syncSave() { return nissaSyncCycle({ forcePush: true }); }
+// Recharger depuis le cloud en abandonnant les modifications locales non envoyées
+async function forceSyncLoad() {
+  if (!confirm('Remplacer les données de cet ordinateur par celles du cloud ? Les modifications locales non envoyées seront perdues.')) return;
+  nissaWriteDirty({});
+  setSyncPill('pending', 'Chargement…', 'Récupération des données du cloud');
+  return nissaSyncCycle({ cloudWins: true });
+}
+// Cet ordinateur devient la référence : ses données remplacent celles du cloud
+async function syncUseThisDeviceAsReference() {
+  if (!confirm('Envoyer TOUTES les données de cet ordinateur au cloud ?\n\nElles remplaceront celles du cloud, et les autres ordinateurs les recevront automatiquement. À utiliser sur l\'ordinateur qui a les bonnes données.')) return;
+  return nissaSyncCycle({ reference: true, forcePush: true });
 }
 
 function syncSetStatus(msg, color) {
   var el = document.getElementById('syncStatus');
-  if (el) { el.textContent=msg; el.style.color=color||'#888'; }
+  if (el) { el.textContent = msg; el.style.color = color || '#888'; }
 }
-
-// Bannière globale, visible sur tous les onglets — pour qu'un échec de
-// sauvegarde ne passe plus inaperçu pendant des jours (avant, seul un petit
-// texte discret dans Réglages en parlait).
 function showGlobalSyncWarning(detail) {
   var el = document.getElementById('globalSyncWarning');
   if (el) el.style.display = 'block';
@@ -12440,51 +12603,35 @@ function hideGlobalSyncWarning() {
   if (el) el.style.display = 'none';
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  // Auto-chargement des données au démarrage
-  setTimeout(function(){ syncLoad(true); }, 2000);
-  // Puis vérification automatique et silencieuse toutes les 20s, pour que
-  // les changements faits sur un autre ordinateur arrivent sans avoir à
-  // cliquer sur "Recharger" ou recharger la page.
-  setInterval(function(){ syncLoad(true); }, 20000);
-});
-
-// Auto-save après chaque modification (avec anti-rebond)
+// Envoi automatique après chaque modification (anti-rebond)
 var _syncAutoSaveTimer = null;
-var _syncPendingFlush = false;
 function scheduleAutoSync() {
   if (_syncAutoSaveTimer) clearTimeout(_syncAutoSaveTimer);
-  _syncPendingFlush = true;
   if (typeof setSyncPill === 'function') setSyncPill('pending', 'Modifié…', 'Modifications en attente d\'envoi au cloud');
-  _syncAutoSaveTimer = setTimeout(function(){ syncSave(); _syncPendingFlush = false; }, 1200);
+  _syncAutoSaveTimer = setTimeout(function () { _syncAutoSaveTimer = null; nissaSyncCycle({ silent: true }); }, 1200);
 }
-var _origSavePhysTests = savePhysicalTests;
-savePhysicalTests = function() { _origSavePhysTests(); scheduleAutoSync(); };
-var _origSaveProfiles = savePlayerProfiles;
-savePlayerProfiles = function() { _origSaveProfiles(); scheduleAutoSync(); };
-var _origMarkLocalDataChanged = (typeof markLocalDataChanged === 'function') ? markLocalDataChanged : null;
-if (_origMarkLocalDataChanged) {
-  markLocalDataChanged = function() { _origMarkLocalDataChanged(); scheduleAutoSync(); };
-}
+window.nissaOnLocalChange = function () { if (localStorage.getItem(NISSA_SYNC_INIT_FLAG)) scheduleAutoSync(); };
 
-// Filet de sécurité : si l'onglet/le navigateur se ferme (ou l'ordi s'éteint)
-// alors qu'une sauvegarde était encore en attente (anti-rebond de 3s), on
-// tente un envoi immédiat via sendBeacon — bien plus fiable qu'un fetch()
-// classique au moment où la page se ferme, pour éviter de perdre les
-// toutes dernières modifications non encore poussées vers le cloud.
-function flushPendingSyncOnExit() {
-  if (!_syncPendingFlush) return;
-  try {
-    var payload = collectAllData();
-    var body = new Blob([JSON.stringify({ id: SUPABASE_ROW_ID, data: payload, updated_at: new Date().toISOString() })], { type: 'application/json' });
-    navigator.sendBeacon(SUPABASE_REST_URL + '?on_conflict=id&apikey=' + encodeURIComponent(SUPABASE_ANON_KEY), body);
-  } catch(e) {}
-}
-window.addEventListener('pagehide', flushPendingSyncOnExit);
-window.addEventListener('beforeunload', flushPendingSyncOnExit);
-document.addEventListener('visibilitychange', function() {
-  if (document.visibilityState === 'hidden') flushPendingSyncOnExit();
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(function () { nissaSyncCycle({ silent: true }); }, 1500);       // au démarrage
+  setInterval(function () { nissaSyncCycle({ silent: true }); }, 20000);      // puis toutes les 20 s
 });
+// Retour sur l'onglet / l'appli : on se remet à jour tout de suite
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') nissaSyncCycle({ silent: true });
+  else flushPendingSyncOnExit();
+});
+window.addEventListener('pagehide', flushPendingSyncOnExit);
+// Fermeture avec des modifications pas encore envoyées : envoi immédiat,
+// toujours conditionnel (jamais d'écrasement aveugle du cloud).
+function flushPendingSyncOnExit() {
+  if (!Object.keys(nissaGetDirty()).length || !_nissaLastCloudUpdatedAt || _nissaSyncBusy) return;
+  try {
+    var payload = collectAllData(), sentAt = Date.now();
+    nissaWriteCloud(payload, _nissaLastCloudUpdatedAt, { keepalive: true })
+      .then(function (r) { if (r === 'ok') nissaMarkSent(payload, sentAt); }).catch(function () {});
+  } catch (e) {}
+}
 </script>
 <!-- REDESIGN PROFIL JOUEUR -->
 <script>
