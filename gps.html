@@ -2162,6 +2162,64 @@ table.roster-table select { padding: 4px; }
 .p1-empty{font-size:13px;color:#777;padding:12px 0}
 
 </style>
+<style>
+/* ══ ACCUEIL v2 — maquette « Performance Hub » ══ */
+#hub-accueil{background:#efede8 !important;background-image:none !important;align-items:stretch !important;padding-top:52px}
+#hub-accueil .ac-side-nav,#hub-accueil .ac-side-nav-overlay,#hub-accueil .ac-main-topbar{display:none !important}
+.acv-hero{position:relative;overflow:hidden;width:100%;background:linear-gradient(100deg,#5a0711 0%,#8c0f1e 55%,#6d0a16 100%);border-bottom:3px solid #c1121f;color:#fff}
+.acv-hero-mark{position:absolute;right:-60px;top:-40px;width:340px;height:340px;background:center/contain no-repeat;opacity:.08;filter:grayscale(1) brightness(2);pointer-events:none}
+.acv-hero-in{position:relative;max-width:880px;margin:0 auto;padding:26px 24px;display:flex;align-items:center;gap:22px;box-sizing:border-box}
+.acv-hero-logo{flex:none;width:76px;height:76px;border-radius:50%;background:#fff center/72% no-repeat;box-shadow:0 0 0 4px rgba(255,255,255,.18),0 6px 18px rgba(0,0,0,.35)}
+.acv-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;opacity:.8}
+.acv-title{margin:2px 0 4px;font-size:34px;line-height:1.05;font-weight:900;letter-spacing:-.01em;color:#fff}
+.acv-sub{font-size:13px;opacity:.9}
+.acv-wrap{max-width:880px !important;margin:0 auto;width:100%;padding:22px 24px 56px !important;gap:14px !important}
+.acv-hello{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.acv-hello h2{margin:0;font-size:20px;font-weight:900;color:#17171a}
+.acv-hello span,.acv-muted{font-size:12.5px;color:#7a7770}
+.acv-card,#hub-accueil .recap-card{background:#fff !important;border:1px solid #e4e1da !important;border-radius:14px !important;box-shadow:0 1px 3px rgba(0,0,0,.04) !important;color:#17171a}
+.acv-watch{padding:4px 18px 18px}
+.acv-watch-head{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:baseline;gap:10px;padding:12px 0;cursor:pointer}
+.acv-watch-title{font-size:15px;font-weight:900;color:#17171a}
+.acv-chev{margin-left:auto;font-size:18px;color:#8a877f;transition:transform .2s}
+.acv-watch.closed .acv-chev{transform:rotate(-90deg)}
+.acv-watch.closed .acv-watch-grid{display:none}
+.acv-watch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.acv-panel{background:#f6f4f0;border:1px solid #e7e4dd;border-top:3px solid var(--pc);border-radius:10px;padding:12px 14px;cursor:pointer;min-height:150px;transition:box-shadow .15s}
+.acv-panel:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.acv-panel-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.acv-panel-t{font-size:12.5px;font-weight:800;color:var(--pc)}
+.acv-panel-n{font-size:22px;font-weight:900;color:#17171a;line-height:1}
+.acv-panel-n small{font-size:11px;font-weight:600;color:#8a877f}
+.acv-panel-s{font-size:11px;color:#7a7770;margin:4px 0 10px}
+.acv-chips{display:flex;flex-wrap:wrap;gap:6px}
+.acv-chip{background:#fff;border:1px solid #e1ded7;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700;color:#17171a}
+.acv-chip em{font-style:normal;font-weight:600;margin-left:3px}
+.acv-ok{font-size:11.5px;color:#1f8a4c;font-weight:600}
+.acv-tiles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.acv-tile{display:flex;justify-content:space-between;align-items:baseline;background:#fff;border:1px solid #e1ded7;border-radius:8px;padding:6px 9px;font-size:11px;color:#55524c}
+.acv-tile b{font-size:13px;color:#17171a}
+.acv-tile small{font-size:10px;color:#8a877f;font-weight:600}
+.acv-pills{display:flex;flex-wrap:wrap;gap:8px}
+.acv-pill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e1ded7;border-radius:999px;padding:7px 14px;font-size:12.5px;color:#3a3832}
+.acv-pill b{color:#17171a}
+.acv-pill i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.acv-section-h{font-size:14px;font-weight:900;color:#17171a;margin:6px 0 -2px}
+.acv-h{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:800;color:#17171a}
+.acv-dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+#hub-accueil .ac-recap-grid{gap:14px}
+#hub-accueil .recap-card{padding:16px 18px}
+#hub-accueil .recap-mini{background:#f6f4f0;border:1px solid #e7e4dd}
+#hub-accueil .recap-gps-chart-cell{background:#f6f4f0;border:1px solid #e7e4dd}
+#hub-accueil .recap-week-btn{background:#fff;border:1px solid #dcd9d2;color:#17171a}
+#hub-accueil .recap-week-label{color:#3a3832}
+@media (max-width:760px){
+  .acv-watch-grid{grid-template-columns:1fr}
+  .acv-panel{min-height:0}
+  .acv-hero-in{padding:20px 16px;gap:14px}.acv-hero-logo{width:58px;height:58px}.acv-title{font-size:26px}
+  .acv-wrap{padding:18px 16px 48px !important}
+}
+</style>
 </head>
 <body>
 
@@ -2301,38 +2359,60 @@ table.roster-table select { padding: 4px; }
     </div>
   </aside>
 
-  <div class="ac-main-wrap">
-    <div class="ac-main-topbar">
-      <button class="ac-toggle-nav-btn" onclick="toggleAcSideNav()" title="Menu">☰</button>
-      <div class="ac-main-topbar-title">Nissa Rugby <span>· Performance Hub</span></div>
+  <!-- ══ ACCUEIL v2 (maquette « Performance Hub ») ══ -->
+  <section class="acv-hero">
+    <div class="acv-hero-mark" id="acvHeroMark"></div>
+    <div class="acv-hero-in">
+      <div class="acv-hero-logo" id="acvHeroLogo"></div>
+      <div>
+        <div class="acv-eyebrow">Nissa Rugby · Espoirs</div>
+        <h1 class="acv-title">Performance Hub</h1>
+        <div class="acv-sub" id="acvHeroSub">Semaine du — · Saison 2025-2026</div>
+      </div>
+    </div>
+  </section>
+  <div class="ac-main-wrap acv-wrap">
+    <div class="acv-hello"><h2 id="acvHello">Bonjour</h2><span id="acvHelloSub"></span></div>
+
+    <div class="acv-card acv-watch" id="acvWatch">
+      <button class="acv-watch-head" type="button" onclick="document.getElementById('acvWatch').classList.toggle('closed')">
+        <span class="acv-watch-title">À surveiller</span><span class="acv-muted" id="acvWatchSub"></span>
+        <span class="acv-chev">⌄</span>
+      </button>
+      <div class="acv-watch-grid">
+        <div class="acv-panel" style="--pc:#c1121f" onclick="switchHub('medical')" title="Ouvrir l'onglet Médical">
+          <div class="acv-panel-top"><span class="acv-panel-t">Infirmerie</span><b class="acv-panel-n" id="acvInfN">–</b></div>
+          <div class="acv-panel-s">Blessés, réathlétisation et adaptés</div>
+          <div class="acv-chips" id="acvInfChips"></div>
+        </div>
+        <div class="acv-panel" style="--pc:#e07a10" onclick="switchHub('wellness')" title="Ouvrir l'onglet Wellness">
+          <div class="acv-panel-top"><span class="acv-panel-t">Wellness en rouge</span><b class="acv-panel-n" id="acvRedN">–</b></div>
+          <div class="acv-panel-s" id="acvRedSub">—</div>
+          <div class="acv-chips" id="acvRedChips"></div>
+        </div>
+        <div class="acv-panel" style="--pc:#1f8a4c" onclick="switchHub('wellness')" title="Ouvrir l'onglet Wellness">
+          <div class="acv-panel-top"><span class="acv-panel-t">Wellness · moyennes</span><b class="acv-panel-n" id="acvAvgN">–<small>/35</small></b></div>
+          <div class="acv-panel-s" id="acvAvgSub">—</div>
+          <div class="acv-tiles" id="acvAvgTiles"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="ac-recap-heading">📋 Récap de la semaine</div>
+    <div class="acv-pills" id="acvPills"></div>
 
+    <div class="acv-section-h">Récap de la semaine</div>
     <div class="ac-recap-grid">
-      <div class="recap-card recap-card-full">
-        <div class="recap-card-title">💚 Wellness — dernière réponse</div>
-        <div id="recapWellnessBody"><div class="recap-empty">Chargement…</div></div>
-      </div>
-
       <div class="recap-card">
-        <div class="recap-card-title">💪 RPE — cette semaine</div>
+        <div class="recap-card-title"><span class="acv-h"><i class="acv-dot" style="background:#3a7bd5"></i>RPE · cette semaine</span></div>
         <div id="recapRpeBody"><div class="recap-empty">Chargement…</div></div>
       </div>
-
       <div class="recap-card">
-        <div class="recap-card-title">🏋️ Perf Physique — cette semaine</div>
+        <div class="recap-card-title"><span class="acv-h"><i class="acv-dot" style="background:#e07a10"></i>Perf physique · cette semaine</span></div>
         <div id="recapPerfSection"><div class="recap-empty">Chargement…</div></div>
       </div>
-
-      <div class="recap-card recap-card-full">
-        <div class="recap-card-title">🏥 Médical</div>
-        <div id="recapMedicalBody"><div class="recap-empty">Chargement…</div></div>
-      </div>
-
       <div class="recap-card recap-card-full">
         <div class="recap-card-title" style="justify-content:space-between">
-          <span>📊 GPS — moyennes Avant / 3/4 (Espoirs)</span>
+          <span class="acv-h"><i class="acv-dot" style="background:#D6001C"></i>GPS · moyennes Avant / 3/4</span>
           <div class="recap-week-nav">
             <button class="recap-week-btn" onclick="accueilGpsShiftWeek(-1)" title="Semaine précédente">‹</button>
             <span class="recap-week-label" id="recapGpsWeekLabel">—</span>
@@ -14083,11 +14163,11 @@ function computeAccueilWellnessRecap() {
   if (typeof ALLDAYS === 'undefined' || !ALLDAYS.length || typeof WD === 'undefined') return null;
   var d = ALLDAYS[ALLDAYS.length - 1];
   var agg = WD[d];
-  if (!agg) return { date: d, n: 0, rougeCount: 0, rougeNames: [], averages: null };
+  if (!agg) return { date: d, n: 0, rougeCount: 0, rougeNames: [], rougeList: [], averages: null };
   var a21 = (typeof PAVG21 !== 'undefined' && PAVG21[d]) || {};
   var a3  = (typeof PAVG3  !== 'undefined' && PAVG3[d])  || {};
   var pp  = (typeof PPERS  !== 'undefined' && PPERS[d])  || {};
-  var rougeNames = [];
+  var rougeNames = [], rougeList = [];
   (agg.r || []).forEach(function(r) {
     var fa = Math.min(100, Math.max(0, ((35 - r.S) / 30) * 100));
     var avg21 = a21[r.n] !== undefined ? a21[r.n] : null;
@@ -14096,13 +14176,14 @@ function computeAccueilWellnessRecap() {
     var e3  = avg3  !== null ? ((r.S - avg3)  / avg3)  * 100 : null;
     var streak = pp[r.n] || 0;
     var statut = calcStatut(fa, e21, e3, streak, r);
-    if (statut === 'rouge') rougeNames.push(r.n);
+    if (statut === 'rouge') { rougeNames.push(r.n); rougeList.push({ n: r.n, S: r.S }); }
   });
   return {
     date: d,
     n: agg.n,
     rougeCount: rougeNames.length,
     rougeNames: rougeNames,
+    rougeList: rougeList,
     averages: { S: agg.aS, s: agg.as, H: agg.aH, B: agg.aB, f: agg.aF, t: agg.aT }
   };
 }
@@ -14166,6 +14247,7 @@ function computeAccueilPerfPhysiqueRecap() {
   var range = accueilWeekRange(new Date());
   var entries = physicalTests.filter(function(t) {
     if (!t.date) return false;
+    if (String(t.id).indexOf('gpsvmax:') === 0) return false; // VMAX reprise du GPS : pas un test passé cette semaine
     var d = new Date(t.date + 'T00:00:00');
     return d >= range.monday && d <= range.sunday;
   });
@@ -14238,39 +14320,50 @@ function computeAccueilGpsRecap() {
   return { range: range, sessions: sessionsList, hasAny: hasAny };
 }
 
+// Bandeau d'accueil : logo, semaine en cours, saison, prénom
+function renderAccueilHeader() {
+  var r = accueilWeekRange(new Date());
+  var y = new Date().getFullYear(), m = new Date().getMonth();
+  var season = m >= 6 ? (y + '-' + (y + 1)) : ((y - 1) + '-' + y);
+  var sub = document.getElementById('acvHeroSub');
+  var dm = function(d){ return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); };
+  if (sub) sub.textContent = 'Semaine du ' + dm(r.monday) + ' au ' + dm(r.sunday) + ' · Saison ' + season;
+  if (typeof NISSA_LOGO_B64 !== 'undefined') {
+    ['acvHeroLogo', 'acvHeroMark'].forEach(function(id){ var el = document.getElementById(id); if (el && !el.style.backgroundImage) el.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')"; });
+  }
+  var hello = document.getElementById('acvHello');
+  if (hello) {
+    var u = (typeof currentUser !== 'undefined' && currentUser && (currentUser.name || currentUser.user)) || '';
+    u = String(u).trim();
+    hello.textContent = u ? 'Bonjour ' + u.charAt(0).toUpperCase() + u.slice(1) : 'Bonjour';
+  }
+}
 function renderAccueilRecap() {
-  var wrap = document.getElementById('recapWellnessBody');
-  if (!wrap) return; // page pas encore rendue
+  if (!document.getElementById('acvWatch')) return; // page pas encore rendue
+  renderAccueilHeader();
+  var esc = function(x){ return String(x == null ? '' : x).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var setH = function(id, html){ var el = document.getElementById(id); if (el) el.innerHTML = html; };
 
-  // Wellness
+  // Wellness (« Wellness en rouge » + « Wellness · moyennes »)
   var wellness = computeAccueilWellnessRecap();
-  var wellnessHtml;
-  if (!wellness) {
-    wellnessHtml = '<div class="recap-empty">Chargement des données wellness…</div>';
-  } else if (!wellness.n) {
-    wellnessHtml = '<div class="recap-empty">Aucune réponse wellness pour le moment.</div>';
+  if (!wellness || !wellness.n) {
+    var msg = !wellness ? 'Chargement des données wellness…' : 'Aucune réponse wellness pour le moment.';
+    setH('acvRedN', '–'); setH('acvRedSub', msg); setH('acvRedChips', '');
+    setH('acvAvgN', '–<small>/35</small>'); setH('acvAvgSub', msg); setH('acvAvgTiles', '');
   } else {
     var av = wellness.averages;
-    var miniDefs = [
-      ['Score total', fmt1(av.S) + '/35', (typeof scolor === 'function' ? scolor(av.S) : '#1a0003')],
-      ['Sommeil', fmt1(av.s) + '/7', (typeof sc === 'function' ? sc(av.s) : '#1a0003')],
-      ['Courb. haut', fmt1(av.H) + '/7', (typeof sc === 'function' ? sc(av.H) : '#1a0003')],
-      ['Courb. bas', fmt1(av.B) + '/7', (typeof sc === 'function' ? sc(av.B) : '#1a0003')],
-      ['Fatigue', fmt1(av.f) + '/7', (typeof sc === 'function' ? sc(av.f) : '#1a0003')],
-      ['Stress', fmt1(av.t) + '/7', (typeof sc === 'function' ? sc(av.t) : '#1a0003')]
-    ];
-    wellnessHtml = '<div class="recap-top-row">'
-      + '<div class="recap-big-stat" style="--rc:#cc1122"><div class="recap-big-val">' + wellness.rougeCount + '</div><div class="recap-big-lbl">🔴 Joueur(s) en rouge</div></div>'
-      + '<div class="recap-mini-grid">' + miniDefs.map(function(p){
-          return '<div class="recap-mini" style="--mc:' + p[2] + '"><div class="recap-mini-val">' + p[1] + '</div><div class="recap-mini-lbl">' + p[0] + '</div></div>';
-        }).join('') + '</div>'
-      + '</div>'
-      + (wellness.rougeNames.length
-          ? '<div class="recap-chip-row">' + wellness.rougeNames.map(function(n){ return '<span class="recap-chip recap-chip-red">' + n + '</span>'; }).join('') + '</div>'
-          : '')
-      + '<div class="recap-date-note">Dernière réponse : ' + wellness.date + ' · ' + wellness.n + ' joueur(s) répondu(s)</div>';
+    var wcol = function(v){ return typeof sc === 'function' ? sc(v) : '#1a1a1a'; };
+    setH('acvRedN', wellness.rougeCount);
+    setH('acvRedSub', 'Réponses du ' + esc(wellness.date));
+    setH('acvRedChips', (wellness.rougeList || []).length
+      ? wellness.rougeList.map(function(r){ return '<span class="acv-chip">' + esc(r.n) + ' <em style="color:#c1121f">' + fmt1(r.S) + '/35</em></span>'; }).join('')
+      : '<span class="acv-ok">Aucun joueur en rouge ✓</span>');
+    setH('acvAvgN', '<span style="color:' + (typeof scolor === 'function' ? scolor(av.S) : 'inherit') + '">' + fmt1(av.S) + '</span><small>/35</small>');
+    setH('acvAvgSub', 'Réponses du ' + esc(wellness.date) + ' · ' + wellness.n + ' joueur(s) répondu(s)');
+    setH('acvAvgTiles', [['Sommeil', av.s], ['Courb. haut', av.H], ['Courb. bas', av.B], ['Fatigue', av.f], ['Stress', av.t]].map(function(p){
+      return '<div class="acv-tile"><span>' + p[0] + '</span><b style="color:' + wcol(p[1]) + '">' + fmt1(p[1]) + '<small>/7</small></b></div>';
+    }).join(''));
   }
-  document.getElementById('recapWellnessBody').innerHTML = wellnessHtml;
 
   // RPE
   var rpe = computeAccueilRpeRecap();
@@ -14292,30 +14385,25 @@ function renderAccueilRecap() {
   }
   document.getElementById('recapRpeBody').innerHTML = rpeHtml;
 
-  // Médical
+  // Médical (« Infirmerie » + pastilles d'effectif)
   var med = computeAccueilMedicalRecap();
-  var medHtml;
-  if (!med) {
-    medHtml = '<div class="recap-empty">Chargement…</div>';
-  } else {
-    function medBar(pct, color) {
-      return '<div class="recap-mini-bar-track"><div class="recap-mini-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>';
-    }
-    medHtml = '<div class="recap-top-row"><div class="recap-mini-grid" style="flex:1">'
-      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#cc1122">' + med.pctBlesse + '%</div><div class="recap-mini-lbl">Blessés (' + med.blesseNames.length + ')</div>' + medBar(med.pctBlesse, '#cc1122') + '</div>'
-      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#a67c00">' + med.pctReath + '%</div><div class="recap-mini-lbl">Réathlétisation (' + med.reathNames.length + ')</div>' + medBar(med.pctReath, '#e0b341') + '</div>'
-      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#3aa8dd">' + med.pctAdapte + '%</div><div class="recap-mini-lbl">Adapté (' + med.adapteNames.length + ')</div>' + medBar(med.pctAdapte, '#5bc4f5') + '</div>'
-      + '<div class="recap-mini"><div class="recap-mini-val" style="color:#2ecc8a">' + med.pctApte + '%</div><div class="recap-mini-lbl">Aptes</div>' + medBar(med.pctApte, '#2ecc8a') + '</div>'
-      + '</div></div>'
-      + ((med.blesseNames.length || med.reathNames.length || med.adapteNames.length)
-          ? '<div class="recap-chip-row">'
-            + med.blesseNames.map(function(n){ return '<span class="recap-chip recap-chip-red">' + n + '</span>'; }).join('')
-            + med.reathNames.map(function(n){ return '<span class="recap-chip recap-chip-yellow">' + n + '</span>'; }).join('')
-            + med.adapteNames.map(function(n){ return '<span class="recap-chip recap-chip-blue">' + n + '</span>'; }).join('')
-            + '</div>'
-          : '<div class="recap-empty">Aucun joueur blessé actuellement. ✅</div>');
+  if (med) {
+    var nInf = med.blesseNames.length + med.reathNames.length + med.adapteNames.length;
+    var nApte = med.total - nInf;
+    setH('acvInfN', nInf);
+    var chip = function(n, lbl, col){ return '<span class="acv-chip">' + esc(n) + ' <em style="color:' + col + '">' + lbl + '</em></span>'; };
+    setH('acvInfChips', nInf
+      ? med.blesseNames.map(function(n){ return chip(n, 'Blessé', '#c1121f'); }).join('')
+        + med.reathNames.map(function(n){ return chip(n, 'Réathlé', '#d9822b'); }).join('')
+        + med.adapteNames.map(function(n){ return chip(n, 'Adapté', '#2f7fd1'); }).join('')
+      : '<span class="acv-ok">Aucun joueur à l\'infirmerie ✓</span>');
+    var pill = function(n, lbl, col){ return '<span class="acv-pill">' + (col ? '<i style="background:' + col + '"></i>' : '') + '<b>' + n + '</b> ' + lbl + '</span>'; };
+    setH('acvPills', pill(med.total, 'joueurs') + pill(nApte, 'aptes', '#1f8a4c') + pill(med.blesseNames.length, 'blessés', '#c1121f')
+      + pill(med.reathNames.length, 'réathlé', '#d9822b') + pill(med.adapteNames.length, 'adaptés', '#2f7fd1'));
+    setH('acvHelloSub', med.total + ' joueurs · ' + med.blesseNames.length + ' blessé' + (med.blesseNames.length > 1 ? 's' : ''));
+    var wr = accueilWeekRange(new Date()), dm2 = function(d){ return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); };
+    setH('acvWatchSub', 'Semaine du ' + dm2(wr.monday) + ' au ' + dm2(wr.sunday));
   }
-  document.getElementById('recapMedicalBody').innerHTML = medHtml;
 
   // Perf physique
   var perf = computeAccueilPerfPhysiqueRecap();
@@ -14326,7 +14414,9 @@ function renderAccueilRecap() {
     var byPlayer = {};
     perf.entries.forEach(function(t) { (byPlayer[t.player] = byPlayer[t.player] || []).push(t); });
     perfEl.innerHTML = '<div class="recap-chip-row" style="margin-top:0">' + Object.keys(byPlayer).sort().map(function(p) {
-        var dates = byPlayer[p].map(function(t){ return t.date; }).sort();
+        var dates = byPlayer[p].map(function(t){ return t.date; }).sort()
+          .filter(function(d, i, arr){ return arr.indexOf(d) === i; })
+          .map(function(d){ var m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] : d; });
         return '<span class="recap-chip recap-chip-clickable" onclick="accueilGoToPerfTest(\'' + p.replace(/'/g,"\\'") + '\')" title="Voir / supprimer ce résultat">' + p + ' <span style="opacity:.55">(' + dates.join(', ') + ')</span></span>';
       }).join('') + '</div>'
       + '<div class="recap-date-note">' + perf.count + ' test(s) enregistré(s) cette semaine (' + accueilPerfWeekLabel() + ') · clique sur un nom pour vérifier ou supprimer.</div>';
