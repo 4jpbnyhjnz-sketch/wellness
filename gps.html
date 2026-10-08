@@ -2892,6 +2892,7 @@ table.roster-table select { padding: 4px; }
       <div class="settings-actions">
         <button id="exportRosterBtn" class="btn btn-secondary">Exporter la liste (JSON)</button>
         <button id="importRosterBtn" class="btn btn-secondary">Importer une liste (JSON)</button>
+        <button class="btn btn-secondary" onclick="repairRosterGroups()" title="Retrouve les avants passés en 3/4 par erreur (via leur poste ou les séances enregistrées)">🔧 Réparer les groupes 3/4 / Avant</button>
         <input type="file" id="importRosterInput" accept=".json" hidden>
       </div>
 
@@ -4487,6 +4488,42 @@ function renderRosterTableInto(body) {
 
     body.appendChild(tr);
   });
+}
+
+// Réparation du Listing pro après le bug « tout le monde en 3/4 » :
+// retrouve les avants grâce à leur poste enregistré, ou au fait qu'ils ont
+// déjà été classés « Avant » dans une séance ou un match enregistré.
+function repairRosterGroups() {
+  var avantSeen = {};
+  var scan = function(list) {
+    (list || []).forEach(function(s) {
+      ((s && s.groups && s.groups.Avant) || []).forEach(function(pl) {
+        [pl.displayName, pl.officialName, pl.player].forEach(function(n) {
+          if (n) avantSeen[stripAccentsGlobal(String(n)).toLowerCase().trim()] = true;
+        });
+      });
+    });
+  };
+  try { scan(savedSessions); } catch (e) {}
+  try { scan(savedMatches); } catch (e) {}
+  var changes = [];
+  Object.keys(roster).forEach(function(name) {
+    var cur = roster[name];
+    var pos = rosterPositions[name];
+    var target = null, why = '';
+    if (pos && POSITIONS_AVANT.indexOf(pos) !== -1) { target = 'Avant'; why = 'poste ' + pos; }
+    else if (pos && POSITIONS_34.indexOf(pos) !== -1) { target = '3/4'; why = 'poste ' + pos; }
+    else if (cur === '3/4' && avantSeen[stripAccentsGlobal(name).toLowerCase().trim()]) { target = 'Avant'; why = 'classé Avant dans une séance enregistrée'; }
+    if (target && target !== cur) changes.push({ name: name, from: cur, to: target, why: why });
+  });
+  if (!changes.length) { alert("Aucune incohérence trouvée : les groupes du Listing pro correspondent aux postes et aux séances enregistrées."); return; }
+  var list = changes.map(function(c){ return '• ' + c.name + ' : ' + c.from + ' → ' + c.to + ' (' + c.why + ')'; }).join('\n');
+  if (!confirm(changes.length + ' joueur(s) à corriger :\n\n' + list + '\n\nAppliquer ces corrections ?')) return;
+  changes.forEach(function(c){ roster[c.name] = c.to; });
+  saveRoster(roster);
+  renderRosterTable();
+  if (typeof rerenderIfLoaded === 'function') rerenderIfLoaded();
+  alert(changes.length + ' joueur(s) corrigé(s). Vérifie les joueurs restants sans poste renseigné.');
 }
 
 function addPlayerToRoster(name, group, position) {
@@ -9248,6 +9285,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // chargement désormais : la fusion "jamais de perte" (mergeNeverLose)
   // empêche qu'une synchro/restauration ultérieure ne les efface à nouveau.
   (function seedRosterFromRecoveredRecords() {
+    // Une seule fois par ordinateur. Avant, ce bloc tournait à CHAQUE
+    // ouverture et rajoutait au Listing pro, en « 3/4 » par défaut, tout
+    // joueur de cette liste qu'il ne trouvait pas : sur un ordinateur dont la
+    // liste était vide ou pas encore à jour, tout le monde passait en 3/4,
+    // puis la synchro envoyait cette liste partout.
+    try { if (localStorage.getItem('nissaRecoveredSeedDone_v1')) return; localStorage.setItem('nissaRecoveredSeedDone_v1', '1'); } catch (e) { return; }
     var groupKnown = { "Fender": "Avant", "Perrot": "3/4" };
     var records = {
       "Diaz":{vmax:25.68,accel:4.12},"Niel":{vmax:34,accel:4.87},"Pies":{vmax:34.15,accel:5.2},
@@ -9270,7 +9313,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     var rosterChanged = false, recordsChanged = false;
     Object.keys(records).forEach(function(name) {
-      if (!roster[name]) { addPlayerToRoster(name, groupKnown[name] || "3/4", ""); rosterChanged = true; }
+      // (plus d'ajout automatique au Listing pro : le groupe d'un joueur ne
+      // doit jamais être deviné en « 3/4 » à sa place)
       var r = records[name];
       if (!seasonRecords[name]) seasonRecords[name] = { vmax: 0, accel: 0 };
       if (r.vmax > seasonRecords[name].vmax) { seasonRecords[name].vmax = r.vmax; recordsChanged = true; }
