@@ -1687,6 +1687,21 @@ table.roster-table select { padding: 4px; }
 .medical-region.selected { fill:rgba(214,0,28,.55); stroke:#D6001C; stroke-width:0.3; }
 .medical-fields-col { display:flex; flex-direction:column; gap:12px; }
 .medical-injury-table-wrap { overflow-x:auto; }
+/* Analyses médicales */
+.med-ana-wrap { padding:4px 20px 8px; }
+.med-ana-head { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:8px 0 12px; }
+.med-ana-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+.med-ana-kpi { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:12px 16px; }
+.med-ana-kpi-v { font-size:24px; font-weight:800; font-family:'JetBrains Mono',monospace; color:#fff; line-height:1.1; }
+.med-ana-kpi-l { font-size:11px; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
+.med-ana-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.med-ana-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; min-width:0; }
+.med-ana-title { font-size:12px; font-weight:700; color:rgba(255,255,255,.8); text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; }
+.med-ana-canvas { position:relative; height:220px; }
+.med-ana-empty { display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,.35); font-size:12px; text-align:center; }
+.med-ana-note { font-size:11px; color:rgba(255,255,255,.4); margin-top:10px; }
+@media (max-width:1000px) { .med-ana-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:640px) { .med-ana-grid, .med-ana-kpis { grid-template-columns:1fr 1fr; } .med-ana-grid { grid-template-columns:1fr; } }
 .medical-injury-table { width:100%; border-collapse:collapse; font-size:12px; }
 .medical-injury-table th { text-align:left; color:rgba(255,255,255,.4); font-weight:700; text-transform:uppercase; font-size:10px; letter-spacing:.05em; padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.1); white-space:nowrap; }
 .medical-injury-table td { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,.06); color:#fff; white-space:nowrap; }
@@ -3755,17 +3770,19 @@ Petit Enzo ; 9</pre>
           <div class="perf-form-row">
             <div class="perf-field">
               <label>Typologie</label>
-              <select id="medicalTypologie" class="perf-input">
+              <select id="medicalTypologie" class="perf-input" onchange="toggleMedicalAutre('medicalTypologie','medicalTypologieAutre')">
                 <option value="Articulaire/Ligamentaire">Articulaire / Ligamentaire</option>
                 <option value="Osseux">Osseux</option>
                 <option value="Contusion">Contusion</option>
                 <option value="Musculo-tendineux">Musculo-tendineux</option>
                 <option value="Commotion">Commotion</option>
+                <option value="Autre">Autre</option>
               </select>
+              <input type="text" id="medicalTypologieAutre" class="perf-input hidden" placeholder="Préciser la typologie…" style="margin-top:6px">
             </div>
             <div class="perf-field">
               <label>Blessure</label>
-              <select id="medicalBlessure" class="perf-input">
+              <select id="medicalBlessure" class="perf-input" onchange="toggleMedicalAutre('medicalBlessure','medicalBlessureAutre')">
                 <option value="Entorse">Entorse</option>
                 <option value="Déchirure">Déchirure</option>
                 <option value="Commotion">Commotion</option>
@@ -3774,13 +3791,16 @@ Petit Enzo ; 9</pre>
                 <option value="Fracture">Fracture</option>
                 <option value="Fêlure">Fêlure</option>
                 <option value="Inflammation">Inflammation</option>
+                <option value="Autre">Autre</option>
               </select>
+              <input type="text" id="medicalBlessureAutre" class="perf-input hidden" placeholder="Préciser la blessure…" style="margin-top:6px">
             </div>
           </div>
           <div class="perf-form-row">
             <div class="perf-field">
               <label>Grade</label>
               <select id="medicalGravite" class="perf-input">
+                <option value="">Aucun grade</option>
                 <option value="I">Grade I</option>
                 <option value="II">Grade II</option>
                 <option value="III">Grade III</option>
@@ -3822,6 +3842,29 @@ Petit Enzo ; 9</pre>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Analyses médicales -->
+  <div class="med-ana-wrap">
+    <div class="med-ana-head">
+      <div style="font-size:16px;font-weight:800;color:#fff">📊 Analyses des blessures</div>
+      <select id="medicalAnaPeriod" class="perf-input" onchange="renderMedicalAnalytics()" style="width:auto;padding:7px 12px;font-size:12px">
+        <option value="all">Toutes les blessures</option>
+        <option value="season">Saison en cours (depuis le 01/07)</option>
+        <option value="90">3 derniers mois</option>
+        <option value="30">30 derniers jours</option>
+      </select>
+    </div>
+    <div class="med-ana-kpis" id="medicalAnaKpis"></div>
+    <div class="med-ana-grid">
+      <div class="med-ana-card"><div class="med-ana-title">Blessures par mois</div><div class="med-ana-canvas"><canvas id="medAnaMonth"></canvas></div></div>
+      <div class="med-ana-card"><div class="med-ana-title">Par typologie</div><div class="med-ana-canvas"><canvas id="medAnaTypo"></canvas></div></div>
+      <div class="med-ana-card"><div class="med-ana-title">Par type de blessure</div><div class="med-ana-canvas"><canvas id="medAnaBlessure"></canvas></div></div>
+      <div class="med-ana-card"><div class="med-ana-title">Par localisation</div><div class="med-ana-canvas"><canvas id="medAnaLieu"></canvas></div></div>
+      <div class="med-ana-card"><div class="med-ana-title">Par grade</div><div class="med-ana-canvas"><canvas id="medAnaGrade"></canvas></div></div>
+      <div class="med-ana-card"><div class="med-ana-title">Jours d'arrêt moyens par typologie</div><div class="med-ana-canvas"><canvas id="medAnaJours"></canvas></div></div>
+    </div>
+    <div class="med-ana-note">Jours d'arrêt = date de retour réel (ou prévu si pas encore rentré) − date de la blessure. Les blessures sans date de retour ne comptent pas dans ce graphique.</div>
   </div>
 
   <!-- Tableau de bord : toutes les blessures, tous joueurs -->
@@ -13772,6 +13815,37 @@ function findMedicalInjuryById(injuryId) {
 // ── Formulaire (déclarer / modifier une blessure) ────────────────
 let medicalEditingId = null;
 
+// Listes déroulantes avec « Autre » : si « Autre » est choisi, un champ texte
+// permet de préciser. La valeur enregistrée est le texte saisi (ou « Autre »
+// s'il est vide). À la réouverture, une valeur hors liste repasse en « Autre ».
+function toggleMedicalAutre(selId, inputId) {
+  var sel = document.getElementById(selId), inp = document.getElementById(inputId);
+  if (!sel || !inp) return;
+  var isAutre = sel.value === 'Autre';
+  inp.classList.toggle('hidden', !isAutre);
+  if (isAutre) inp.focus(); else inp.value = '';
+}
+function setMedicalSelectWithAutre(selId, inputId, value) {
+  var sel = document.getElementById(selId), inp = document.getElementById(inputId);
+  if (!sel) return;
+  var v = value || '';
+  var inList = Array.prototype.some.call(sel.options, function(o){ return o.value === v; });
+  if (v && !inList) {
+    sel.value = 'Autre';
+    if (inp) { inp.value = v; inp.classList.remove('hidden'); }
+  } else {
+    sel.value = v || sel.options[0].value;
+    if (inp) { inp.value = ''; inp.classList.toggle('hidden', sel.value !== 'Autre'); }
+  }
+}
+function readMedicalSelectWithAutre(selId, inputId) {
+  var sel = document.getElementById(selId), inp = document.getElementById(inputId);
+  if (!sel) return '';
+  if (sel.value !== 'Autre') return sel.value;
+  var txt = inp ? String(inp.value || '').trim() : '';
+  return txt || 'Autre';
+}
+
 function resetMedicalForm() {
   medicalEditingId = null;
   medicalSelectedKey = null;
@@ -13782,8 +13856,8 @@ function resetMedicalForm() {
   const errEl = document.getElementById('medicalFormError');
   if (errEl) errEl.textContent = '';
 
-  document.getElementById('medicalTypologie').value = 'Articulaire/Ligamentaire';
-  document.getElementById('medicalBlessure').value = 'Entorse';
+  setMedicalSelectWithAutre('medicalTypologie', 'medicalTypologieAutre', 'Articulaire/Ligamentaire');
+  setMedicalSelectWithAutre('medicalBlessure', 'medicalBlessureAutre', 'Entorse');
   document.getElementById('medicalGravite').value = 'I';
   document.getElementById('medicalStatut').value = 'En cours';
   document.getElementById('medicalDateBlessure').value = '';
@@ -13819,9 +13893,9 @@ function openMedicalInjuryForm(injuryId) {
       if (cancelBtn) cancelBtn.style.display = 'inline-block';
 
       document.getElementById('medicalPlayerSelect').value = found.player;
-      document.getElementById('medicalTypologie').value = injury.typologie;
-      document.getElementById('medicalBlessure').value = injury.blessure;
-      document.getElementById('medicalGravite').value = injury.gravite;
+      setMedicalSelectWithAutre('medicalTypologie', 'medicalTypologieAutre', injury.typologie);
+      setMedicalSelectWithAutre('medicalBlessure', 'medicalBlessureAutre', injury.blessure);
+      document.getElementById('medicalGravite').value = injury.gravite || '';
       document.getElementById('medicalStatut').value = injury.statut;
       document.getElementById('medicalDateBlessure').value = injury.date || '';
       document.getElementById('medicalDateRetourPrevue').value = injury.dateRetourPrevue || '';
@@ -13863,8 +13937,8 @@ function saveMedicalInjury() {
 
   const injury = {
     id: medicalEditingId || ('med_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)),
-    typologie: document.getElementById('medicalTypologie').value,
-    blessure: document.getElementById('medicalBlessure').value,
+    typologie: readMedicalSelectWithAutre('medicalTypologie', 'medicalTypologieAutre'),
+    blessure: readMedicalSelectWithAutre('medicalBlessure', 'medicalBlessureAutre'),
     lieuKey: medicalSelectedKey,
     lieuLabel: (MEDICAL_BODY_PARTS_BY_KEY[medicalSelectedKey] || {}).label || medicalSelectedKey,
     gravite: document.getElementById('medicalGravite').value,
@@ -13885,6 +13959,7 @@ function saveMedicalInjury() {
   closeMedicalInjuryForm();
   renderMedicalDashboardTable();
   renderMedicalStatsCards();
+  renderMedicalAnalytics();
   if (typeof renderProfileMedical === 'function' && typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer === player) {
     renderProfileMedical(player);
   }
@@ -13899,6 +13974,7 @@ function deleteMedicalInjury(injuryId) {
   if (medicalEditingId === injuryId) closeMedicalInjuryForm();
   renderMedicalDashboardTable();
   renderMedicalStatsCards();
+  renderMedicalAnalytics();
 }
 
 function medicalBadgeClass(statut) {
@@ -14096,10 +14172,151 @@ function renderMedicalDashboardTable() {
     + '</tbody></table></div>';
 }
 
+// ── Analyses (graphiques) ────────────────────────────────────────
+var medicalAnaCharts = {};
+var MED_ANA_COLORS = ['#D6001C','#f5a623','#5bc4f5','#2ecc8a','#b07cff','#ff7aa8','#e0b341','#8e9aa6','#4dd0c4','#ff8a4c'];
+
+function medicalAnaInjuries() {
+  var period = (document.getElementById('medicalAnaPeriod') || {}).value || 'all';
+  var today = new Date(); today.setHours(0,0,0,0);
+  var from = '';
+  if (period === 'season') {
+    var y = today.getMonth() >= 6 ? today.getFullYear() : today.getFullYear() - 1;
+    from = y + '-07-01';
+  } else if (period === '90' || period === '30') {
+    var d = new Date(today); d.setDate(d.getDate() - parseInt(period, 10));
+    from = d.toISOString().slice(0, 10);
+  }
+  var rows = [];
+  Object.keys(medicalRecords).forEach(function(player) {
+    if (typeof medicalIsExcluded === 'function' && medicalIsExcluded(player)) return;
+    (medicalRecords[player] || []).forEach(function(inj) {
+      if (from && (inj.date || '') < from) return;
+      rows.push(Object.assign({ player: player }, inj));
+    });
+  });
+  return rows;
+}
+
+function medicalAnaCount(rows, fn) {
+  var m = {};
+  rows.forEach(function(r){ var k = fn(r) || 'Non renseigné'; m[k] = (m[k] || 0) + 1; });
+  return Object.keys(m).map(function(k){ return { k: k, v: m[k] }; }).sort(function(a,b){ return b.v - a.v || a.k.localeCompare(b.k); });
+}
+
+function medicalAnaDays(inj) {
+  var end = inj.dateRetourReelle || inj.dateRetourPrevue;
+  if (!inj.date || !end) return null;
+  var d = Math.round((new Date(end) - new Date(inj.date)) / 86400000);
+  return d >= 0 ? d : null;
+}
+
+function medicalAnaDraw(id, type, labels, values, opts) {
+  opts = opts || {};
+  var canvas = document.getElementById(id);
+  if (!canvas) return;
+  if (medicalAnaCharts[id]) { medicalAnaCharts[id].destroy(); delete medicalAnaCharts[id]; }
+  var box = canvas.parentNode;
+  var empty = box.querySelector('.med-ana-empty');
+  if (!labels.length) {
+    canvas.style.display = 'none';
+    if (!empty) { empty = document.createElement('div'); empty.className = 'med-ana-empty'; box.appendChild(empty); }
+    empty.textContent = opts.emptyText || 'Aucune donnée sur la période';
+    return;
+  }
+  canvas.style.display = '';
+  if (empty) empty.remove();
+  if (typeof Chart === 'undefined') return;
+  var horizontal = !!opts.horizontal;
+  var isDoughnut = type === 'doughnut';
+  var colors = opts.colors || (isDoughnut ? labels.map(function(_, i){ return MED_ANA_COLORS[i % MED_ANA_COLORS.length]; }) : (opts.color || '#D6001C'));
+  var tickColor = 'rgba(255,255,255,.65)';
+  var gridColor = 'rgba(255,255,255,.08)';
+  var cfg = {
+    type: type,
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderColor: isDoughnut ? '#141414' : colors, borderWidth: isDoughnut ? 2 : 0, borderRadius: isDoughnut ? 0 : 4, maxBarThickness: 34 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: horizontal ? 'y' : 'x',
+      plugins: {
+        legend: { display: isDoughnut, position: 'right', labels: { color: tickColor, boxWidth: 10, font: { size: 11 } } },
+        tooltip: { backgroundColor: '#1a0000', borderColor: 'rgba(214,0,28,.4)', borderWidth: 1, titleColor: '#f0f0f0', bodyColor: '#ddd', padding: 10,
+          callbacks: { label: function(ctx) { var v = ctx.parsed !== undefined && typeof ctx.parsed === 'object' ? (horizontal ? ctx.parsed.x : ctx.parsed.y) : ctx.parsed; return ' ' + v + (opts.unit || (v > 1 ? ' blessures' : ' blessure')); } } }
+      }
+    }
+  };
+  if (!isDoughnut) {
+    var valueAxis = { beginAtZero: true, ticks: { color: tickColor, precision: 0, font: { size: 11 } }, grid: { color: gridColor }, border: { color: 'transparent' } };
+    var catAxis = { ticks: { color: tickColor, font: { size: 11 }, autoSkip: false }, grid: { display: false }, border: { color: gridColor } };
+    cfg.options.scales = horizontal ? { x: valueAxis, y: catAxis } : { x: catAxis, y: valueAxis };
+  }
+  medicalAnaCharts[id] = new Chart(canvas, cfg);
+}
+
+function renderMedicalAnalytics() {
+  var kpiEl = document.getElementById('medicalAnaKpis');
+  if (!kpiEl) return;
+  var rows = medicalAnaInjuries();
+
+  // Indicateurs
+  var players = {};
+  rows.forEach(function(r){ players[r.player] = true; });
+  var days = rows.map(medicalAnaDays).filter(function(d){ return d !== null; });
+  var avgDays = days.length ? Math.round(days.reduce(function(a,b){ return a+b; }, 0) / days.length) : null;
+  var active = rows.filter(function(r){ return r.statut !== 'Guéri'; }).length;
+  function kpi(v, l) { return '<div class="med-ana-kpi"><div class="med-ana-kpi-v">' + v + '</div><div class="med-ana-kpi-l">' + l + '</div></div>'; }
+  kpiEl.innerHTML = kpi(rows.length, 'Blessures') + kpi(Object.keys(players).length, 'Joueurs touchés')
+    + kpi(active, 'Non encore aptes') + kpi(avgDays === null ? '—' : avgDays + ' j', 'Arrêt moyen');
+
+  // Par mois
+  var byMonth = {};
+  rows.forEach(function(r){ if (r.date) { var k = r.date.slice(0, 7); byMonth[k] = (byMonth[k] || 0) + 1; } });
+  var months = Object.keys(byMonth).sort();
+  if (months.length) {
+    // Remplit les mois sans blessure entre le premier et le dernier
+    var filled = [], yy = +months[0].slice(0, 4), mm = +months[0].slice(5, 7), lastKey = months[months.length - 1];
+    while (true) {
+      var key = yy + '-' + String(mm).padStart(2, '0');
+      filled.push(key);
+      if (key >= lastKey || filled.length > 60) break;
+      mm++; if (mm > 12) { mm = 1; yy++; }
+    }
+    months = filled;
+  }
+  var MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  medicalAnaDraw('medAnaMonth', 'bar',
+    months.map(function(m){ return MOIS[parseInt(m.slice(5), 10) - 1] + ' ' + m.slice(2, 4); }),
+    months.map(function(m){ return byMonth[m] || 0; }), { color: '#D6001C' });
+
+  var typo = medicalAnaCount(rows, function(r){ return r.typologie; });
+  medicalAnaDraw('medAnaTypo', 'doughnut', typo.map(function(x){ return x.k; }), typo.map(function(x){ return x.v; }));
+
+  var bl = medicalAnaCount(rows, function(r){ return r.blessure; });
+  medicalAnaDraw('medAnaBlessure', 'bar', bl.map(function(x){ return x.k; }), bl.map(function(x){ return x.v; }), { horizontal: true, color: '#f5a623' });
+
+  var lieu = medicalAnaCount(rows, function(r){ return r.lieuLabel; }).slice(0, 8);
+  medicalAnaDraw('medAnaLieu', 'bar', lieu.map(function(x){ return x.k; }), lieu.map(function(x){ return x.v; }), { horizontal: true, color: '#5bc4f5' });
+
+  var gradeOrder = ['Grade I', 'Grade II', 'Grade III', 'Sans grade'];
+  var gradeCount = {};
+  rows.forEach(function(r){ var k = r.gravite ? 'Grade ' + r.gravite : 'Sans grade'; gradeCount[k] = (gradeCount[k] || 0) + 1; });
+  var grades = gradeOrder.filter(function(g){ return gradeCount[g]; });
+  medicalAnaDraw('medAnaGrade', 'bar', grades, grades.map(function(g){ return gradeCount[g]; }),
+    { colors: grades.map(function(g){ return { 'Grade I': '#e0b341', 'Grade II': '#f5a623', 'Grade III': '#D6001C', 'Sans grade': '#8e9aa6' }[g]; }) });
+
+  var joursByTypo = {};
+  rows.forEach(function(r){ var d = medicalAnaDays(r); if (d === null) return; var k = r.typologie || 'Non renseigné'; (joursByTypo[k] = joursByTypo[k] || []).push(d); });
+  var jt = Object.keys(joursByTypo).map(function(k){ var a = joursByTypo[k]; return { k: k, v: Math.round(a.reduce(function(s,x){ return s+x; }, 0) / a.length) }; })
+    .sort(function(a,b){ return b.v - a.v; });
+  medicalAnaDraw('medAnaJours', 'bar', jt.map(function(x){ return x.k; }), jt.map(function(x){ return x.v; }),
+    { horizontal: true, color: '#b07cff', unit: ' jours', emptyText: 'Aucune blessure avec date de retour' });
+}
+
 function renderMedicalHub() {
   populateMedicalPlayerSelect();
   renderMedicalDashboardTable();
   renderMedicalStatsCards();
+  renderMedicalAnalytics();
 }
 
 var _origSwitchHubMedical = switchHub;
@@ -14109,10 +14326,11 @@ switchHub = function(name) {
     populateMedicalPlayerSelect();
     renderMedicalDashboardTable();
     renderMedicalStatsCards();
+    setTimeout(renderMedicalAnalytics, 30);
   }
 };
 document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function(){ populateMedicalPlayerSelect(); renderMedicalDashboardTable(); renderMedicalStatsCards(); }, 60);
+  setTimeout(function(){ populateMedicalPlayerSelect(); renderMedicalDashboardTable(); renderMedicalStatsCards(); renderMedicalAnalytics(); }, 60);
 });
 
 // ── Intégration dans la fiche joueur ("Joueur") ──────────────────
