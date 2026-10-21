@@ -1704,11 +1704,15 @@ table.roster-table select { padding: 4px; }
 .med-ana-empty { display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,.35); font-size:12px; text-align:center; }
 .med-ana-note { font-size:11px; color:rgba(255,255,255,.4); margin-top:10px; }
 .med-ana-excl-note { grid-column:1/-1; font-size:11px; color:#e0b341; margin-top:-4px; }
-.med-ana-body-row { display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
-.med-body-fig { width:210px; display:flex; flex-direction:column; align-items:center; }
-.med-body-top { flex:1 1 220px; min-width:200px; max-width:340px; }
-.med-body-top-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.07); font-size:13px; color:rgba(255,255,255,.85); }
-.med-body-top-row b { color:#ff4d5e; font-family:'JetBrains Mono',monospace; }
+.med-loc-card { margin-bottom:14px; }
+.med-loc-row { display:grid; grid-template-columns:auto minmax(0,1fr); gap:28px; align-items:stretch; }
+.med-loc-figs { display:flex; gap:14px; }
+.med-body-fig { width:190px; display:flex; flex-direction:column; align-items:center; }
+.med-loc-chart { display:flex; flex-direction:column; min-width:0; }
+.med-loc-sub { font-size:11px; color:rgba(255,255,255,.5); margin-bottom:8px; }
+.med-loc-chart .med-ana-canvas { flex:1; min-height:300px; }
+.med-ana-span2 { grid-column:span 2; }
+@media (max-width:1000px) { .med-loc-row { grid-template-columns:1fr; } .med-loc-figs { justify-content:center; } .med-ana-span2 { grid-column:auto; } }
 .med-excl-label { display:flex; align-items:center; gap:8px; font-size:12px; color:rgba(255,255,255,.75); cursor:pointer; margin:2px 0 4px; }
 .med-excl-label input { width:16px; height:16px; accent-color:#D6001C; }
 .med-row-excl td { opacity:.5; }
@@ -3870,15 +3874,20 @@ Petit Enzo ; 9</pre>
       </select>
     </div>
     <div class="med-ana-kpis" id="medicalAnaKpis"></div>
-    <div class="med-ana-card" style="margin-bottom:14px">
+    <div class="med-ana-card med-loc-card">
       <div class="med-ana-title">Localisation des blessures</div>
-      <div class="med-ana-body-row" id="medicalAnaBody"></div>
+      <div class="med-loc-row">
+        <div class="med-loc-figs" id="medicalAnaBody"></div>
+        <div class="med-loc-chart">
+          <div class="med-loc-sub">Par zone — côtés droit et gauche regroupés</div>
+          <div class="med-ana-canvas" id="medAnaLieuBox"><canvas id="medAnaLieu"></canvas></div>
+        </div>
+      </div>
     </div>
     <div class="med-ana-grid">
-      <div class="med-ana-card"><div class="med-ana-title">Blessures par mois</div><div class="med-ana-canvas"><canvas id="medAnaMonth"></canvas></div></div>
+      <div class="med-ana-card med-ana-span2"><div class="med-ana-title">Blessures par mois</div><div class="med-ana-canvas"><canvas id="medAnaMonth"></canvas></div></div>
       <div class="med-ana-card"><div class="med-ana-title">Par typologie</div><div class="med-ana-canvas"><canvas id="medAnaTypo"></canvas></div></div>
       <div class="med-ana-card"><div class="med-ana-title">Par type de blessure</div><div class="med-ana-canvas"><canvas id="medAnaBlessure"></canvas></div></div>
-      <div class="med-ana-card"><div class="med-ana-title">Par localisation</div><div class="med-ana-canvas"><canvas id="medAnaLieu"></canvas></div></div>
       <div class="med-ana-card"><div class="med-ana-title">Par grade</div><div class="med-ana-canvas"><canvas id="medAnaGrade"></canvas></div></div>
       <div class="med-ana-card"><div class="med-ana-title">Jours d'arrêt moyens par typologie</div><div class="med-ana-canvas"><canvas id="medAnaJours"></canvas></div></div>
     </div>
@@ -14267,20 +14276,23 @@ function medicalAnaDraw(id, type, labels, values, opts) {
   var gridColor = 'rgba(255,255,255,.08)';
   var cfg = {
     type: type,
-    data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderColor: isDoughnut ? '#141414' : colors, borderWidth: isDoughnut ? 2 : 0, borderRadius: isDoughnut ? 0 : 4, maxBarThickness: 34 }] },
+    data: { labels: labels, datasets: opts.datasets
+      ? opts.datasets.map(function(ds){ return Object.assign({ borderWidth: 0, borderRadius: 3, maxBarThickness: 24 }, ds); })
+      : [{ data: values, backgroundColor: colors, borderColor: isDoughnut ? '#141414' : colors, borderWidth: isDoughnut ? 2 : 0, borderRadius: isDoughnut ? 0 : 4, maxBarThickness: 34 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       indexAxis: horizontal ? 'y' : 'x',
       plugins: {
-        legend: { display: isDoughnut, position: 'right', labels: { color: tickColor, boxWidth: 10, font: { size: 11 } } },
+        legend: { display: isDoughnut || !!opts.datasets, position: opts.datasets ? 'top' : 'right', align: opts.datasets ? 'end' : 'center', labels: { color: tickColor, boxWidth: 10, font: { size: 11 } } },
         tooltip: { backgroundColor: '#1a0000', borderColor: 'rgba(214,0,28,.4)', borderWidth: 1, titleColor: '#f0f0f0', bodyColor: '#ddd', padding: 10,
-          callbacks: { label: function(ctx) { var v = ctx.parsed !== undefined && typeof ctx.parsed === 'object' ? (horizontal ? ctx.parsed.x : ctx.parsed.y) : ctx.parsed; return ' ' + v + (opts.unit || (v > 1 ? ' blessures' : ' blessure')); } } }
+          callbacks: { label: function(ctx) { var v = ctx.parsed !== undefined && typeof ctx.parsed === 'object' ? (horizontal ? ctx.parsed.x : ctx.parsed.y) : ctx.parsed; return ' ' + (opts.datasets ? ctx.dataset.label + ' : ' : '') + v + (opts.unit || (v > 1 ? ' blessures' : ' blessure')); } } }
       }
     }
   };
   if (!isDoughnut) {
     var valueAxis = { beginAtZero: true, ticks: { color: tickColor, precision: 0, font: { size: 11 } }, grid: { color: gridColor }, border: { color: 'transparent' } };
     var catAxis = { ticks: { color: tickColor, font: { size: 11 }, autoSkip: false }, grid: { display: false }, border: { color: gridColor } };
+    if (opts.datasets) { valueAxis.stacked = true; catAxis.stacked = true; }
     cfg.options.scales = horizontal ? { x: valueAxis, y: catAxis } : { x: catAxis, y: valueAxis };
   }
   medicalAnaCharts[id] = new Chart(canvas, cfg);
@@ -14309,16 +14321,29 @@ function renderMedicalAnalytics() {
     rows.forEach(function(r){ if (r.lieuKey) zc[r.lieuKey] = (zc[r.lieuKey] || 0) + 1; });
     var zkeys = Object.keys(zc).sort(function(a,b){ return zc[b] - zc[a]; });
     var zmax = zkeys.length ? zc[zkeys[0]] : 1;
-    var top = zkeys.slice(0, 10).map(function(k){
-      var lbl = (MEDICAL_BODY_PARTS_BY_KEY[k] || {}).label || k;
-      return '<div class="med-body-top-row"><span>' + lbl + '</span><b>' + zc[k] + '</b></div>';
-    }).join('');
     bodyEl.innerHTML = '<div class="med-body-fig">' + buildMedicalHeatSvg('front', zc, zmax) + '<div class="medical-view-label">Face</div></div>'
-      + '<div class="med-body-fig">' + buildMedicalHeatSvg('back', zc, zmax) + '<div class="medical-view-label">Dos</div></div>'
-      + '<div class="med-body-top"><div class="med-ana-title" style="margin-bottom:6px">Zones les plus touchées</div>'
-      + (top || '<div class="med-ana-empty" style="height:auto;padding:20px 0">Aucune blessure sur la période</div>')
-      + '<div class="med-ana-note">Plus le point est gros, plus il y a de blessures sur cette zone. Survolez un point pour le détail.</div></div>';
+      + '<div class="med-body-fig">' + buildMedicalHeatSvg('back', zc, zmax) + '<div class="medical-view-label">Dos</div></div>';
   }
+
+  // Par zone, droite + gauche regroupées (barres empilées D / G / centre)
+  var zones = {};
+  rows.forEach(function(r) {
+    var key = r.lieuKey || '';
+    var full = (MEDICAL_BODY_PARTS_BY_KEY[key] || {}).label || r.lieuLabel || 'Non renseigné';
+    var base = full.replace(/\s*\((D|G)\)\s*$/, '');
+    var side = /_d$/.test(key) || /\(D\)\s*$/.test(full) ? 'd' : (/_g$/.test(key) || /\(G\)\s*$/.test(full) ? 'g' : 'c');
+    if (!zones[base]) zones[base] = { d: 0, g: 0, c: 0, t: 0 };
+    zones[base][side]++; zones[base].t++;
+  });
+  var zlist = Object.keys(zones).sort(function(a,b){ return zones[b].t - zones[a].t || a.localeCompare(b); });
+  var lieuBox = document.getElementById('medAnaLieuBox');
+  if (lieuBox) lieuBox.style.height = Math.max(300, zlist.length * 34 + 60) + 'px';
+  var sideSets = [
+    { label: 'Droite', data: zlist.map(function(z){ return zones[z].d; }), backgroundColor: '#5bc4f5' },
+    { label: 'Gauche', data: zlist.map(function(z){ return zones[z].g; }), backgroundColor: '#f5a623' },
+    { label: 'Centre', data: zlist.map(function(z){ return zones[z].c; }), backgroundColor: '#8e9aa6' }
+  ].filter(function(ds){ return ds.data.some(function(v){ return v > 0; }); });
+  medicalAnaDraw('medAnaLieu', 'bar', zlist, [], { horizontal: true, datasets: sideSets });
 
   // Par mois
   var byMonth = {};
@@ -14346,8 +14371,6 @@ function renderMedicalAnalytics() {
   var bl = medicalAnaCount(rows, function(r){ return r.blessure; });
   medicalAnaDraw('medAnaBlessure', 'bar', bl.map(function(x){ return x.k; }), bl.map(function(x){ return x.v; }), { horizontal: true, color: '#f5a623' });
 
-  var lieu = medicalAnaCount(rows, function(r){ return r.lieuLabel; }).slice(0, 8);
-  medicalAnaDraw('medAnaLieu', 'bar', lieu.map(function(x){ return x.k; }), lieu.map(function(x){ return x.v; }), { horizontal: true, color: '#5bc4f5' });
 
   var gradeOrder = ['Grade I', 'Grade II', 'Grade III', 'Sans grade'];
   var gradeCount = {};
