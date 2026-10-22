@@ -11802,10 +11802,42 @@ function perfUpdateField(id, field, el) {
     t.context = raw;
   }
   savePhysicalTests();
-  var sel = document.getElementById('perfFilterPlayer');
-  if (sel) { var cur = sel.value; sel.innerHTML = '<option value="">Tous les joueurs</option>'; renderPerfHistory(); sel.value = cur; }
-  else renderPerfHistory();
+  // Mise à jour SUR PLACE : on ne redessine pas tout le tableau, pour pouvoir
+  // enchaîner les modifications sans perdre sa place, le filtre ni le tri.
+  if (field === 'value') {
+    var def = TEST_DEFS.find(function(d){ return d.id === t.type; }) || { unit: '' };
+    el.textContent = t.value + ' ' + def.unit;
+  } else if (field === 'date') el.textContent = t.date;
+  if (field === 'player') perfRefreshPlayerFilter();
+  perfFlashSaved(el);
   if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+}
+
+function perfFlashSaved(el) {
+  if (!el) return;
+  el.style.transition = 'background .2s'; el.style.background = 'rgba(46,204,138,.25)';
+  setTimeout(function(){ el.style.background = ''; }, 600);
+}
+function perfRefreshPlayerFilter() {
+  var sel = document.getElementById('perfFilterPlayer');
+  if (!sel) return;
+  var cur = sel.value;
+  var players = [...new Set(physicalTests.map(function(t){ return t.player; }))].filter(Boolean).sort(function(a, b){ return a.localeCompare(b, 'fr'); });
+  sel.innerHTML = '<option value="">Tous les joueurs</option>';
+  players.forEach(function(p){ var o = document.createElement('option'); o.value = p; o.textContent = p; if (p === cur) o.selected = true; sel.appendChild(o); });
+}
+// Entrée = valider et passer à la même colonne de la ligne suivante (Maj+Entrée : ligne précédente)
+function perfCellKey(e, el) {
+  if (e.key === 'Escape') { el.blur(); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  var tr = el.parentNode, idx = Array.prototype.indexOf.call(tr.children, el);
+  var next = e.shiftKey ? tr.previousElementSibling : tr.nextElementSibling;
+  el.blur();
+  if (next && next.children[idx]) {
+    var n = next.children[idx]; n.focus();
+    try { var r = document.createRange(); r.selectNodeContents(n); var sl = window.getSelection(); sl.removeAllRanges(); sl.addRange(r); } catch (err) {}
+  }
 }
 
 function perfUpdateTestType(id, sel) {
@@ -11813,7 +11845,7 @@ function perfUpdateTestType(id, sel) {
   if (!t) return;
   t.type = sel.value;
   savePhysicalTests();
-  renderPerfHistory();
+  perfFlashSaved(sel);
   if (currentProfilePlayer) renderProfileTests(currentProfilePlayer);
 }
 
@@ -11876,8 +11908,14 @@ function renderPerfHistory() {
   var testOptions = TEST_DEFS.map(function(d){ return '<option value="'+d.id+'">'+d.icon+' '+d.label+'</option>'; }).join('');
 
   el.innerHTML = '<div style="font-size:10.5px;color:rgba(255,255,255,.35);margin-bottom:6px">'
-    + tests.length + ' résultat(s) · clique une colonne pour trier · clique une cellule pour la modifier</div>'
+    + tests.length + ' résultat(s) · clique une colonne pour trier · clique une cellule pour la modifier (Entrée = ligne suivante) · coche plusieurs lignes pour les supprimer d\'un coup</div>'
+    + '<div id="perfBulkBar" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;border-radius:8px;background:rgba(214,0,28,.12);border:1px solid rgba(214,0,28,.4);font-size:12px">'
+    +   '<b id="perfBulkCount">0</b> sélectionné(s)'
+    +   '<button onclick="perfDeleteSelected()" style="background:rgba(214,0,28,.35);border:1px solid #D6001C;border-radius:6px;padding:5px 12px;color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px">🗑 Supprimer la sélection</button>'
+    +   '<button onclick="perfSelectAll(false)" style="background:none;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:5px 12px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px">Tout désélectionner</button>'
+    + '</div>'
     + '<table class="perf-results-table"><thead><tr>'
+    + '<th style="width:28px"><input type="checkbox" title="Tout sélectionner" onchange="perfSelectAll(this.checked)" style="width:16px;height:16px;accent-color:#D6001C;cursor:pointer"></th>'
     + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'date\')">Date ' + perfSortArrow('date') + '</th>'
     + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'player\')">Joueur ' + perfSortArrow('player') + '</th>'
     + '<th style="cursor:pointer;user-select:none" onclick="perfSortBy(\'test\')">Test ' + perfSortArrow('test') + '</th>'
@@ -11887,15 +11925,16 @@ function renderPerfHistory() {
     + '</tr></thead><tbody>'
     + tests.map(function(t) {
         var def = TEST_DEFS.find(function(d){ return d.id===t.type; }) || { label:t.type, unit:'', icon:'' };
-        return '<tr>'
-          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="color:rgba(255,255,255,.6);font-size:11px" onblur="perfUpdateField(\''+t.id+'\',\'date\',this)">'+t.date+'</td>'
-          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="font-weight:600" onblur="perfUpdateField(\''+t.id+'\',\'player\',this)">'+t.player+'</td>'
+        return '<tr data-id="'+t.id+'">'
+          + '<td style="width:28px"><input type="checkbox" class="perf-row-chk" value="'+t.id+'" onchange="perfUpdateBulkBar()" style="width:16px;height:16px;accent-color:#D6001C;cursor:pointer"></td>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="color:rgba(255,255,255,.6);font-size:11px" onkeydown="perfCellKey(event,this)" onblur="perfUpdateField(\''+t.id+'\',\'date\',this)">'+t.date+'</td>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="font-weight:600" onkeydown="perfCellKey(event,this)" onblur="perfUpdateField(\''+t.id+'\',\'player\',this)">'+t.player+'</td>'
           + '<td><select onchange="perfUpdateTestType(\''+t.id+'\',this)" style="background:#1a1a1e;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:4px;font-size:11px;padding:2px 4px">'
             + TEST_DEFS.map(function(d){ return '<option value="'+d.id+'"'+(d.id===t.type?' selected':'')+'>'+d.icon+' '+d.label+'</option>'; }).join('')
             + '</select></td>'
-          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="color:#D6001C;font-weight:700;font-family:monospace" onblur="perfUpdateField(\''+t.id+'\',\'value\',this)">'+t.value+' '+def.unit+'</td>'
-          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="font-size:11px;color:rgba(255,255,255,.35)" onblur="perfUpdateField(\''+t.id+'\',\'context\',this)">'+(t.context||'')+'</td>'
-          + '<td><button onclick="deletePerfTest(\''+t.id+'\')" style="background:none;border:none;color:#cc3333;cursor:pointer;font-size:13px">✕</button></td>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="color:#D6001C;font-weight:700;font-family:monospace" onkeydown="perfCellKey(event,this)" onblur="perfUpdateField(\''+t.id+'\',\'value\',this)">'+t.value+' '+def.unit+'</td>'
+          + '<td class="perf-editable" contenteditable="true" spellcheck="false" style="font-size:11px;color:rgba(255,255,255,.35)" onkeydown="perfCellKey(event,this)" onblur="perfUpdateField(\''+t.id+'\',\'context\',this)">'+(t.context||'')+'</td>'
+          + '<td><button onclick="deletePerfTest(\''+t.id+'\')" title="Supprimer" style="background:none;border:none;color:#cc3333;cursor:pointer;font-size:13px">✕</button></td>'
           + '</tr>';
       }).join('')
     + '</tbody></table>';
@@ -11913,11 +11952,65 @@ function deleteAllPerfTests() {
   if (status) { status.style.display='block'; status.style.color='#2ecc8a'; status.textContent='✓ Tous les tests supprimés.'; setTimeout(function(){ status.style.display='none'; }, 3000); }
 }
 
-function deletePerfTest(id) {
-  if (!confirm('Supprimer ce résultat ?')) return;
-  physicalTests = physicalTests.filter(function(t){ return String(t.id) !== String(id); });
+var perfLastDeleted = [];
+function perfRemoveTests(ids) {
+  var set = {}; ids.forEach(function(id){ set[String(id)] = 1; });
+  var removed = physicalTests.filter(function(t){ return set[String(t.id)]; });
+  if (!removed.length) return;
+  physicalTests = physicalTests.filter(function(t){ return !set[String(t.id)]; });
+  // Mémorise la suppression pour que la synchro ne fasse pas revenir les lignes
+  removed.forEach(function(t){ try { markDeleted(PHYSICAL_TESTS_KEY, t.id); } catch (e) {} });
+  savePhysicalTests();
+  perfLastDeleted = removed;
+  // Retire les lignes du tableau sans le redessiner (on garde sa place)
+  removed.forEach(function(t){ var tr = document.querySelector('#perfHistoryContent tr[data-id="' + t.id + '"]'); if (tr) tr.remove(); });
+  perfUpdateBulkBar();
+  perfShowUndo(removed.length);
+  if (typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer) renderProfileTests(currentProfilePlayer);
+}
+function deletePerfTest(id) { perfRemoveTests([id]); }
+function perfSelectedIds() { return Array.prototype.map.call(document.querySelectorAll('#perfHistoryContent .perf-row-chk:checked'), function(c){ return c.value; }); }
+function perfUpdateBulkBar() {
+  var bar = document.getElementById('perfBulkBar'), n = perfSelectedIds().length;
+  if (!bar) return;
+  bar.style.display = n ? 'flex' : 'none';
+  var c = document.getElementById('perfBulkCount'); if (c) c.textContent = n;
+}
+function perfSelectAll(on) {
+  document.querySelectorAll('#perfHistoryContent .perf-row-chk').forEach(function(c){ c.checked = on; });
+  var head = document.querySelector('#perfHistoryContent thead input[type=checkbox]'); if (head) head.checked = on;
+  perfUpdateBulkBar();
+}
+function perfDeleteSelected() {
+  var ids = perfSelectedIds();
+  if (!ids.length) return;
+  if (!confirm('Supprimer ' + ids.length + ' résultat(s) ?')) return;
+  perfRemoveTests(ids);
+}
+function perfShowUndo(n) {
+  var box = document.getElementById('perfUndoToast');
+  if (!box) {
+    box = document.createElement('div'); box.id = 'perfUndoToast';
+    box.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9500;background:#1b1b1b;border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 14px;display:flex;gap:14px;align-items:center;font-size:13px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.5)';
+    document.body.appendChild(box);
+  }
+  box.innerHTML = '<span>' + n + ' résultat(s) supprimé(s)</span><button onclick="perfUndoDelete()" style="background:none;border:1px solid #e0b341;color:#e0b341;border-radius:6px;padding:4px 10px;font-weight:700;cursor:pointer;font-family:inherit">Annuler</button>';
+  box.style.display = 'flex';
+  clearTimeout(box._t); box._t = setTimeout(function(){ box.style.display = 'none'; }, 6000);
+}
+function perfUndoDelete() {
+  if (!perfLastDeleted.length) return;
+  try {
+    var del = loadDeletedIds();
+    perfLastDeleted.forEach(function(t){ delete del[PHYSICAL_TESTS_KEY + ':' + t.id]; });
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(del));
+  } catch (e) {}
+  physicalTests = physicalTests.concat(perfLastDeleted);
+  perfLastDeleted = [];
   savePhysicalTests();
   renderPerfHistory();
+  var box = document.getElementById('perfUndoToast'); if (box) box.style.display = 'none';
+  if (typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer) renderProfileTests(currentProfilePlayer);
 }
 
 function dedupePerfTests() {
@@ -12612,6 +12705,20 @@ function restoreAllData(data) {
 // sauvegarde de secours locale), sinon l'app continue d'utiliser les
 // variables chargées au démarrage et rien ne semble avoir changé à l'écran.
 function reloadAllVariablesAndRerender() {
+  // Si l'utilisateur est en train de modifier une cellule ou un champ, on
+  // attend qu'il ait fini : sinon l'écran est redessiné sous ses doigts et il
+  // perd sa place. Dans tous les cas on garde la position de défilement.
+  var ae = document.activeElement;
+  if (ae && (ae.isContentEditable || /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) && ae.closest && ae.closest('.hub-section')) {
+    clearTimeout(window.__nissaRerenderLater);
+    window.__nissaRerenderLater = setTimeout(reloadAllVariablesAndRerender, 2500);
+    return;
+  }
+  var __sy = window.scrollY;
+  try { __reloadAllVariablesAndRerenderInner(); }
+  finally { window.scrollTo(0, __sy); requestAnimationFrame(function(){ window.scrollTo(0, __sy); }); }
+}
+function __reloadAllVariablesAndRerenderInner() {
   if (typeof loadRoster === 'function') {
     try { roster = loadRoster(); } catch(e) {}
   }
