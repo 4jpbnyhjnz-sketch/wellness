@@ -3004,7 +3004,7 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
     </div>
 
     <div class="p1-roster-box no-print">
-      <div class="p1-roster-title">Joueurs inclus dans la moyenne collective cette semaine</div>
+      <div class="p1-roster-title">Joueurs inclus dans les moyennes Avants et 3/4 cette semaine</div>
       <div id="p1RosterChecks" class="p1-roster-checks"></div>
       <details class="p1-roster-edit">
         <summary>Modifier la liste des joueurs du groupe P1</summary>
@@ -3017,8 +3017,10 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
       </details>
     </div>
 
-    <h3 class="section-title" style="margin-top:24px">Vue collective — moyenne du groupe</h3>
-    <div id="p1CollectiveGrid" class="p1-metric-grid"></div>
+    <h3 class="section-title" style="margin-top:24px">Vue collective — moyenne Avants <span id="p1CountAvant" style="font-weight:400;color:#777;font-size:13px"></span></h3>
+    <div id="p1CollectiveGridAvant" class="p1-metric-grid"></div>
+    <h3 class="section-title" style="margin-top:24px">Vue collective — moyenne 3/4 <span id="p1Count34" style="font-weight:400;color:#777;font-size:13px"></span></h3>
+    <div id="p1CollectiveGrid34" class="p1-metric-grid"></div>
 
     <h3 class="section-title" style="margin-top:28px">Vue individuelle</h3>
     <div class="p1-indiv-select-row no-print">
@@ -8589,6 +8591,7 @@ let p1WeekExclusions = loadP1WeekExclusions();
 let p1CurrentWeek = null; // "dd/mm/yyyy" du lundi affiché
 let p1SelectedPlayer = null;
 let p1CollectiveCharts = [];
+let p1CollectiveCharts34 = [];
 let p1IndividualCharts = [];
 
 // Métriques cumulées sur la semaine (charge), au pic (VMAX/accel), ou en moyenne (%).
@@ -8657,6 +8660,22 @@ function p1SameName(a, b) {
   return String(a || "").toLowerCase() === String(b || "").toLowerCase();
 }
 
+// Groupe (Avant / 3/4) d'un joueur P1 : celui où il apparaît le plus souvent
+// dans les séances et matchs enregistrés.
+function p1PlayerGroup(fullName) {
+  const cnt = { "3/4": 0, "Avant": 0 };
+  p1DataSources().forEach((s) => {
+    ["3/4", "Avant"].forEach((g) => {
+      if ((s.groups[g] || []).some((pp) => p1SameName(pp.displayName || pp.player, fullName))) cnt[g]++;
+    });
+  });
+  return cnt["3/4"] > cnt["Avant"] ? "3/4" : "Avant";
+}
+function p1IncludedNames(weekMonday, group) {
+  const excluded = p1WeekExclusions[weekMonday] || [];
+  return p1MatchedFullNames().filter((n) => !excluded.some((e) => p1SameName(e, n)) && (!group || p1PlayerGroup(n) === group));
+}
+
 function p1PlayerWeekEntries(fullName, weekMonday) {
   const days = weekDayKeys(weekMonday);
   const entries = [];
@@ -8686,9 +8705,8 @@ function p1PlayerWeekAgg(fullName, weekMonday) {
   return p1AggregateEntries(p1PlayerWeekEntries(fullName, weekMonday));
 }
 
-function p1TeamWeekAgg(weekMonday) {
-  const excluded = p1WeekExclusions[weekMonday] || [];
-  const included = p1MatchedFullNames().filter((n) => !excluded.some((e) => p1SameName(e, n)));
+function p1TeamWeekAgg(weekMonday, group) {
+  const included = p1IncludedNames(weekMonday, group);
   const perPlayer = included.map((n) => p1PlayerWeekAgg(n, weekMonday)).filter(Boolean);
   if (!perPlayer.length) return null;
   const agg = { playerCount: perPlayer.length };
@@ -8713,9 +8731,8 @@ function p1PlayerDayAgg(fullName, dateStr) {
 }
 
 // Moyenne d'équipe pour UN jour précis (respecte les exclusions de la semaine affichée).
-function p1TeamDayAgg(dateStr, weekMonday) {
-  const excluded = p1WeekExclusions[weekMonday] || [];
-  const included = p1MatchedFullNames().filter((n) => !excluded.some((e) => p1SameName(e, n)));
+function p1TeamDayAgg(dateStr, weekMonday, group) {
+  const included = p1IncludedNames(weekMonday, group);
   const perPlayer = included.map((n) => p1PlayerDayAgg(n, dateStr)).filter(Boolean);
   if (!perPlayer.length) return null;
   const agg = { playerCount: perPlayer.length };
@@ -8736,8 +8753,8 @@ function p1AllSeasonWeeks() {
   return Array.from(weeks).sort((a, b) => parseFR(a) - parseFR(b));
 }
 
-function p1TeamSeasonSeries(metricKey) {
-  return p1AllSeasonWeeks().map((wk) => ({ week: wk, value: (p1TeamWeekAgg(wk) || {})[metricKey] ?? null }));
+function p1TeamSeasonSeries(metricKey, group) {
+  return p1AllSeasonWeeks().map((wk) => ({ week: wk, value: (p1TeamWeekAgg(wk, group) || {})[metricKey] ?? null }));
 }
 function p1PlayerSeasonSeries(fullName, metricKey) {
   return p1AllSeasonWeeks().map((wk) => ({ week: wk, value: (p1PlayerWeekAgg(fullName, wk) || {})[metricKey] ?? null }));
@@ -8841,11 +8858,21 @@ function renderP1MetricGrid(containerEl, currentAgg, prevAgg, seasonSeriesFn, ch
 
 function renderP1CollectiveOnly() {
   initP1Week();
-  const grid = document.getElementById("p1CollectiveGrid");
-  if (!grid) return;
-  const cur = p1TeamWeekAgg(p1CurrentWeek);
-  const prev = p1TeamWeekAgg(prevWeekKey(p1CurrentWeek));
-  renderP1MetricGrid(grid, cur, prev, (key) => p1TeamSeasonSeries(key), p1CollectiveCharts, P1_METRIC_DEFS.filter((m) => m.collective));
+  [["Avant", "p1CollectiveGridAvant", "p1CountAvant", p1CollectiveCharts], ["3/4", "p1CollectiveGrid34", "p1Count34", p1CollectiveCharts34]].forEach(([g, gridId, countId, charts]) => {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    const n = p1IncludedNames(p1CurrentWeek, g).length;
+    const countEl = document.getElementById(countId);
+    if (countEl) countEl.textContent = "(" + n + " joueur" + (n > 1 ? "s" : "") + ")";
+    if (!n) {
+      p1DestroyCharts(charts);
+      grid.innerHTML = '<p class="p1-empty">Aucun joueur de ce groupe inclus cette semaine.</p>';
+      return;
+    }
+    const cur = p1TeamWeekAgg(p1CurrentWeek, g);
+    const prev = p1TeamWeekAgg(prevWeekKey(p1CurrentWeek), g);
+    renderP1MetricGrid(grid, cur, prev, (key) => p1TeamSeasonSeries(key, g), charts, P1_METRIC_DEFS.filter((m) => m.collective));
+  });
 }
 
 function renderP1Individual() {
@@ -8965,17 +8992,28 @@ function printP1Report() {
   const included = p1MatchedFullNames().filter((n) => !excluded.some((e) => p1SameName(e, n)));
   const collectiveDefs = P1_METRIC_DEFS.filter((m) => m.collective);
 
+  const P1G = ["Avant", "3/4"];
+  const curG = {}, prevG = {};
+  P1G.forEach((g) => { curG[g] = p1TeamWeekAgg(p1CurrentWeek, g); prevG[g] = p1TeamWeekAgg(prevWeek, g); });
   const teamRowsHtml = collectiveDefs.map((m) => {
-    const diff = prev ? p1PctDiff(cur[m.key], prev[m.key]) : null;
-    const diffStr = diff == null ? "—" : (diff >= 0 ? "+" : "") + p1Fmt(diff, 1) + "%";
-    return `<tr><td>${m.label}</td><td>${p1Fmt(cur[m.key], m.decimals)}</td><td>${diffStr}</td></tr>`;
+    const cells = P1G.map((g) => {
+      const c = curG[g], pv = prevG[g];
+      const diff = c && pv ? p1PctDiff(c[m.key], pv[m.key]) : null;
+      const diffStr = diff == null ? "—" : (diff >= 0 ? "+" : "") + p1Fmt(diff, 1) + "%";
+      return `<td>${c ? p1Fmt(c[m.key], m.decimals) : "—"}</td><td>${diffStr}</td>`;
+    }).join("");
+    return `<tr><td>${m.label}</td>${cells}</tr>`;
   }).join("");
 
   const dailyHeadHtml = collectiveDefs.map((m) => `<th>${m.label}</th>`).join("");
-  const dailyRowsHtml = days.map((d) => {
-    const dayAgg = p1TeamDayAgg(d, p1CurrentWeek);
-    const cells = collectiveDefs.map((m) => `<td>${dayAgg ? p1Fmt(dayAgg[m.key], m.decimals) : "—"}</td>`).join("");
-    return `<tr><td>${d}</td>${cells}</tr>`;
+  const dailyTablesHtml = P1G.map((g) => {
+    if (!curG[g]) return "";
+    const rows = days.map((d) => {
+      const dayAgg = p1TeamDayAgg(d, p1CurrentWeek, g);
+      const cells = collectiveDefs.map((m) => `<td>${dayAgg ? p1Fmt(dayAgg[m.key], m.decimals) : "—"}</td>`).join("");
+      return `<tr><td>${d}</td>${cells}</tr>`;
+    }).join("");
+    return `<p style="font-weight:700;margin:10px 0 4px">${g === "Avant" ? "Avants" : "3/4"}</p><table class="data-table"><thead><tr><th>Jour</th>${dailyHeadHtml}</tr></thead><tbody>${rows}</tbody></table>`;
   }).join("");
 
   let metricImgsHtml = "";
@@ -9015,10 +9053,10 @@ function printP1Report() {
           <div class="report-header-block"><span class="report-header-label">Semaine</span><span class="report-header-value">${days[0]} au ${days[6]}</span></div>
           <div class="report-header-block"><span class="report-header-label">Joueurs inclus</span><span class="report-header-value">${included.length}</span></div>
         </div>
-        <h2 class="section-title">Moyennes de l'équipe</h2>
-        <table class="data-table"><thead><tr><th>Métrique</th><th>Semaine S</th><th>% vs S-1</th></tr></thead><tbody>${teamRowsHtml}</tbody></table>
+        <h2 class="section-title">Moyennes Avants et 3/4</h2>
+        <table class="data-table"><thead><tr><th>Métrique</th><th>Avants · S</th><th>Avants · % vs S-1</th><th>3/4 · S</th><th>3/4 · % vs S-1</th></tr></thead><tbody>${teamRowsHtml}</tbody></table>
         <h2 class="section-title" style="margin-top:20px">Récap par jour</h2>
-        <table class="data-table"><thead><tr><th>Jour</th>${dailyHeadHtml}</tr></thead><tbody>${dailyRowsHtml}</tbody></table>
+        ${dailyTablesHtml}
       </div>
       <div class="page-break-before avoid-break-group">
         <h2 class="section-title">Comparaison des joueurs par métrique</h2>
