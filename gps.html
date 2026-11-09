@@ -11308,6 +11308,7 @@ const TEST_DEFS = [
   { id:'rsi',       label:'RSI',         unit:'',   icon:'📊', lower:false },
   { id:'taille',    label:'Taille',      unit:'cm', icon:'📏', lower:false },
   { id:'poids',     label:'Poids',       unit:'kg', icon:'⚖️', lower:false },
+  { id:'mg',        label:'Masse grasse', unit:'%', icon:'🧪', lower:true  },
 ];
 
 const ANTHRPO_FIELDS = [
@@ -11780,7 +11781,7 @@ function renderProfileSrpe(name) {
     + '</div>';
 }
 
-var PROFILE_TEST_IDS = ['taille','poids','10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump'];
+var PROFILE_TEST_IDS = ['taille','poids','mg','10m','20m','30m','50m','dcsquat','backsquat','clean','cmj','broadjump'];
 
 function renderProfileTests(name) {
   // Toujours la version à jour (sparklines, tendance juste pour les sprints) :
@@ -12523,6 +12524,8 @@ function handleXlsxFile(file) {
         'poids':'poids', 'weight':'poids', 'masse':'poids',
         'masse corporelle':'poids', 'poids de corps':'poids', 'pdc':'poids',
         'stature':'taille', 'height (cm)':'taille',
+        'mg':'mg', 'masse grasse':'mg', '% mg':'mg', '%mg':'mg', 'mg %':'mg', '% masse grasse':'mg', 'masse grasse %':'mg',
+        'body fat':'mg', 'body fat %':'mg', '% body fat':'mg', 'bf':'mg', '% bf':'mg', 'fat %':'mg',
         'vitesse max':'vmax', 'v max':'vmax', 'vitesse maximale':'vmax',
         'yo-yo ir1':'yoyo', 'yoyo ir1':'yoyo', 'yyirt1':'yoyo', 'yo yo':'yoyo',
         'squat jump':'sj', 'counter movement jump':'cmj', 'countermovement jump':'cmj',
@@ -12552,10 +12555,7 @@ function handleXlsxFile(file) {
 
         if (!playerRaw || !testRaw || valRaw === undefined || valRaw === '') { errors++; return; }
 
-        // Ignorer seulement la masse grasse (Poids/Weight et Taille/Height sont
-        // désormais importés vers les tests Poids et Taille — avant, « Weight »
-        // et « Height » étaient jetés avant même d'être reconnus).
-        if (['mg','masse grasse','% mg'].indexOf(testRaw) !== -1) { skipped++; return; }
+        // La masse grasse (MG, % MG, Body fat) est importée vers le test « Masse grasse ».
 
         // Type de test (tolère accents, unités entre parenthèses, espaces : « 10 m », « CMJ (cm) »...)
         var testId = resolvePerfTestId(testRaw, testMap);
@@ -13345,7 +13345,7 @@ function renderProfileTestsV2(name) {
   var el = document.getElementById('profileTests');
   if (!el) return;
   // Mêmes tests que la fiche PID (Bronco, RSI, 5m, Trap Bar, Pendlay, SJ volontairement exclus).
-  var PROFILE_IDS = ['10m','20m','30m','50m','yoyo','vmax','dcsquat','backsquat','clean','traction','cmj','broadjump','taille','poids'];
+  var PROFILE_IDS = ['10m','20m','30m','50m','yoyo','vmax','dcsquat','backsquat','clean','traction','cmj','broadjump','taille','poids','mg'];
   var testsToShow = TEST_DEFS.filter(function(t){ return PROFILE_IDS.indexOf(t.id) !== -1; });
 
   el.innerHTML = testsToShow.map(function(test) {
@@ -15465,9 +15465,10 @@ function pidRender() {
   var prof = (playerProfiles||{})[pidPlayer] || {};
   var taille = prof.taille !== undefined && prof.taille !== '' && prof.taille !== null ? prof.taille : pidLast('taille');
   var poids  = prof.poids  !== undefined && prof.poids  !== '' && prof.poids  !== null ? prof.poids  : pidLast('poids');
+  var mgVal  = prof.mg     !== undefined && prof.mg     !== '' && prof.mg     !== null ? prof.mg     : pidLast('mg');
 
   var banner = pidBannerCard('Taille', pidNum(taille,0), 'cm', "pidBannerChart('taille','Taille',0,'cm')", "Voir l'évolution / ajouter une mesure")
-    + pidBannerCard('% MG', pidNum(prof.mg, 2), '%', "pidEditProfileField('mg','% MG','%')", 'Modifier')
+    + pidBannerCard('% MG', pidNum(mgVal, 1), '%', "pidBannerChart('mg','Masse grasse',1,'%')", "Voir l'évolution / ajouter une mesure")
     + pidBannerCard('Poids', pidNum(poids,1), 'kg', "pidBannerChart('poids','Poids',1,'kg')", "Voir l'évolution / ajouter une mesure")
     + pidBannerCard('Tps jeu', pidNum(prof.tpsjeu, 0), 'min', "pidEditProfileField('tpsjeu','Temps de jeu','min')", 'Modifier')
     + pidBannerCard('VMAX', pidNum(pidBest('vmax'), 2), 'km/h', "pidBannerChart('vmax','VMAX',2,'km/h')", "Voir l'évolution / ajouter une mesure");
@@ -15633,7 +15634,7 @@ function pidAddMeasure(type, label, dec, unit) {
   savePhysicalTests();
   // Taille / Poids : la valeur du profil (saisie manuelle) est prioritaire dans
   // le bandeau — on la met à jour pour que la nouvelle mesure s'affiche.
-  if (type === 'taille' || type === 'poids') {
+  if (type === 'taille' || type === 'poids' || type === 'mg') {
     var last = getPlayerTests(pidPlayer, type).slice(-1)[0];
     if (last) {
       playerProfiles[pidPlayer] = playerProfiles[pidPlayer] || {};
