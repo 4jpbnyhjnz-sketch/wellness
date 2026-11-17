@@ -3605,7 +3605,7 @@ Petit Enzo ; 9</pre>
           </label>
           <button class="btn-nav" style="width:auto;padding:0 14px;font-size:12px" onclick="checkPrevDayRpe(true)">V&eacute;rifier maintenant</button>
         </div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:22px">Quand un RPE est envoy&eacute; entre minuit et 16h du lundi au vendredi, une pop-up propose de le rattacher &agrave; la s&eacute;ance de la veille (RPE des 7 derniers jours).</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:22px">Quand un RPE est envoy&eacute; entre minuit et 16h du lundi au vendredi, une pop-up propose de le rattacher &agrave; la s&eacute;ance de la veille (RPE envoy&eacute;s depuis le 17/11/2026).</div>
 
         <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
           <span>Durée des séances — <span id="reglages-date-label"></span></span>
@@ -10121,7 +10121,7 @@ function findPrevDayRpeCandidates() {
   var res = [];
   if (typeof RAW_ROWS === 'undefined' || !RAW_ROWS.length) return res;
   var handled = RPE_OVERRIDES.prevDayHandled || {};
-  var limit = new Date(); limit.setHours(0,0,0,0); limit.setDate(limit.getDate() - 7);
+  var limit = new Date(2026, 10, 17); // RPE pris en compte a partir du 17/11/2026
   for (var i = 1; i < RAW_ROWS.length; i++) {
     var r = RAW_ROWS[i];
     if (!r || r.length < 11 || (r[2]||'').trim() !== 'Rpe') continue;
@@ -10161,7 +10161,7 @@ function checkPrevDayRpe(manual) {
   if (!manual && !RPE_OVERRIDES.prevDayPopup) return;
   PD_CANDIDATES = findPrevDayRpeCandidates();
   if (!PD_CANDIDATES.length) {
-    if (manual) alert('Aucun RPE a rattacher a la veille sur les 7 derniers jours.');
+    if (manual) alert('Aucun RPE a rattacher a la veille.');
     return;
   }
   showPrevDayPopup();
