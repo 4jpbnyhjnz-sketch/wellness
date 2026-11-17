@@ -3597,6 +3597,16 @@ Petit Enzo ; 9</pre>
       </div>
 
       <div id="rpetab-reglages" class="tab-panel">
+        <div class="section-label">Pop-up RPE de la veille</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="prevDayPopupToggle" onchange="togglePrevDayPopup(this.checked)" style="width:18px;height:18px;accent-color:#cc1122">
+            Activer la pop-up
+          </label>
+          <button class="btn-nav" style="width:auto;padding:0 14px;font-size:12px" onclick="checkPrevDayRpe(true)">V&eacute;rifier maintenant</button>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:22px">Quand un RPE est envoy&eacute; entre minuit et 16h du lundi au vendredi, une pop-up propose de le rattacher &agrave; la s&eacute;ance de la veille (RPE des 7 derniers jours).</div>
+
         <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
           <span>Durée des séances — <span id="reglages-date-label"></span></span>
           <button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" onclick="resetReglagesDay()">Réinitialiser ce jour</button>
@@ -9863,7 +9873,9 @@ function loadOverrides() {
       tsFixes: parsed.tsFixes || {},
       srpeExclusions: parsed.srpeExclusions || {},
       week1Starts: Object.assign({}, DEFAULT_WEEK1_STARTS, parsed.week1Starts || {}),
-      weekAbsences: parsed.weekAbsences || {}
+      weekAbsences: parsed.weekAbsences || {},
+      prevDayPopup: !!parsed.prevDayPopup,
+      prevDayHandled: parsed.prevDayHandled || {}
     };
   } catch(e) { return {durations:{}, typeFixes:{}, scoreFixes:{}, tsFixes:{}, srpeExclusions:{}, week1Starts:Object.assign({},DEFAULT_WEEK1_STARTS), weekAbsences:{}}; }
 }
@@ -10092,6 +10104,124 @@ function onSeasonChange() {
   render();
 }
 
+
+// ── Pop-up RPE de la veille ─────────────────────────────────
+// RPE saisi entre 00:00 et 15:59, du lundi au vendredi -> probablement la seance de la veille.
+function _pdParseTs(ts) {
+  var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/.exec(ts || '');
+  if (!m) return null;
+  return new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5]);
+}
+function _pd2(n){ return (n<10?'0':'')+n; }
+function _pdFmtDate(d){ return _pd2(d.getDate())+'/'+_pd2(d.getMonth()+1)+'/'+d.getFullYear(); }
+var _PD_DAYS = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+var PD_CANDIDATES = [];
+
+function findPrevDayRpeCandidates() {
+  var res = [];
+  if (typeof RAW_ROWS === 'undefined' || !RAW_ROWS.length) return res;
+  var handled = RPE_OVERRIDES.prevDayHandled || {};
+  var limit = new Date(); limit.setHours(0,0,0,0); limit.setDate(limit.getDate() - 7);
+  for (var i = 1; i < RAW_ROWS.length; i++) {
+    var r = RAW_ROWS[i];
+    if (!r || r.length < 11 || (r[2]||'').trim() !== 'Rpe') continue;
+    var tsRaw = (r[0]||'').trim();
+    var nom = canonicalName((r[1]||'').trim());
+    if (!nom || nom.toLowerCase() === 'test') continue;
+    var key = tsRaw.split(' ')[0] + '|' + nom + '|' + tsRaw;
+    if (handled[key] || RPE_OVERRIDES.tsFixes[key]) continue;
+    var d = _pdParseTs(tsRaw);
+    if (!d || d < limit) continue;
+    var wd = d.getDay();
+    if (wd === 0 || wd === 6) continue;      // pas le week-end
+    if (d.getHours() >= 16) continue;        // seulement minuit -> 16h
+    var prev = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+    var type = RPE_OVERRIDES.typeFixes[key] || (r[9]||'').trim();
+    var score = RPE_OVERRIDES.scoreFixes[key] != null ? RPE_OVERRIDES.scoreFixes[key] : parseFloat(r[10]);
+    res.push({key:key, n:nom, type:type, score:score, d:d, prev:prev,
+              newTs:_pdFmtDate(prev)+' '+_pd2(d.getHours())+':'+_pd2(d.getMinutes())});
+  }
+  res.sort(function(a,b){ return a.d - b.d || a.n.localeCompare(b.n); });
+  return res;
+}
+
+function togglePrevDayPopup(on) {
+  RPE_OVERRIDES.prevDayPopup = !!on;
+  saveOverrides();
+  if (on) checkPrevDayRpe(true);
+}
+
+function syncPrevDayToggle() {
+  var t = document.getElementById('prevDayPopupToggle');
+  if (t) t.checked = !!RPE_OVERRIDES.prevDayPopup;
+}
+
+function checkPrevDayRpe(manual) {
+  syncPrevDayToggle();
+  if (!manual && !RPE_OVERRIDES.prevDayPopup) return;
+  PD_CANDIDATES = findPrevDayRpeCandidates();
+  if (!PD_CANDIDATES.length) {
+    if (manual) alert('Aucun RPE a rattacher a la veille sur les 7 derniers jours.');
+    return;
+  }
+  showPrevDayPopup();
+}
+
+function showPrevDayPopup() {
+  var old = document.getElementById('pdOverlay'); if (old) old.remove();
+  var rows = PD_CANDIDATES.map(function(c, i) {
+    return '<tr style="border-top:1px solid #eee">'
+      + '<td style="padding:7px 8px"><input type="checkbox" class="pd-chk" data-i="'+i+'" checked style="width:16px;height:16px;accent-color:#cc1122"></td>'
+      + '<td style="padding:7px 8px;font-weight:700">'+c.n+'</td>'
+      + '<td style="padding:7px 8px">'+(c.type||'-')+'</td>'
+      + '<td style="padding:7px 8px;text-align:center;font-weight:700">'+(isNaN(c.score)?'-':c.score)+'</td>'
+      + '<td style="padding:7px 8px;color:#666">'+_PD_DAYS[c.d.getDay()]+' '+_pdFmtDate(c.d).slice(0,5)+' &agrave; '+_pd2(c.d.getHours())+':'+_pd2(c.d.getMinutes())+'</td>'
+      + '<td style="padding:7px 8px;font-weight:700;color:#cc1122">&rarr; '+_PD_DAYS[c.prev.getDay()]+' '+_pdFmtDate(c.prev).slice(0,5)+'</td>'
+      + '</tr>';
+  }).join('');
+  var ov = document.createElement('div');
+  ov.id = 'pdOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;font-family:inherit';
+  ov.innerHTML = '<div style="background:#fff;color:#1a1a1a;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden">'
+    + '<div style="background:linear-gradient(90deg,#1a0204,#8a0d16);color:#fff;padding:16px 20px">'
+    +   '<div style="font-size:17px;font-weight:800">RPE &agrave; rattacher &agrave; la veille ?</div>'
+    +   '<div style="font-size:12px;opacity:.85;margin-top:3px">'+PD_CANDIDATES.length+' RPE envoy&eacute;s entre minuit et 16h en semaine. Coche ceux qui concernent la s&eacute;ance de la veille.</div>'
+    + '</div>'
+    + '<div style="overflow:auto;padding:6px 12px">'
+    +   '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +     '<thead><tr style="text-align:left;font-size:11px;text-transform:uppercase;color:#888">'
+    +       '<th style="padding:8px"><input type="checkbox" id="pdAll" checked onchange="pdToggleAll(this.checked)" style="width:16px;height:16px;accent-color:#cc1122"></th>'
+    +       '<th style="padding:8px">Joueur</th><th style="padding:8px">Type</th><th style="padding:8px">RPE</th><th style="padding:8px">Envoy&eacute;</th><th style="padding:8px">S&eacute;ance</th>'
+    +     '</tr></thead><tbody>'+rows+'</tbody></table>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding:14px 20px;border-top:1px solid #eee;background:#fafafa">'
+    +   '<button onclick="pdClose()" style="padding:9px 16px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#333;font-weight:600;cursor:pointer;font-family:inherit">Plus tard</button>'
+    +   '<button onclick="pdApply()" style="padding:9px 18px;border-radius:8px;border:none;background:#cc1122;color:#fff;font-weight:800;cursor:pointer;font-family:inherit">Valider</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+}
+
+function pdToggleAll(on) {
+  document.querySelectorAll('#pdOverlay .pd-chk').forEach(function(c){ c.checked = on; });
+}
+function pdClose() { var o = document.getElementById('pdOverlay'); if (o) o.remove(); }
+
+// Coches -> deplacees a la veille ; non cochees -> gardees a leur date (ne reviennent plus).
+function pdApply() {
+  if (!RPE_OVERRIDES.prevDayHandled) RPE_OVERRIDES.prevDayHandled = {};
+  var moved = 0;
+  document.querySelectorAll('#pdOverlay .pd-chk').forEach(function(chk) {
+    var c = PD_CANDIDATES[+chk.getAttribute('data-i')];
+    if (!c) return;
+    if (chk.checked) { RPE_OVERRIDES.tsFixes[c.key] = c.newTs; RPE_OVERRIDES.prevDayHandled[c.key] = 'moved'; moved++; }
+    else { RPE_OVERRIDES.prevDayHandled[c.key] = 'kept'; }
+  });
+  saveOverrides();
+  pdClose();
+  if (typeof reprocessData === 'function') reprocessData();
+  if (typeof render === 'function') { try { render(); } catch(e) {} }
+}
+
 async function loadData() {
   setProgress(10,'Connexion au Google Sheet...');
   try {
@@ -10112,6 +10242,7 @@ async function loadData() {
     setProgress(100,'Pret !');
     document.getElementById('stats-badge').textContent=res.total+' entrees · '+ALLDAYS.length+' jours · '+res.roster.length+' joueurs';
     document.getElementById('last-updated').textContent='Mis a jour le '+new Date().toLocaleString('fr-FR');
+    setTimeout(function(){ try { checkPrevDayRpe(false); } catch(e) {} }, 800);
     return true;
   } catch(e) {
     document.getElementById('loader-error').style.display='block';
@@ -10645,6 +10776,7 @@ function switchRpeTab(name) {
   tabBtns.forEach(function(t,i){t.classList.toggle('active',tabs[i]===name);});
   document.querySelectorAll('#view-rpe .tab-panel').forEach(function(p){p.classList.remove('active');});
   document.getElementById('rpetab-'+name).classList.add('active');
+  if (name==='reglages' && typeof syncPrevDayToggle==='function') syncPrevDayToggle();
   if (name==='individuel') { buildRpePlayerSelect(); renderRpeIndiv(); }
   if (name==='semaine') renderRpeSemaine();
   if (name==='srpe') setTimeout(renderSrpeChart, 50);
