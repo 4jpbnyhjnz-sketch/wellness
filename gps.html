@@ -30,7 +30,7 @@ window.NISSA_ID_ARRAY_KEYS = ['gpsSavedSessions_v1', 'gpsSavedMatches_v1', 'niss
   window.nissaGetDirty = function () { return readJSON('nissaSyncDirty_v1', {}) || {}; };
   window.nissaMarkDirty = function (k) {
     var d = window.nissaGetDirty(); d[k] = Date.now();
-    rawSet.call(localStorage, 'nissaSyncDirty_v1', JSON.stringify(d));
+    setWithRoom(localStorage, 'nissaSyncDirty_v1', JSON.stringify(d));
     if (typeof window.nissaOnLocalChange === 'function') { try { window.nissaOnLocalChange(k); } catch (e) {} }
   };
   function idsOf(raw) {
@@ -47,10 +47,56 @@ window.NISSA_ID_ARRAY_KEYS = ['gpsSavedSessions_v1', 'gpsSavedMatches_v1', 'niss
     Object.keys(b).forEach(function (id) { if (!a[id] && del[k + ':' + id]) { delete del[k + ':' + id]; ch = true; } });
     if (ch) { rawSet.call(localStorage, 'gpsDeletedIds_v1', JSON.stringify(del)); window.nissaMarkDirty('gpsDeletedIds_v1'); }
   }
+  // Copies de secours locales : elles ne doivent JAMAIS empecher l'enregistrement
+  // d'une vraie donnee. Si le stockage est plein, on les supprime et on reessaie.
+  var BACKUP_LS_KEYS = ['nissaDailyBackup_v1', 'nissaPreRestoreBackup_v1'];
+  function setWithRoom(store, k, v) {
+    try { return rawSet.call(store, k, v); }
+    catch (e) {
+      if (BACKUP_LS_KEYS.indexOf(k) !== -1) throw e;
+      var freed = false;
+      BACKUP_LS_KEYS.forEach(function (b) { if (store.getItem(b) !== null) { rawRemove.call(store, b); freed = true; } });
+      if (!freed) {
+        if (typeof window.showGlobalSyncWarning === 'function') { try { window.showGlobalSyncWarning("- stockage local plein : une modification n'a PAS ete enregistree sur cet appareil."); } catch (e2) {} }
+        throw e;
+      }
+      console.warn('Stockage plein : copies de secours locales supprimees pour enregistrer', k);
+      return rawSet.call(store, k, v);
+    }
+  }
+  // Garde-fou « jamais d'effacement involontaire » sur les listes avec id
+  // (seances, matchs, tests, rapports) : une ecriture qui ferait disparaitre
+  // TOUT le contenu precedent (liste vide, valeur illisible, ou liste chargee
+  // vide apres un echec de lecture puis re-sauvee) n'est pas une suppression
+  // volontaire. Les suppressions volontaires passent par markDeleted (ou
+  // retirent seulement une partie de la liste). Dans ce cas, on GARDE les
+  // anciens elements et on ajoute les nouveaux.
+  function guardIdArrayWrite(k, prev, v) {
+    if (window.NISSA_ID_ARRAY_KEYS.indexOf(k) === -1 || !prev) return v;
+    var oldArr, newArr;
+    try { oldArr = JSON.parse(prev); } catch (e) { return v; }
+    if (!Array.isArray(oldArr) || !oldArr.length) return v;
+    try { newArr = JSON.parse(v); } catch (e) { newArr = null; }
+    var del = readJSON('gpsDeletedIds_v1', {}) || {};
+    var newIds = Array.isArray(newArr) ? idsOf(v) : {};
+    var lost = oldArr.filter(function (it) {
+      if (!it || it.id === undefined || it.id === null) return false;
+      var id = String(it.id);
+      return !newIds[id] && !del[k + ':' + id];
+    });
+    var oldWithId = oldArr.filter(function (it) { return it && it.id !== undefined && it.id !== null; }).length;
+    var wipesAll = !Array.isArray(newArr) || (lost.length >= 2 && lost.length === oldWithId);
+    if (!wipesAll || !lost.length) return v;
+    console.warn('[Nissa] Ecriture bloquee : elle aurait efface ' + lost.length + ' element(s) de ' + k + ' sans suppression explicite. Anciens elements conserves.');
+    window.__nissaBlockedWipes = (window.__nissaBlockedWipes || 0) + 1;
+    setTimeout(function () { try { if (typeof reloadAllVariablesAndRerender === 'function') reloadAllVariablesAndRerender(); } catch (e) {} }, 0);
+    return JSON.stringify(lost.concat(Array.isArray(newArr) ? newArr : []));
+  }
   proto.setItem = function (k, v) {
-    if (this !== window.localStorage || window.__nissaSyncApplying || window.NISSA_SYNC_KEYS.indexOf(k) === -1) return rawSet.call(this, k, v);
-    var prev = this.getItem(k); v = String(v);
-    rawSet.call(this, k, v);
+    if (this !== window.localStorage || window.NISSA_SYNC_KEYS.indexOf(k) === -1) return rawSet.call(this, k, v);
+    if (window.__nissaSyncApplying) return setWithRoom(this, k, String(v));
+    var prev = this.getItem(k); v = guardIdArrayWrite(k, prev, String(v));
+    setWithRoom(this, k, v);
     if (prev !== v) { trackDeletions(k, prev, v); window.nissaMarkDirty(k); }
   };
   proto.removeItem = function (k) {
@@ -2487,7 +2533,9 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
     <span id="globalSyncText">Synchro…</span>
   </div>
   <button class="no-print" onclick="forceSyncLoad()" title="Forcer le rechargement des données depuis le cloud (utile sur un nouvel appareil)" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">⬇️</button>
-  <button class="no-print" onclick="restoreLocalBackup()" title="Restaurer la sauvegarde locale prise juste avant le dernier chargement cloud (annuler un écrasement accidentel)" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">🕒</button>
+  <button class="no-print" onclick="restoreLocalBackup()" title="Restaurer une copie de secours locale (prise avant le dernier chargement cloud, ou copie automatique du jour) — fusion, rien n'est effacé" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">🕒</button>
+  <button class="no-print" id="nissaExportBackupBtn" onclick="nissaExportFullBackup()" title="Sauvegarde complète : télécharger un fichier avec TOUTES les données (tests, séances, matchs, profils, médical, RPE…)" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">💾</button>
+  <button class="no-print" id="nissaImportBackupBtn" onclick="nissaPickBackupFile()" title="Importer une sauvegarde : ajoute les données d'un fichier de sauvegarde (fusion, rien n'est effacé)" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">📥</button>
   <button class="no-print" onclick="recoverStoredPdfs()" title="Retélécharger les PDF de séances encore présents sur cet appareil" style="background:none;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:5px 10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit">📄</button>
   <div id="logoutBtn" style="display:none;align-items:center;gap:8px">
     <span id="userLabel" style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.05em"></span>
@@ -3456,7 +3504,7 @@ Petit Enzo ; 9</pre>
         <button class="tab-btn" onclick="switchRpeTab('individuel')">&#128100; Individuel</button>
         <button class="tab-btn" onclick="switchRpeTab('semaine')">&#128197; Semaine</button>
         <button class="tab-btn" onclick="switchRpeTab('srpe')">&#128202; sRPE hebdomadaire</button>
-        <button class="tab-btn" onclick="switchRpeTab('reglages')">&#9881;&#65039; Reglages seance</button>
+        <button class="tab-btn" onclick="switchRpeTab('reglages')">&#9881;&#65039; R&eacute;glages s&eacute;ance</button>
       </div>
 
       <div id="rpetab-joueurs" class="tab-panel active">
@@ -3572,7 +3620,7 @@ Petit Enzo ; 9</pre>
       <div id="rpetab-srpe" class="tab-panel">
         <div class="rpe-top-row">
           <div class="rpe-summary-card">
-            <div class="rpe-summary-label">sRPE semaine en cours</div>
+            <div class="rpe-summary-label">sRPE dernière semaine saisie</div>
             <div class="rpe-summary-value" id="srpe-current-week">–</div>
           </div>
           <div class="rpe-summary-card">
@@ -3611,7 +3659,7 @@ Petit Enzo ; 9</pre>
           <span>Durée des séances — <span id="reglages-date-label"></span></span>
           <button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" onclick="resetReglagesDay()">Réinitialiser ce jour</button>
         </div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Ces réglages sont enregistrés dans ce navigateur uniquement.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Ces réglages sont enregistrés sur cet appareil et envoyés au cloud avec la synchronisation.</div>
         <div class="rpe-session-table-wrap">
           <table class="rpe-session-table">
             <thead><tr><th>Type de séance</th><th>Durée par défaut</th><th>Durée personnalisée (min)</th><th>Exclure du sRPE</th><th></th></tr></thead>
@@ -3620,12 +3668,12 @@ Petit Enzo ; 9</pre>
         </div>
 
         <div class="section-label" style="margin-top:24px">Correction en masse (par type)</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Change en une seule fois le type de tous les joueurs ayant note un type donne ce jour-la.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Change en une seule fois le type de tous les joueurs ayant not&eacute; un type donn&eacute; ce jour-l&agrave;.</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">
           <select id="bulk-type-from" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-family:var(--font)" onchange="updateBulkTypeCount()"></select>
           <span style="color:var(--text2)">&#8594;</span>
           <select id="bulk-type-to" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-family:var(--font)"></select>
-          <button class="btn-nav" style="width:auto;padding:0 14px;font-size:12px" onclick="applyBulkTypeFix()">Appliquer a tous</button>
+          <button class="btn-nav" style="width:auto;padding:0 14px;font-size:12px" onclick="applyBulkTypeFix()">Appliquer &agrave; tous</button>
           <span id="bulk-type-count" style="font-size:12px;color:var(--text2)"></span>
         </div>
 
@@ -3874,14 +3922,15 @@ Petit Enzo ; 9</pre>
       <div class="perf-form-row" style="margin-bottom:10px">
         <div style="font-size:12px;color:rgba(255,255,255,.4);line-height:1.6">
           Format attendu : colonnes <strong style="color:#fff">DATES | TEST | VALEURS | NOMS</strong> (ou Joueur/Date/Test/Valeur)<br>
-          Tests reconnus : 10m, 20m, 30m, 50m, Yoyo, Bronco, DC, Back squat, Clean, CMJ, SJ, BJ/SDT, Traction, Vmax…
+          Tests reconnus : 10m, 20m, 30m, 50m, Yoyo, Bronco, DC, Back squat, Clean, CMJ, SJ, BJ/SDT, Traction, Vmax, Taille, Poids, Masse grasse (% MG)…<br>
+          Dates : jj/mm/aaaa ou date Excel · réimporter le même fichier ne crée pas de doublons.
         </div>
       </div>
       <div class="xlsx-drop" id="xlsxDrop" onclick="document.getElementById('xlsxInput').click()"
            ondragover="event.preventDefault();this.classList.add('drag')"
            ondragleave="this.classList.remove('drag')"
            ondrop="handleXlsxDrop(event)">
-        <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" hidden onchange="handleXlsxFile(this.files[0])">
+        <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" hidden onchange="handleXlsxFile(this.files[0]);this.value=''">
         <div class="xlsx-drop-icon">📁</div>
         <div class="xlsx-drop-text">Déposez votre fichier Excel ici</div>
         <div class="xlsx-drop-sub">ou cliquez pour parcourir (.xlsx / .xls / .csv)</div>
@@ -4524,10 +4573,19 @@ function renderExcludedPlayersBar() {
 
 function parseFrenchNumber(raw) {
   if (raw === undefined || raw === null) return 0;
-  const cleaned = String(raw).trim().replace(/"/g, "");
+  // Espaces (y compris insécables) utilisés comme séparateurs de milliers : "1 234,5"
+  let cleaned = String(raw).trim().replace(/"/g, "").replace(/[\s\u00A0\u202F]/g, "");
   if (cleaned === "") return 0;
-  const num = parseFloat(cleaned.replace(",", "."));
-  return Number.isNaN(num) ? 0 : num;
+  // "1.234,56" (milliers à point + décimale à virgule) -> "1234.56"
+  if (cleaned.indexOf(",") !== -1 && cleaned.indexOf(".") !== -1) {
+    cleaned = cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")
+      ? cleaned.replace(/\./g, "").replace(",", ".")
+      : cleaned.replace(/,/g, "");
+  } else {
+    cleaned = cleaned.replace(",", ".");
+  }
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : 0;
 }
 
 // Convertit "hh:mm:ss" en minutes décimales, pour recalculer le m/min nous-mêmes
@@ -4546,16 +4604,20 @@ function parseDurationToMinutes(raw) {
   return 0;
 }
 
-function splitCsvLine(line) {
-  // Le séparateur est ";" et certains champs sont entourés de guillemets.
+function splitCsvLine(line, sep) {
+  // Le séparateur est ";" (export Catapult) — ou "," / tabulation si le
+  // fichier a été ré-enregistré depuis Excel/Numbers — et certains champs
+  // sont entourés de guillemets ("" = guillemet littéral).
+  sep = sep || ";";
   const cells = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (ch === '"') {
-      inQuotes = !inQuotes;
-    } else if (ch === ";" && !inQuotes) {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === sep && !inQuotes) {
       cells.push(current);
       current = "";
     } else {
@@ -4572,26 +4634,42 @@ function splitCsvLine(line) {
  *  - rows: tableau d'objets { player, periodName, distance, vmax, ... }
  */
 function parseCsv(text) {
-  const cleanText = text.replace(/^\uFEFF/, ""); // retire le BOM en début de fichier
-  const lines = cleanText.split(/\r\n|\n|\r/).filter((l) => l.trim() !== "");
+  const cleanText = String(text || "").replace(/^\uFEFF/, ""); // retire le BOM en début de fichier
+  const lines = cleanText.split(/\r\n|\n|\r/).filter((l) => l.trim() !== "" && l.replace(/[;,\t"\s]/g, "") !== "");
 
-  const meta = { date: null, durationSeconds: null };
+  // Séparateur : celui de la ligne d'en-tête "Player Name" (";" chez Catapult,
+  // "," ou tabulation après un passage par Excel/Numbers).
+  let sep = ";";
+  const headerLine = lines.find((l) => /^\s*"?player name"?\s*[;,\t]/i.test(l.replace(/^\uFEFF/, "")));
+  if (headerLine) {
+    const m = /^\s*"?player name"?\s*([;,\t])/i.exec(headerLine);
+    if (m) sep = m[1];
+  }
+
+  const meta = { date: null, durationSeconds: null, startTime: null, unixStart: null };
   let headerIndex = -1;
   let headerCells = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const cells = splitCsvLine(lines[i]);
-    const firstCell = cells[0].replace(/"/g, "");
+    const cells = splitCsvLine(lines[i], sep);
+    const firstCell = (cells[0] || "").replace(/"/g, "").trim();
+    const firstLower = firstCell.toLowerCase();
 
-    if (firstCell.toLowerCase().startsWith("date")) {
-      meta.date = cells[1];
+    if (firstLower.startsWith("date") && cells[1]) {
+      meta.date = cells[1].replace(/"/g, "").trim();
     }
-    if (firstCell.toLowerCase().startsWith("duration")) {
+    if (firstLower.startsWith("duration")) {
       meta.durationSeconds = parseFrenchNumber(cells[1]);
     }
-    if (firstCell === "Player Name") {
+    if (firstLower.startsWith("start time") && cells[1]) {
+      meta.startTime = cells[1].replace(/"/g, "").trim();
+    }
+    if (firstLower.startsWith("unix start time") && cells[1]) {
+      meta.unixStart = cells[1].replace(/"/g, "").trim();
+    }
+    if (firstLower === "player name") {
       headerIndex = i;
-      headerCells = cells.map((c) => c.replace(/"/g, ""));
+      headerCells = cells.map((c) => c.replace(/"/g, "").trim());
       break;
     }
   }
@@ -4602,31 +4680,37 @@ function parseCsv(text) {
     );
   }
 
-  // index de chaque colonne utile
+  // index de chaque colonne utile (comparaison insensible à la casse)
+  const headerLower = headerCells.map((c) => c.toLowerCase());
   const colIndex = {};
   Object.entries(COLUMN_MAP).forEach(([key, columnName]) => {
-    colIndex[key] = headerCells.indexOf(columnName);
+    colIndex[key] = headerLower.indexOf(columnName.toLowerCase());
   });
 
+  // Seules les colonnes indispensables bloquent l'import ; une autre colonne
+  // absente (export configuré différemment) est remplie à 0 et signalée.
+  const REQUIRED_KEYS = ["player", "periodName", "duration", "distance"];
   const missing = Object.entries(colIndex)
     .filter(([, idx]) => idx === -1)
     .map(([key]) => key);
-  if (missing.length) {
+  const missingRequired = missing.filter((k) => REQUIRED_KEYS.indexOf(k) !== -1);
+  if (missingRequired.length) {
     throw new Error(
       "Colonnes manquantes dans le CSV : " +
-        missing.map((k) => COLUMN_MAP[k]).join(", ") +
-        ". Vérifiez COLUMN_MAP dans app.js."
+        missingRequired.map((k) => COLUMN_MAP[k]).join(", ") +
+        ". Vérifiez que l'export Catapult utilise bien le modèle de rapport habituel."
     );
   }
+  meta.missingColumns = missing.map((k) => COLUMN_MAP[k]);
 
   const rows = [];
   for (let i = headerIndex + 1; i < lines.length; i++) {
-    const cells = splitCsvLine(lines[i]).map((c) => c.replace(/"/g, ""));
+    const cells = splitCsvLine(lines[i], sep).map((c) => c.replace(/"/g, "").trim());
     if (!cells[colIndex.player]) continue;
 
     rows.push({
       player: cells[colIndex.player],
-      periodName: cells[colIndex.periodName],
+      periodName: cells[colIndex.periodName] || "",
       durationMinutes: parseDurationToMinutes(cells[colIndex.duration]),
       distance: parseFrenchNumber(cells[colIndex.distance]),
       vmax: parseFrenchNumber(cells[colIndex.vmax]),
@@ -4925,7 +5009,40 @@ let aliasMap = {};
 function resolveOfficialName(csvName) {
   if (aliasMap[csvName] && roster[aliasMap[csvName]]) return aliasMap[csvName];
   if (roster[csvName]) return csvName;
-  return null;
+  return findRosterNameLoose(csvName);
+}
+
+// Normalise un nom pour comparaison : minuscules, sans accents, espaces /
+// tirets unifiés ("Berthaud-Massé" == "berthaud masse").
+function normalizePlayerKey(name) {
+  return String(name || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[-_.\s]+/g, " ").trim();
+}
+
+// Même nom au détail près (casse, accents, tiret) : "keven Orthosie" ->
+// "Keven Orthosie". Renvoie null si aucun ou plusieurs joueurs correspondent.
+function findRosterNameLoose(csvName) {
+  const key = normalizePlayerKey(csvName);
+  if (!key) return null;
+  const hits = Object.keys(roster).filter((n) => normalizePlayerKey(n) === key);
+  return hits.length === 1 ? hits[0] : null;
+}
+
+// Suggestion d'association Catapult -> listing pro par nom de famille :
+// "Aston Faucher" -> "Faucher" (ou "Faucher Aston"). Seulement si un seul
+// joueur du listing correspond, sinon null (l'association reste manuelle).
+function suggestRosterName(csvName) {
+  const exact = roster[csvName] ? csvName : findRosterNameLoose(csvName);
+  if (exact) return exact;
+  const padded = " " + normalizePlayerKey(csvName) + " ";
+  if (padded.trim() === "") return null;
+  const hits = Object.keys(roster).filter((n) => {
+    const k = normalizePlayerKey(n);
+    if (!k || k.length < 3) return false;
+    return padded.endsWith(" " + k + " ") || padded.startsWith(" " + k + " ");
+  });
+  return hits.length === 1 ? hits[0] : null;
 }
 
 function setAlias(csvName, officialName) {
@@ -5208,24 +5325,57 @@ function saveSeasonRecords(records) {
 let seasonRecords = loadSeasonRecords();
 let lastBrokenRecords = [];
 
+// Plafonds de plausibilité : au-delà, la valeur est presque toujours un pic
+// GPS (perte de signal, boîtier secoué...) et ne doit pas devenir le record
+// de saison sans vérification. Elle reste visible dans le tableau de la
+// séance, mais n'est PAS reprise comme record (saisie manuelle toujours possible).
+const GPS_VMAX_PLAUSIBLE_MAX = 40;   // km/h
+const GPS_ACCEL_PLAUSIBLE_MAX = 6.5; // m/s²
+function isPlausibleGpsRecord(key, value) {
+  const v = Number(value);
+  if (!Number.isFinite(v) || v <= 0) return false;
+  if (key === "vmax") return v <= GPS_VMAX_PLAUSIBLE_MAX;
+  if (key === "accel" || key === "accelMax") return v <= GPS_ACCEL_PLAUSIBLE_MAX;
+  return true;
+}
+// Texte lisible des pics écartés, pour les messages de confirmation.
+function formatIgnoredRecordSpikes(list) {
+  if (!list || !list.length) return "";
+  return "\n⚠ Pic(s) GPS non retenu(s) comme record (valeur peu plausible, à vérifier) : " +
+    list.map((x) => x.name + " " + (x.key === "vmax" ? "VMAX " + fmt(x.value, 2) + " km/h" : "accel " + fmt(x.value, 2) + " m/s²")).join(", ");
+}
+
 function updateSeasonRecordsWithSession(allPlayers) {
   setTimeout(function(){ try { syncGpsVmaxToTests(); } catch (e) {} }, 0);
   const broken = [];
+  const ignored = [];
   allPlayers.forEach((s) => {
     const name = s.displayName || s.player;
+    if (!name) return;
     if (!seasonRecords[name]) seasonRecords[name] = { vmax: 0, accel: 0 };
     let didBreak = false;
-    if (s.vmax > seasonRecords[name].vmax) {
-      seasonRecords[name].vmax = Math.round(s.vmax * 100) / 100;
-      didBreak = true;
+    const vmax = Number(s.vmax) || 0;
+    const accel = Number(s.accelMax) || 0;
+    if (vmax > (Number(seasonRecords[name].vmax) || 0)) {
+      if (isPlausibleGpsRecord("vmax", vmax)) {
+        seasonRecords[name].vmax = Math.round(vmax * 100) / 100;
+        didBreak = true;
+      } else {
+        ignored.push({ name, key: "vmax", value: vmax });
+      }
     }
-    if (s.accelMax > seasonRecords[name].accel) {
-      seasonRecords[name].accel = Math.round(s.accelMax * 100) / 100;
-      didBreak = true;
+    if (accel > (Number(seasonRecords[name].accel) || 0)) {
+      if (isPlausibleGpsRecord("accel", accel)) {
+        seasonRecords[name].accel = Math.round(accel * 100) / 100;
+        didBreak = true;
+      } else {
+        ignored.push({ name, key: "accel", value: accel });
+      }
     }
     if (didBreak) broken.push(name);
   });
   saveSeasonRecords(seasonRecords);
+  broken.ignored = ignored; // pics écartés, affichés par l'appelant
   return broken;
 }
 
@@ -5237,6 +5387,14 @@ function setPlayerRecord(name, key, value) {
   // Un record qui baisse est presque toujours une faute de frappe plutôt
   // qu'une vraie correction — on demande confirmation avant de l'appliquer,
   // pour qu'une valeur juste ne puisse plus disparaître par erreur de saisie.
+  if (newVal > 0 && !isPlausibleGpsRecord(key, newVal)) {
+    var okHigh = confirm(
+      (key === "vmax" ? "VMAX" : "Accel max") + " de " + newVal + " pour " + name +
+      " dépasse le seuil de plausibilité (" + (key === "vmax" ? fmt(GPS_VMAX_PLAUSIBLE_MAX, 0) + " km/h" : fmt(GPS_ACCEL_PLAUSIBLE_MAX, 1) + " m/s²") +
+      "). Enregistrer quand même ce record ?"
+    );
+    if (!okHigh) { renderRecordsTab(); return; }
+  }
   if (newVal < oldVal) {
     var label = key === "vmax" ? "VMAX" : "Accel max";
     var ok = confirm(
@@ -5281,13 +5439,16 @@ function renderRecordsTab() {
 
   sorted.forEach((name) => {
     const justBroke = lastBrokenRecords.includes(name);
+    const recEntry = seasonRecords[name] || {};
+    const suspicious = (Number(recEntry.vmax) > 0 && !isPlausibleGpsRecord("vmax", recEntry.vmax)) ||
+      (Number(recEntry.accel) > 0 && !isPlausibleGpsRecord("accel", recEntry.accel));
 
     const details = document.createElement("details");
     details.className = "saved-session";
 
     const summary = document.createElement("summary");
     if (justBroke) summary.classList.add("record-broken-summary");
-    summary.textContent = name + (justBroke ? " 🌟 nouveau record !" : "");
+    summary.textContent = name + (justBroke ? " 🌟 nouveau record !" : "") + (suspicious ? " ⚠ record à vérifier" : "");
     details.appendChild(summary);
 
     const body = document.createElement("div");
@@ -5302,12 +5463,14 @@ function renderRecordsTab() {
     // l'ouverture de cet onglet avec un effectif complet.
     const history = getPlayerHistory(name);
     if (!seasonRecords[name]) { seasonRecords[name] = { vmax: 0, accel: 0 }; anyRecordFixed = true; }
+    // Les pics peu plausibles (ex. accel 7,16) de l'historique sont ignorés ici
+    // aussi, sinon ils redeviendraient le record à chaque ouverture de l'onglet.
     history.forEach((h) => {
-      if (h.vmax > seasonRecords[name].vmax) {
+      if (h.vmax > seasonRecords[name].vmax && isPlausibleGpsRecord("vmax", h.vmax)) {
         seasonRecords[name].vmax = Math.round(h.vmax * 100) / 100;
         anyRecordFixed = true;
       }
-      if (h.accelMax > seasonRecords[name].accel) {
+      if (h.accelMax > seasonRecords[name].accel && isPlausibleGpsRecord("accel", h.accelMax)) {
         seasonRecords[name].accel = Math.round(h.accelMax * 100) / 100;
         anyRecordFixed = true;
       }
@@ -5340,6 +5503,16 @@ function renderRecordsTab() {
         unitEl.className = "podium-label";
         unitEl.textContent = unit;
         card.appendChild(unitEl);
+      }
+      // Record enregistré au-delà du seuil de plausibilité : signalé, pas modifié.
+      const recVal = Number(seasonRecords[name][key]) || 0;
+      if (recVal > 0 && !isPlausibleGpsRecord(key, recVal)) {
+        const warn = document.createElement("div");
+        warn.className = "podium-label";
+        warn.style.color = "#c1121f";
+        warn.style.fontWeight = "bold";
+        warn.textContent = "⚠ valeur peu plausible (> " + (key === "vmax" ? fmt(GPS_VMAX_PLAUSIBLE_MAX, 0) + " km/h" : fmt(GPS_ACCEL_PLAUSIBLE_MAX, 1) + " m/s²") + ") — pic GPS ? À vérifier et corriger à la main";
+        card.appendChild(warn);
       }
       return card;
     }
@@ -5441,9 +5614,11 @@ function initRecordsUI() {
       try {
         const imported = JSON.parse(ev.target.result);
         Object.entries(imported).forEach(([name, vals]) => {
+          if (!vals || typeof vals !== "object") return;
           if (!seasonRecords[name]) seasonRecords[name] = { vmax: 0, accel: 0 };
-          seasonRecords[name].vmax = Math.max(seasonRecords[name].vmax, vals.vmax || 0);
-          seasonRecords[name].accel = Math.max(seasonRecords[name].accel, vals.accel || 0);
+          const iv = Number(vals.vmax) || 0, ia = Number(vals.accel) || 0;
+          if (isPlausibleGpsRecord("vmax", iv)) seasonRecords[name].vmax = Math.max(seasonRecords[name].vmax, iv);
+          if (isPlausibleGpsRecord("accel", ia)) seasonRecords[name].accel = Math.max(seasonRecords[name].accel, ia);
         });
         saveSeasonRecords(seasonRecords);
         renderRecordsTab();
@@ -5689,7 +5864,7 @@ function groupPlayers(stats) {
     const pctVmax = (rec && rec.vmax > 0 && s.vmax != null) ? (s.vmax / rec.vmax) * 100 : null;
     const pctAccelMax = (rec && rec.accel > 0 && s.accelMax != null) ? (s.accelMax / rec.accel) * 100 : null;
     const withPct = { ...s, pctVmax, pctAccelMax };
-    if (official && roster[official]) {
+    if (official && roster[official] && groups[roster[official]]) {
       groups[roster[official]].push({ ...withPct, officialName: official, displayName: official });
     } else {
       groups["Non classé"].push({ ...withPct, displayName: s.player });
@@ -5744,8 +5919,8 @@ function findLeader(stats, key, lowerIsBetter) {
    ------------------------------------------------------------------------- */
 
 function fmt(value, decimals) {
-  if (value === null || value === undefined || isNaN(value)) return "—";
-  return value.toLocaleString("fr-FR", {
+  if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "—";
+  return Number(value).toLocaleString("fr-FR", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
@@ -5933,7 +6108,14 @@ function renderGroupTable(groupName, stats, opts) {
         const playerName = s.displayName || s.player;
         const rec = seasonRecords[playerName];
         const recKey = col.key === "vmax" ? "vmax" : "accel";
-        if (rec && rec[recKey] > 0 && s[col.key] >= rec[recKey]) {
+        if (s[col.key] > 0 && !isPlausibleGpsRecord(recKey, s[col.key])) {
+          // Pic GPS peu plausible : signalé, jamais compté comme record.
+          const warn = document.createElement("span");
+          warn.className = "record-star";
+          warn.textContent = " ⚠";
+          warn.title = "Valeur peu plausible (pic GPS ?) — non retenue comme record de saison";
+          td.appendChild(warn);
+        } else if (rec && rec[recKey] > 0 && s[col.key] >= rec[recKey]) {
           const star = document.createElement("span");
           star.className = "record-star";
           star.textContent = " ⭐";
@@ -5946,7 +6128,11 @@ function renderGroupTable(groupName, stats, opts) {
         td.classList.add("editable-cell");
         td.setAttribute("contenteditable", "true");
         td.setAttribute("spellcheck", "false");
+        // Simple clic sans modification : on ne crée pas de correction manuelle
+        // (sinon la valeur affichée, arrondie, remplaçait la vraie valeur).
+        const originalText = td.textContent;
         td.addEventListener("blur", () => {
+          if (td.textContent === originalText) return;
           const parsed = parseFrenchNumber(td.textContent);
           if (options.onEdit) {
             options.onEdit(s.player, col.key, parsed);
@@ -6339,7 +6525,7 @@ const HALF_PERIOD_NAMES = [
 ];
 
 function isHalfPeriod(name) {
-  return HALF_PERIOD_NAMES.some(h => name.toLowerCase().trim() === h);
+  return HALF_PERIOD_NAMES.some(h => String(name || "").toLowerCase().trim() === h);
 }
 
 function buildMatchPlayerStats(rows) {
@@ -6357,7 +6543,7 @@ function buildMatchPlayerStats(rows) {
 }
 
 function buildMatchHalfStats(rows, halfPeriod) {
-  const halfRows = rows.filter(r => r.periodName.toLowerCase().trim() === halfPeriod.toLowerCase().trim());
+  const halfRows = rows.filter(r => String(r.periodName || "").toLowerCase().trim() === halfPeriod.toLowerCase().trim());
   return halfRows.map(r => {
     const pctHi = r.distance > 0 ? (r.dist18 * 100) / r.distance : 0;
     const pctMarche = r.distance > 0 ? (r.marche * 100) / r.distance : 0;
@@ -6374,7 +6560,7 @@ function groupMatchPlayers(stats) {
   const groups = { "3/4": [], Avant: [], "Non classé": [] };
   stats.forEach(s => {
     const alias = matchAliasMap[s.player];
-    const official = alias ? alias.officialName : (roster[s.player] ? s.player : null);
+    const official = alias ? alias.officialName : (roster[s.player] ? s.player : findRosterNameLoose(s.player));
     const recordName = official || s.player;
     const rec = seasonRecords[recordName];
     const pctVmax = (rec && rec.vmax > 0 && s.vmax != null) ? (s.vmax / rec.vmax) * 100 : null;
@@ -6383,7 +6569,10 @@ function groupMatchPlayers(stats) {
     if (official && roster[official]) {
       const grp = roster[official];
       const pos = (alias && alias.position) || rosterPositions[official] || "";
+      // Groupe inconnu dans le listing (ex. valeur corrompue) : le joueur reste
+      // visible dans "Non classé" au lieu de disparaître du rapport.
       if (groups[grp]) groups[grp].push({ ...withPct, officialName: official, displayName: official, position: pos });
+      else groups["Non classé"].push({ ...withPct, displayName: s.player, position: "" });
     } else {
       groups["Non classé"].push({ ...withPct, displayName: s.player, position: "" });
     }
@@ -6485,6 +6674,7 @@ function renderMatchGroupTable(groupName, stats) {
       const isLeader = leaders[col.key] && (leaders[col.key].displayName || leaders[col.key].player) === (s.displayName || s.player);
       const met = OBJECTIVE_KEYS.has(col.key) ? (getMatchObjective(s.position, col.key) !== null ? s[col.key] >= getMatchObjective(s.position, col.key) : null) : null;
       const isRecord = (col.key === "vmax" || col.key === "accelMax") && s.displayName && seasonRecords[s.displayName] &&
+        isPlausibleGpsRecord(col.key, s[col.key]) &&
         s[col.key] > 0 && (col.key === "vmax" ? s[col.key] >= seasonRecords[s.displayName].vmax && seasonRecords[s.displayName].vmax > 0 : s[col.key] >= seasonRecords[s.displayName].accel && seasonRecords[s.displayName].accel > 0);
 
       const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
@@ -6580,6 +6770,7 @@ function renderMatchGroupTableReadonly(groupName, sortedStats) {
         ? (getMatchObjective(s.position, col.key) !== null ? s[col.key] >= getMatchObjective(s.position, col.key) : null)
         : null;
       const isRecord = (col.key === "vmax" || col.key === "accelMax") && s.displayName && seasonRecords[s.displayName] &&
+        isPlausibleGpsRecord(col.key, s[col.key]) &&
         s[col.key] > 0 && (col.key === "vmax" ? s[col.key] >= seasonRecords[s.displayName].vmax && seasonRecords[s.displayName].vmax > 0 : s[col.key] >= seasonRecords[s.displayName].accel && seasonRecords[s.displayName].accel > 0);
       const colMax = leaders[col.key] ? leaders[col.key][col.key] : 0;
       const pct = colMax > 0 ? Math.min(100, Math.max(0, (s[col.key] / colMax) * 100)) : 0;
@@ -6750,6 +6941,11 @@ function renderMatchAssignmentBox(unclassified) {
       datalist.appendChild(opt);
     });
 
+    // Pré-remplit avec le joueur du listing qui porte ce nom de famille
+    // ("Aston Faucher" -> "Faucher"), à confirmer avec « ✓ Associer ».
+    const suggested = suggestRosterName(s.player);
+    if (suggested) inputPlayer.value = suggested;
+
     const selectPos = document.createElement("select");
     selectPos.style.cssText = "flex:0 0 180px;padding:6px;border:1px solid #ccc;border-radius:4px;";
     const blankPos = document.createElement("option");
@@ -6768,6 +6964,7 @@ function renderMatchAssignmentBox(unclassified) {
       });
       selectPos.appendChild(optGroup);
     });
+    if (suggested && rosterPositions[suggested]) selectPos.value = rosterPositions[suggested];
 
     const confirmBtn = document.createElement("button");
     confirmBtn.type = "button";
@@ -6928,8 +7125,10 @@ function handleMatchFile(file) {
     try {
       const { meta, rows } = parseCsv(e.target.result);
       matchAliasMap = {};
+      matchManualGreen = {}; // surlignages manuels propres au match précédent
       matchLastParsed = { meta, rows };
       renderMatchReport(rows, meta);
+      warnCsvImportIssues(meta, rows);
     } catch (err) {
       alert("Erreur de lecture du CSV : " + err.message);
     }
@@ -6945,7 +7144,7 @@ function initMatchTab() {
 
   browseBtn.addEventListener("click", () => fileInput.click());
   dropZone.addEventListener("click", e => { if (e.target.id !== "matchBrowseBtn") fileInput.click(); });
-  fileInput.addEventListener("change", e => { if (e.target.files[0]) handleMatchFile(e.target.files[0]); });
+  fileInput.addEventListener("change", e => { if (e.target.files[0]) handleMatchFile(e.target.files[0]); e.target.value = ""; });
 
   ["dragenter", "dragover"].forEach(evt =>
     dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add("dragover"); })
@@ -6969,8 +7168,11 @@ function loadSavedMatches() {
     const list = raw ? JSON.parse(raw) : [];
     // Matchs enregistrés avant l'ajout du choix de catégorie : Espoir par défaut
     // (Crabos si le nom du club l'indique).
-    list.forEach((m) => { if (!m.category) m.category = /crabos/i.test(m.club || "") ? "Crabos" : "Espoir"; });
-    return list;
+    if (!Array.isArray(list)) return [];
+    const clean = list.filter((m) => m && typeof m === "object");
+    clean.forEach((m) => { if (!m.category) m.category = /crabos/i.test(m.club || "") ? "Crabos" : "Espoir"; });
+    clean.forEach(ensureGpsGroups);
+    return clean;
   } catch(e) { return []; }
 }
 function saveSavedMatchesList(list) {
@@ -7006,6 +7208,9 @@ function buildMatchSnapshot() {
     durationMinutes: matchLastParsed.meta.durationSeconds ? Math.round(matchLastParsed.meta.durationSeconds / 60) : null,
     objectives: JSON.parse(JSON.stringify(matchObjectives)),
     columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
+    // Heure de début lue dans le CSV : identifie le fichier source, pour
+    // repérer un même match enregistré deux fois.
+    sourceStart: matchLastParsed.meta.unixStart || matchLastParsed.meta.startTime || null,
     groups: { "3/4": grouped["3/4"], Avant: grouped.Avant },
   };
 }
@@ -7016,7 +7221,26 @@ function saveCurrentMatch() {
     alert("Importez d'abord un CSV de match avant d'enregistrer.");
     return;
   }
-  savedMatches.push(snapshot);
+  // Même match déjà enregistré (même fichier, ou même date + adversaire +
+  // journée pour les anciens enregistrements) : on met à jour l'existant
+  // (même id, donc pas de doublon après synchro) au lieu d'en créer un second.
+  const dupIndex = savedMatches.findIndex((m) =>
+    m.date === snapshot.date && (
+      (m.sourceStart && snapshot.sourceStart)
+        ? m.sourceStart === snapshot.sourceStart
+        : (m.opponent === snapshot.opponent && m.journee === snapshot.journee)
+    )
+  );
+  let replacedMatch = false;
+  if (dupIndex !== -1) {
+    const prev = savedMatches[dupIndex];
+    if (!confirm(`Ce match semble déjà enregistré (${prev.journee ? prev.journee + " " : ""}contre ${prev.opponent}, ${prev.date}).\n\nOK = mettre à jour l'enregistrement existant\nAnnuler = ne rien enregistrer`)) return;
+    snapshot.id = prev.id;
+    savedMatches[dupIndex] = snapshot;
+    replacedMatch = true;
+  } else {
+    savedMatches.push(snapshot);
+  }
   saveSavedMatchesList(savedMatches);
 
   const allMatchPlayers = [...(snapshot.groups["3/4"] || []), ...(snapshot.groups.Avant || [])];
@@ -7026,9 +7250,10 @@ function saveCurrentMatch() {
   renderAnalyseTab();
   renderJoueurTab();
   renderRecordsTab();
-  alert(`✓ Match ${snapshot.category} enregistré : ${snapshot.club} vs ${snapshot.opponent} — ${snapshot.journee}`
+  alert(`✓ Match ${snapshot.category} ${replacedMatch ? "mis à jour" : "enregistré"} : ${snapshot.club} vs ${snapshot.opponent} — ${snapshot.journee}`
     + (snapshot.category === "Crabos" ? "\n(Il compte dans le suivi P1.)" : "")
-    + (brokenInMatch.length ? "\n🌟 Nouveau record en match pour : " + brokenInMatch.join(", ") : ""));
+    + (brokenInMatch.length ? "\n🌟 Nouveau record en match pour : " + brokenInMatch.join(", ") : "")
+    + formatIgnoredRecordSpikes(brokenInMatch.ignored));
 }
 
 let matchesCategoryFilter = "all";
@@ -7475,10 +7700,22 @@ async function runSyncComparisonDiagnostic() {
   el.textContent = lines.join("\n");
 }
 
+function ensureGpsGroups(item) {
+  if (!item || typeof item !== "object") return;
+  if (!item.groups || typeof item.groups !== "object") item.groups = {};
+  if (!Array.isArray(item.groups["3/4"])) item.groups["3/4"] = [];
+  if (!Array.isArray(item.groups.Avant)) item.groups.Avant = [];
+}
+
 function loadSavedSessions() {
   try {
     const raw = localStorage.getItem(SAVED_SESSIONS_STORAGE_KEY);
-    const sessions = raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    // Séance incomplète (ex. reçue d'un autre appareil) : groupes vides plutôt
+    // qu'un plantage de tout l'onglet Statistiques / Records / P1.
+    const sessions = parsed.filter((s) => s && typeof s === "object");
+    sessions.forEach(ensureGpsGroups);
     // Nettoyage : d'anciennes séances ont pu être enregistrées avec le PDF
     // encodé en base64 directement dans localStorage (avant le passage à
     // IndexedDB), ce qui pouvait faire planter l'onglet à chaque sauvegarde.
@@ -7547,6 +7784,9 @@ function safeLocalStorageSet(key, value) {
 }
 
 function saveSavedSessions(sessions) {
+  // Une séance remplacée « sur place » (même id) ne change ni la longueur ni
+  // le dernier id : on vide le cache de tri pour ne pas resservir l'ancienne.
+  _sortedSessionsCache = null;
   try {
     safeLocalStorageSet(SAVED_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
     markLocalDataChanged();
@@ -7578,6 +7818,9 @@ function buildSessionSnapshot() {
     // pas seulement au moment de l'import. Absent sur les séances enregistrées
     // avant cette fonctionnalité.
     rawRows: JSON.parse(JSON.stringify(lastParsed.rows)),
+    // Heure de début lue dans le CSV : distingue deux séances du même jour
+    // (matin / après-midi) et repère le ré-import d'un même fichier.
+    sourceStart: lastParsed.meta.unixStart || lastParsed.meta.startTime || null,
     groups: {
       "3/4": grouped["3/4"],
       Avant: grouped["Avant"],
@@ -7591,12 +7834,31 @@ function saveCurrentSession() {
     alert("Importez d'abord un CSV avant d'enregistrer la séance.");
     return;
   }
-  // Si une séance avec la même date existe déjà, on la remplace plutôt que de la dupliquer.
-  const existingIndex = savedSessions.findIndex((s) => s.date === snapshot.date && s.club === snapshot.club);
+  // Même fichier ré-importé (même date + même heure de début) : on remplace
+  // la séance existante plutôt que de la dupliquer. Une autre séance du même
+  // jour (ex. matin / après-midi) n'est plus écrasée sans prévenir.
+  const sameDay = (s) => s.date === snapshot.date && s.club === snapshot.club;
+  let existingIndex = snapshot.sourceStart
+    ? savedSessions.findIndex((s) => sameDay(s) && s.sourceStart === snapshot.sourceStart)
+    : -1;
+  if (existingIndex === -1) {
+    // Séance du même jour sans heure de début connue (ancien enregistrement,
+    // PDF ajouté à la main...) : on demande.
+    const legacyIndex = savedSessions.findIndex((s) => sameDay(s) && !(s.sourceStart && snapshot.sourceStart));
+    if (legacyIndex !== -1 && confirm(
+      "Une séance du " + snapshot.date + " est déjà enregistrée.\n\n" +
+      "OK = la remplacer par ce fichier\n" +
+      "Annuler = enregistrer comme une séance supplémentaire (ex. matin + après-midi)"
+    )) existingIndex = legacyIndex;
+  }
+  const replacedSession = existingIndex !== -1;
   if (existingIndex !== -1) {
     const prevSession = savedSessions[existingIndex];
     if (prevSession.category && !snapshot.category) snapshot.category = prevSession.category;
     if (prevSession.manualPdf && !snapshot.manualPdf) snapshot.manualPdf = prevSession.manualPdf;
+    // Même id : le PDF joint (stocké sous cet id) reste retrouvable et la
+    // synchro met à jour la séance au lieu d'en voir une nouvelle.
+    snapshot.id = prevSession.id;
     savedSessions[existingIndex] = snapshot;
   } else {
     savedSessions.push(snapshot);
@@ -7612,10 +7874,11 @@ function saveCurrentSession() {
   renderRecordsTab();
 
   alert(
-    "Séance enregistrée dans l'onglet Statistiques." +
+    (replacedSession ? "Séance mise à jour (elle était déjà enregistrée) dans l'onglet Statistiques." : "Séance enregistrée dans l'onglet Statistiques.") +
       (lastBrokenRecords.length
         ? "\n🌟 Nouveau record pour : " + lastBrokenRecords.join(", ")
-        : "")
+        : "") +
+      formatIgnoredRecordSpikes(lastBrokenRecords.ignored)
   );
 }
 
@@ -8262,7 +8525,8 @@ function addManualPdfSession() {
       const nbPlayers = allPlayers.length;
       statusEl.textContent = nbPlayers
         ? `✓ Séance enregistrée avec ${nbPlayers} joueur(s) extraits du PDF.` +
-          (brokenRecords.length ? " 🌟 Nouveau record pour : " + brokenRecords.join(", ") + "." : "")
+          (brokenRecords.length ? " 🌟 Nouveau record pour : " + brokenRecords.join(", ") + "." : "") +
+          formatIgnoredRecordSpikes(brokenRecords.ignored)
         : "✓ Séance enregistrée (PDF joint, sans données joueurs extraites).";
     })
     .catch((err) => {
@@ -8484,11 +8748,13 @@ function renderStatsTab() {
 // tant que le nombre de séances et le dernier id ne changent pas.
 var _sortedSessionsCache = null;
 var _sortedSessionsCacheKey = null;
+var _sortedSessionsCacheSrc = null;
 function getSortedSavedSessions() {
   var key = savedSessions.length + ":" + (savedSessions.length ? savedSessions[savedSessions.length - 1].id : "");
-  if (_sortedSessionsCache && _sortedSessionsCacheKey === key) return _sortedSessionsCache;
+  if (_sortedSessionsCache && _sortedSessionsCacheKey === key && _sortedSessionsCacheSrc === savedSessions) return _sortedSessionsCache;
   _sortedSessionsCache = [...savedSessions].sort((a, b) => a.id - b.id);
   _sortedSessionsCacheKey = key;
+  _sortedSessionsCacheSrc = savedSessions;
   return _sortedSessionsCache;
 }
 
@@ -8496,7 +8762,8 @@ function getPlayerHistory(name) {
   const rows = [];
   const sorted = getSortedSavedSessions();
   sorted.forEach((session) => {
-    const found = [...session.groups["3/4"], ...session.groups.Avant].find(
+    const g = session.groups || {};
+    const found = [...(g["3/4"] || []), ...(g.Avant || [])].find(
       (s) => (s.displayName || s.player) === name
     );
     if (found) rows.push({ date: session.date, ...found });
@@ -8508,6 +8775,20 @@ function getPlayerHistory(name) {
    6. EVENEMENTS — upload, drag&drop, onglets, export, effectif
    ------------------------------------------------------------------------- */
 
+// Avertissements non bloquants après un import CSV (colonnes absentes,
+// fichier sans ligne "Session").
+function warnCsvImportIssues(meta, rows) {
+  const msgs = [];
+  if (meta && meta.missingColumns && meta.missingColumns.length) {
+    msgs.push("Colonnes absentes de cet export (valeurs mises à 0) : " + meta.missingColumns.join(", ") + ".");
+  }
+  if (rows && rows.length && !rows.some((r) => r.periodName === SESSION_PERIOD_VALUE)) {
+    msgs.push("Aucune ligne « " + SESSION_PERIOD_VALUE + " » (total de séance) dans ce fichier : le tableau principal sera vide. Exportez le rapport avec la période Session.");
+  }
+  if (rows && !rows.length) msgs.push("Aucun joueur trouvé dans ce fichier.");
+  if (msgs.length) alert("⚠ Import CSV :\n" + msgs.join("\n"));
+}
+
 function handleFile(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -8516,11 +8797,20 @@ function handleFile(file) {
       manualOverrides = {}; // nouvelle séance = corrections manuelles repartent à zéro
       excludedPlayers = {}; // nouvelle séance = joueurs retirés repartent à zéro aussi
       aliasMap = {}; // nouvelle séance = associations CSV->joueur repartent à zéro aussi
+      // Association automatique par nom de famille ("Aston Faucher" -> "Faucher")
+      // quand un seul joueur du listing correspond. Elle apparaît dans
+      // « Associations de cette séance » et reste modifiable.
+      Array.from(new Set(rows.map((r) => r.player))).forEach((csvName) => {
+        if (roster[csvName]) return;
+        const sug = suggestRosterName(csvName);
+        if (sug) setAlias(csvName, sug);
+      });
       activePeriods = new Set();
       detectedPeriods = detectPeriods(rows);
       lastParsed = { meta, rows };
       renderPeriodButtons();
       renderReport(rows, meta);
+      warnCsvImportIssues(meta, rows);
     } catch (err) {
       alert("Erreur de lecture du CSV : " + err.message);
     }
@@ -8543,6 +8833,7 @@ function initUpload() {
 
   fileInput.addEventListener("change", (e) => {
     if (e.target.files[0]) handleFile(e.target.files[0]);
+    e.target.value = ""; // permet de re-sélectionner le même fichier ensuite
   });
 
   ["dragenter", "dragover"].forEach((evt) =>
@@ -8625,7 +8916,7 @@ const P1_METRIC_DEFS = [
 // (même structure : date + groupes de joueurs avec distance, HSR, contacts...).
 function p1DataSources() {
   const crabos = (typeof savedMatches !== "undefined" ? savedMatches : []).filter((m) => m.category === "Crabos");
-  return savedSessions.concat(crabos);
+  return savedSessions.concat(crabos).filter((s) => s && s.groups);
 }
 
 // Rafraîchit le suivi P1 s'il est construit (après un changement de catégorie de match).
@@ -8650,7 +8941,10 @@ function p1MatchedFullNames() {
       (s.groups[g] || []).forEach((p) => {
         const full = p.displayName || p.player;
         if (!full) return;
-        if (p1Roster.some((r) => r && full.toLowerCase().indexOf(r.toLowerCase()) !== -1)) {
+        // Correspondance sur un mot entier ("Nya" -> "Samuel Nya", mais pas "Bonnyard").
+        const norm = (x) => String(x || "").toLowerCase().replace(/[-\s]+/g, " ").trim();
+        const fullPadded = " " + norm(full) + " ";
+        if (p1Roster.some((r) => norm(r) && fullPadded.indexOf(" " + norm(r) + " ") !== -1)) {
           const key = full.toLowerCase();
           if (!byLower[key]) byLower[key] = full;
           // Préfère la casse qui correspond exactement au roster officiel s'il y en a une
@@ -9282,7 +9576,7 @@ function exportAllData() {
   const backup = { version: 2, exportedAt: new Date().toISOString(), data: {} };
   BACKUP_KEYS.forEach(key => {
     const val = localStorage.getItem(key);
-    if (val) backup.data[key] = JSON.parse(val);
+    if (val) { try { backup.data[key] = JSON.parse(val); } catch (e) { backup.data[key] = val; } }
   });
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -9816,6 +10110,7 @@ var PAVG21 = {}, PAVG3 = {}, PPERS = {};
 var RPE = {}, RPEDAYS = [];
 var SRPE_WEEK = {}, SRPE_WEEKS = [], SRPE_WEEKS_ALL = [], SRPE_DAY = {};
 var RAW_ROWS = [];
+var SHEET_ROWS = null; // lignes venant du Google Sheet (WeakSet), pour la pop-up RPE de la veille
 
 // ── Roster fixe Espoirs (evite les joueurs fantomes / doublons de casse) ──
 var SEASON_ROSTER = [
@@ -9828,13 +10123,46 @@ var SEASON_ROSTER = [
   'Vidal','Wolsink','Yilmaz','Zamora','Aouad'
 ];
 function normalizeKey(s) {
-  return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // casse, accents et espaces multiples ignores ("Bielle  Biarrey" == "bielle biarrey")
+  return String(s||'').replace(/\s+/g,' ').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
 var ROSTER_LOOKUP = {};
 SEASON_ROSTER.forEach(function(p){ ROSTER_LOOKUP[normalizeKey(p)] = p; });
+var _UNKNOWN_NAME_LOOKUP = {};
 function canonicalName(raw) {
   var key = normalizeKey(raw);
-  return ROSTER_LOOKUP[key] || raw;
+  if (!key) return '';
+  if (ROSTER_LOOKUP[key]) return ROSTER_LOOKUP[key];
+  // Hors effectif : "dupont" et "Dupont " -> une seule orthographe (la premiere vue)
+  // (caracteres HTML retires : le nom est insere tel quel dans de nombreux affichages)
+  if (!_UNKNOWN_NAME_LOOKUP[key]) _UNKNOWN_NAME_LOOKUP[key] = String(raw).replace(/[<>"&]/g,'').replace(/\s+/g,' ').trim();
+  return _UNKNOWN_NAME_LOOKUP[key];
+}
+// Type de ligne du formulaire, tolerant a la casse / aux espaces ('Welness', 'Wellness', 'Rpe', 'RPE')
+function rowKind(r) {
+  var k = String((r && r[2]) || '').trim().toLowerCase();
+  if (k === 'rpe') return 'rpe';
+  if (k === 'welness' || k === 'wellness') return 'wellness';
+  return '';
+}
+// "9/1/2026" -> "09/01/2026" (les cles de jour doivent toujours etre JJ/MM/AAAA,
+// sinon tri, semaines et selecteur de date se melangent). '' si invalide.
+function normDateFR(s) {
+  var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s||'').trim());
+  if (!m) return '';
+  var dd = +m[1], mm = +m[2];
+  if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return '';
+  return (dd<10?'0':'')+dd+'/'+(mm<10?'0':'')+mm+'/'+m[3];
+}
+// "9/1/2026 8:05" -> "09/01/2026 08:05" ; secondes conservees si presentes.
+function normTsFR(ts) {
+  var parts = String(ts||'').trim().split(/\s+/);
+  var d = normDateFR(parts[0]);
+  if (!d) return String(ts||'').trim();
+  var t = parts[1] || '';
+  var m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
+  if (!m) return t ? d + ' ' + t : d;
+  return d + ' ' + (m[1].length < 2 ? '0' : '') + m[1] + ':' + m[2] + (m[3] ? ':' + m[3] : '');
 }
 function escapeHtml(s) {
   return String(s||'').replace(/[&<>"']/g, function(c) {
@@ -9884,19 +10212,33 @@ function saveOverrides() {
 }
 var RPE_OVERRIDES = loadOverrides();
 
+// Parseur CSV (RFC 4180) : champs entre guillemets contenant virgules,
+// retours a la ligne (remarques sur plusieurs lignes) et guillemets doubles "",
+// fins de ligne CRLF, BOM eventuel. Les lignes vides sont ignorees.
 function parseCSV(text) {
-  var lines = text.trim().split('\n');
-  return lines.map(function(line) {
-    var cols = [], cur = '', inQ = false;
-    for (var i = 0; i < line.length; i++) {
-      var ch = line[i];
-      if (ch === '"') { inQ = !inQ; }
-      else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
-      else { cur += ch; }
-    }
-    cols.push(cur.trim());
-    return cols;
-  });
+  text = String(text || '');
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  var rows = [], cols = [], cur = '', inQ = false;
+  function endRow() {
+    cols.push(cur.trim()); cur = '';
+    if (cols.length > 1 || cols[0] !== '') rows.push(cols);
+    cols = [];
+  }
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += ch;
+    } else if (ch === '"') { inQ = true; }
+    else if (ch === ',') { cols.push(cur.trim()); cur = ''; }
+    else if (ch === '\r') { if (text[i+1] !== '\n') endRow(); }
+    else if (ch === '\n') { endRow(); }
+    else { cur += ch; }
+  }
+  if (cur !== '' || cols.length) endRow();
+  return rows;
 }
 
 function processData(rows) {
@@ -9904,18 +10246,22 @@ function processData(rows) {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (r.length < 8) continue;
-    if ((r[2]||'').trim() !== 'Welness') continue;
-    var date = (r[0]||'').trim().split(' ')[0];
+    if (rowKind(r) !== 'wellness') continue;
+    var date = normDateFR((r[0]||'').trim().split(/\s+/)[0]);
     var nom = canonicalName((r[1]||'').trim());
     if (!date || !nom || nom.toLowerCase() === 'test') continue;
-    var s=parseInt(r[3]),H=parseInt(r[4]),B=parseInt(r[5]),f=parseInt(r[6]),t=parseInt(r[7]);
+    var s=parseInt(r[3],10),H=parseInt(r[4],10),B=parseInt(r[5],10),f=parseInt(r[6],10),t=parseInt(r[7],10);
     if (isNaN(s)||isNaN(H)||isNaN(B)||isNaN(f)||isNaN(t)) continue;
     var rem = (r[8]||'').trim();
     var S=s+H+B+f+t;
     if (!wByDate[date]) wByDate[date]=[];
-    if (wByDate[date].indexOf(nom)===-1) wByDate[date].push(nom);
     if (!wRowsByDate[date]) wRowsByDate[date]=[];
-    wRowsByDate[date].push({n:nom,s:s,H:H,B:B,f:f,t:t,S:S,rem:rem});
+    var wrow = {n:nom,s:s,H:H,B:B,f:f,t:t,S:S,rem:rem};
+    var dupIdx = wByDate[date].indexOf(nom);
+    // Un joueur qui renvoie le questionnaire le meme jour : on garde la derniere reponse
+    // (sinon il etait compte 2 fois dans le nombre de reponses et les moyennes).
+    if (dupIdx === -1) { wByDate[date].push(nom); wRowsByDate[date].push(wrow); }
+    else { wRowsByDate[date][dupIdx] = wrow; }
   }
   var roster=SEASON_ROSTER.slice().sort();
   function avg(arr){return arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*100)/100:null;}
@@ -9931,7 +10277,8 @@ function processData(rows) {
   for (var ri = 1; ri < rows.length; ri++) {
     var rr = rows[ri];
     if (rr.length < 11) continue;
-    if ((rr[2]||'').trim() !== 'Rpe') continue;
+    if (rowKind(rr) !== 'rpe') continue;
+    // NB : fixKey garde le texte BRUT du Google Sheet (compatibilite avec les corrections deja enregistrees)
     var rdateRaw = (rr[0]||'').trim().split(' ')[0];
     var rnom = canonicalName((rr[1]||'').trim());
     var rtype = (rr[9]||'').trim();
@@ -9941,8 +10288,8 @@ function processData(rows) {
     var fixKey = rdateRaw+'|'+rnom+'|'+rtsRaw;
     if (RPE_OVERRIDES.typeFixes[fixKey]) rtype = RPE_OVERRIDES.typeFixes[fixKey];
     if (RPE_OVERRIDES.scoreFixes[fixKey] != null) rscore = RPE_OVERRIDES.scoreFixes[fixKey];
-    var rts = RPE_OVERRIDES.tsFixes[fixKey] || rtsRaw;
-    var rdate = rts.split(' ')[0];
+    var rts = normTsFR(RPE_OVERRIDES.tsFixes[fixKey] || rtsRaw);
+    var rdate = normDateFR(rts.split(' ')[0]);
     if (!rdate || !rnom || rnom.toLowerCase()==='test' || isNaN(rscore) || !rtype) continue;
     if (!rpeRowsByDate[rdate]) rpeRowsByDate[rdate] = [];
     rpeRowsByDate[rdate].push({n:rnom, type:rtype, score:rscore, ts:rts, origKey:fixKey, rem:rrem});
@@ -10124,22 +10471,29 @@ function findPrevDayRpeCandidates() {
   var limit = new Date(2026, 10, 17); // RPE pris en compte a partir du 17/11/2026
   for (var i = 1; i < RAW_ROWS.length; i++) {
     var r = RAW_ROWS[i];
-    if (!r || r.length < 11 || (r[2]||'').trim() !== 'Rpe') continue;
+    if (!r || r.length < 11 || rowKind(r) !== 'rpe') continue;
+    // Seulement les lignes du Google Sheet : les RPE importes depuis Excel recoivent
+    // une heure fictive (10:00) et ne doivent pas etre proposes pour la veille.
+    if (typeof SHEET_ROWS !== 'undefined' && SHEET_ROWS && !SHEET_ROWS.has(r)) continue;
     var tsRaw = (r[0]||'').trim();
     var nom = canonicalName((r[1]||'').trim());
     if (!nom || nom.toLowerCase() === 'test') continue;
     var key = tsRaw.split(' ')[0] + '|' + nom + '|' + tsRaw;
     if (handled[key] || RPE_OVERRIDES.tsFixes[key]) continue;
     var d = _pdParseTs(tsRaw);
-    if (!d || d < limit) continue;
+    if (!d || isNaN(d.getTime()) || d < limit) continue;
     var wd = d.getDay();
     if (wd === 0 || wd === 6) continue;      // pas le week-end
     if (d.getHours() >= 16) continue;        // seulement minuit -> 16h
     var prev = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
     var type = RPE_OVERRIDES.typeFixes[key] || (r[9]||'').trim();
     var score = RPE_OVERRIDES.scoreFixes[key] != null ? RPE_OVERRIDES.scoreFixes[key] : parseFloat(r[10]);
-    res.push({key:key, n:nom, type:type, score:score, d:d, prev:prev,
-              newTs:_pdFmtDate(prev)+' '+_pd2(d.getHours())+':'+_pd2(d.getMinutes())});
+    if (!type || isNaN(score)) continue;     // ligne ignoree par processData de toute facon
+    var prevKey = _pdFmtDate(prev);
+    // Deja un RPE du meme joueur pour le meme type de seance la veille -> probable doublon
+    var dup = !!(typeof RPE !== 'undefined' && RPE[prevKey] && RPE[prevKey].sessions.some(function(s){ return s.n === nom && s.type === type; }));
+    res.push({key:key, n:nom, type:type, score:score, d:d, prev:prev, dup:dup,
+              newTs:prevKey+' '+_pd2(d.getHours())+':'+_pd2(d.getMinutes())});
   }
   res.sort(function(a,b){ return a.d - b.d || a.n.localeCompare(b.n); });
   return res;
@@ -10171,9 +10525,11 @@ function showPrevDayPopup() {
   var old = document.getElementById('pdOverlay'); if (old) old.remove();
   var rows = PD_CANDIDATES.map(function(c, i) {
     return '<tr style="border-top:1px solid #eee">'
-      + '<td style="padding:7px 8px"><input type="checkbox" class="pd-chk" data-i="'+i+'" checked style="width:16px;height:16px;accent-color:#cc1122"></td>'
-      + '<td style="padding:7px 8px;font-weight:700">'+c.n+'</td>'
-      + '<td style="padding:7px 8px">'+(c.type||'-')+'</td>'
+      + '<td style="padding:7px 8px"><input type="checkbox" class="pd-chk" data-i="'+i+'"'+(c.dup?'':' checked')+' style="width:16px;height:16px;accent-color:#cc1122"></td>'
+      + '<td style="padding:7px 8px;font-weight:700">'+escapeHtml(c.n)+'</td>'
+      + '<td style="padding:7px 8px">'+escapeHtml(c.type||'-')
+      +   (c.dup ? '<div style="font-size:11px;color:#b36b00;font-weight:600">&#9888; d&eacute;j&agrave; un RPE &laquo; '+escapeHtml(c.type)+' &raquo; la veille</div>' : '')
+      + '</td>'
       + '<td style="padding:7px 8px;text-align:center;font-weight:700">'+(isNaN(c.score)?'-':c.score)+'</td>'
       + '<td style="padding:7px 8px;color:#666">'+_PD_DAYS[c.d.getDay()]+' '+_pdFmtDate(c.d).slice(0,5)+' &agrave; '+_pd2(c.d.getHours())+':'+_pd2(c.d.getMinutes())+'</td>'
       + '<td style="padding:7px 8px;font-weight:700;color:#cc1122">&rarr; '+_PD_DAYS[c.prev.getDay()]+' '+_pdFmtDate(c.prev).slice(0,5)+'</td>'
@@ -10185,12 +10541,14 @@ function showPrevDayPopup() {
   ov.innerHTML = '<div style="background:#fff;color:#1a1a1a;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden">'
     + '<div style="background:linear-gradient(90deg,#1a0204,#8a0d16);color:#fff;padding:16px 20px">'
     +   '<div style="font-size:17px;font-weight:800">RPE &agrave; rattacher &agrave; la veille ?</div>'
-    +   '<div style="font-size:12px;opacity:.85;margin-top:3px">'+PD_CANDIDATES.length+' RPE envoy&eacute;s entre minuit et 16h en semaine. Coche ceux qui concernent la s&eacute;ance de la veille.</div>'
+    +   '<div style="font-size:12px;opacity:.85;margin-top:3px">'+PD_CANDIDATES.length+' RPE envoy&eacute;s entre minuit et 16h en semaine. Coche ceux qui concernent la s&eacute;ance de la veille.'
+    +   (PD_CANDIDATES.some(function(c){return c.dup;}) ? ' Les lignes marqu&eacute;es &#9888; ne sont pas coch&eacute;es : le joueur a d&eacute;j&agrave; un RPE de ce type la veille.' : '')
+    +   '</div>'
     + '</div>'
     + '<div style="overflow:auto;padding:6px 12px">'
     +   '<table style="width:100%;border-collapse:collapse;font-size:13px">'
     +     '<thead><tr style="text-align:left;font-size:11px;text-transform:uppercase;color:#888">'
-    +       '<th style="padding:8px"><input type="checkbox" id="pdAll" checked onchange="pdToggleAll(this.checked)" style="width:16px;height:16px;accent-color:#cc1122"></th>'
+    +       '<th style="padding:8px"><input type="checkbox" id="pdAll"'+(PD_CANDIDATES.some(function(c){return c.dup;})?'':' checked')+' onchange="pdToggleAll(this.checked)" style="width:16px;height:16px;accent-color:#cc1122"></th>'
     +       '<th style="padding:8px">Joueur</th><th style="padding:8px">Type</th><th style="padding:8px">RPE</th><th style="padding:8px">Envoy&eacute;</th><th style="padding:8px">S&eacute;ance</th>'
     +     '</tr></thead><tbody>'+rows+'</tbody></table>'
     + '</div>'
@@ -10229,8 +10587,11 @@ async function loadData() {
     if (!resp.ok) throw new Error('HTTP '+resp.status);
     setProgress(50,'Analyse des données...');
     var text=await resp.text();
+    // Feuille non publique / page de connexion Google : on recoit du HTML au lieu du CSV
+    if (/^\s*<(!doctype|html)/i.test(text)) throw new Error('Le Google Sheet a renvoye une page web au lieu du CSV (feuille non partagee publiquement ?)');
     var rows=parseCSV(text);
     RAW_ROWS=rows;
+    SHEET_ROWS=new WeakSet(rows);
     setProgress(80,'Calcul des statistiques...');
     var res=processData(rows);
     WD=res.out;PAVG21=res.pa21;PAVG3=res.pa3;PPERS=res.pp;
@@ -10248,6 +10609,8 @@ async function loadData() {
     document.getElementById('loader-error').style.display='block';
     document.getElementById('err-msg').textContent=e.message;
     document.getElementById('err-detail').textContent=CSV_URL;
+    // Echec d'un "Actualiser" : l'ecran de chargement (et son message d'erreur) est masque -> prevenir.
+    if (document.getElementById('app').style.display==='block') alert('Actualisation impossible : '+e.message+'\nLes donnees affichees sont celles du dernier chargement.');
     return false;
   }
 }
@@ -10360,14 +10723,17 @@ function render() {
 
   document.getElementById('dateInfo').innerHTML='<strong>'+d+'</strong> &middot; '+agg.n+' r&eacute;ponse'+(agg.n>1?'s':'');
 
+  // Jour sans reponse wellness (ex. jour avec seulement des RPE) : afficher '-' plutot que 0.0 "Tres bon" en vert
+  var hasW = agg.n > 0;
+  function mItem(label, v) { return hasW ? {label:label,val:v.toFixed(1),sub:slbl(v),color:sc(v)} : {label:label,val:'&ndash;',sub:'pas de r&eacute;ponse',color:'#8b90a7'}; }
   document.getElementById('metrics').innerHTML=[
     {label:'Joueurs',val:agg.n,sub:'reponses',color:'#6c63ff'},
-    {label:'Score moyen',val:agg.aS?agg.aS.toFixed(1):'–',sub:'/ 35 pts',color:scolor(agg.aS)},
-    {label:'Sommeil',val:agg.as.toFixed(1),sub:slbl(agg.as),color:sc(agg.as)},
-    {label:'Corb. haut',val:agg.aH.toFixed(1),sub:slbl(agg.aH),color:sc(agg.aH)},
-    {label:'Corb. bas',val:agg.aB.toFixed(1),sub:slbl(agg.aB),color:sc(agg.aB)},
-    {label:'Fatigue',val:agg.aF.toFixed(1),sub:slbl(agg.aF),color:sc(agg.aF)},
-    {label:'Stress',val:agg.aT.toFixed(1),sub:slbl(agg.aT),color:sc(agg.aT)},
+    {label:'Score moyen',val:hasW?agg.aS.toFixed(1):'&ndash;',sub:'/ 35 pts',color:hasW?scolor(agg.aS):'#8b90a7'},
+    mItem('Sommeil',agg.as),
+    mItem('Corb. haut',agg.aH),
+    mItem('Corb. bas',agg.aB),
+    mItem('Fatigue',agg.aF),
+    mItem('Stress',agg.aT),
   ].map(function(m){return '<div class="metric-card" style="--m-color:'+m.color+'"><div class="metric-label">'+m.label+'</div><div class="metric-value" style="color:'+m.color+'">'+m.val+'</div><div class="metric-sub">'+m.sub+'</div></div>';}).join('');
 
   var ai=[];
@@ -10479,7 +10845,9 @@ function render() {
   var di=ALLDAYS.indexOf(d);
   var prevDay=di>0?WD[ALLDAYS[di-1]]:null;
   var pm=prevDay?{'Score total moyen':prevDay.aS,'Sommeil':prevDay.as,'Courbatures haut':prevDay.aH,'Courbatures bas':prevDay.aB,'Fatigue':prevDay.aF,'Stress':prevDay.aT}:{};
-  document.getElementById('avg-tbody').innerHTML=tItems.map(function(it) {
+  document.getElementById('avg-tbody').innerHTML=!hasW
+    ? '<tr><td colspan="4" style="color:var(--text2)">Aucune r&eacute;ponse au questionnaire forme pour cette date.</td></tr>'
+    : tItems.map(function(it) {
     var pct=Math.min(100,(it.val/it.max)*100).toFixed(1);
     var color=it.max===35?scolor(it.val):sc(it.val);
     var prev=pm[it.label],trend='';
@@ -10493,7 +10861,13 @@ function render() {
 
 function drawChart(d) {
   if (typeof Chart === 'undefined') { setTimeout(function(){drawChart(d);}, 100); return; }
-  var idx=ALLDAYS.indexOf(d),start=Math.max(0,idx-29),win=ALLDAYS.slice(start,idx+1);
+  var idx=ALLDAYS.indexOf(d);
+  if (idx===-1) {
+    // Date sans wellness (jour RPE seul) : on s'arrete au dernier jour wellness <= d (avant : graphique vide)
+    var dk=(d||'').split('/').reverse().join('');
+    for (var k=ALLDAYS.length-1;k>=0;k--) { if (ALLDAYS[k].split('/').reverse().join('')<=dk) { idx=k; break; } }
+  }
+  var start=Math.max(0,idx-29),win=idx>=0?ALLDAYS.slice(start,idx+1):[];
   var labels=win.map(function(x){return x.slice(0,5);});
   function ds(key,label,color,div){return {label:label,borderColor:color,backgroundColor:color+'18',data:win.map(function(x){return WD[x][key]?+(WD[x][key]/(div||1)).toFixed(2):null;}),tension:0.35,pointRadius:3,fill:false,spanGaps:true,borderWidth:2,pointHoverRadius:5};}
   if (chartInst) { chartInst.destroy(); chartInst = null; }
@@ -10645,7 +11019,9 @@ function renderRpeIndiv() {
       if (s.n === player) history.push({date:d, type:s.type, score:s.score, ts:s.ts, rem:s.rem});
     });
   });
-  history.sort(function(a,b){ return (b.ts||'').localeCompare(a.ts||''); });
+  // Tri chronologique reel (JJ/MM/AAAA ne se trie pas comme du texte : 03/12 passait avant 17/11)
+  function _tsKey(h){ return h.date.split('/').reverse().join('') + ' ' + ((h.ts||'').split(' ')[1] || ''); }
+  history.sort(function(a,b){ return _tsKey(b).localeCompare(_tsKey(a)); });
 
   if (!history.length) {
     document.getElementById('rpeindiv-content').innerHTML = '<div style="color:var(--text2);font-size:13px">Aucune séance RPE enregistrée pour ce joueur.</div>';
@@ -11290,27 +11666,32 @@ function renderRpeReglages() {
     var key = d+'|'+t;
     var cur = RPE_OVERRIDES.durations[key] != null ? RPE_OVERRIDES.durations[key] : def;
     var excluded = !!RPE_OVERRIDES.srpeExclusions[key];
-    return '<tr><td style="font-weight:600">'+t+'</td><td style="color:var(--text2)">'+def+' min</td>'
+    return '<tr><td style="font-weight:600">'+escapeHtml(t)+'</td><td style="color:var(--text2)">'+def+' min</td>'
       + '<td><input type="number" min="0" step="5" id="dur-input-'+idx+'" value="'+cur+'" style="width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:\'JetBrains Mono\',monospace"></td>'
-      + '<td style="text-align:center"><input type="checkbox" data-rpe-date="'+d+'" data-rpe-type="'+t+'" onchange="toggleSrpeExclusion(this)"'+(excluded?' checked':'')+'></td>'
-      + '<td><button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" data-rpe-date="'+d+'" data-rpe-type="'+t+'" data-rpe-input="dur-input-'+idx+'" onclick="saveDurationOverride(this)">Enregistrer</button></td></tr>';
+      + '<td style="text-align:center"><input type="checkbox" data-rpe-date="'+d+'" data-rpe-type="'+escapeHtml(t)+'" onchange="toggleSrpeExclusion(this)"'+(excluded?' checked':'')+'></td>'
+      + '<td><button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" data-rpe-date="'+d+'" data-rpe-type="'+escapeHtml(t)+'" data-rpe-input="dur-input-'+idx+'" onclick="saveDurationOverride(this)">Enregistrer</button></td></tr>';
   }).join('');
 
   // ── Correction en masse : liste des types presents ce jour ──
-  var typeOpts = types.map(function(t){ return '<option value="'+t+'">'+t+'</option>'; }).join('');
+  // Types de destination : tous les types connus (pas seulement ceux du jour), sinon impossible
+  // de corriger vers un type que personne n'a encore saisi ce jour-la.
+  var allTypesSet = {};
+  RPEDAYS.forEach(function(dd){ (RPE[dd].typeAvgs||[]).forEach(function(x){ allTypesSet[x.type] = true; }); });
+  var allTypes = Object.keys(allTypesSet).sort();
+  var typeOpts = types.map(function(t){ return '<option value="'+escapeHtml(t)+'">'+escapeHtml(t)+'</option>'; }).join('');
   document.getElementById('bulk-type-from').innerHTML = typeOpts;
-  document.getElementById('bulk-type-to').innerHTML = typeOpts;
+  document.getElementById('bulk-type-to').innerHTML = allTypes.map(function(t){ return '<option value="'+escapeHtml(t)+'">'+escapeHtml(t)+'</option>'; }).join('');
   updateBulkTypeCount();
 
   var sortedSessions = rpeDay.sessions.slice().sort(function(a,b){ return (a.ts||'').localeCompare(b.ts||''); });
   document.getElementById('reglages-type-tbody').innerHTML = sortedSessions.map(function(s, idx) {
-    var opts = types.map(function(t){ return '<option value="'+t+'"'+(t===s.type?' selected':'')+'>'+t+'</option>'; }).join('');
+    var opts = allTypes.map(function(t){ return '<option value="'+escapeHtml(t)+'"'+(t===s.type?' selected':'')+'>'+escapeHtml(t)+'</option>'; }).join('');
     return '<tr>'
-      + '<td><input type="text" id="ts-input-'+idx+'" value="'+s.ts+'" style="width:130px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:\'JetBrains Mono\',monospace;font-size:12px"></td>'
-      + '<td style="font-weight:600">'+s.n+'</td>'
+      + '<td><input type="text" id="ts-input-'+idx+'" value="'+escapeHtml(s.ts)+'" style="width:130px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:\'JetBrains Mono\',monospace;font-size:12px"></td>'
+      + '<td style="font-weight:600">'+escapeHtml(s.n)+'</td>'
       + '<td><select id="type-fix-'+idx+'" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:var(--font)">'+opts+'</select></td>'
       + '<td><input type="number" min="0" max="10" step="0.5" id="score-input-'+idx+'" value="'+s.score+'" style="width:70px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-family:\'JetBrains Mono\',monospace"></td>'
-      + '<td><button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" data-rpe-origkey="'+s.origKey+'" data-rpe-ts-input="ts-input-'+idx+'" data-rpe-type-input="type-fix-'+idx+'" data-rpe-score-input="score-input-'+idx+'" onclick="saveSessionFix(this)">Enregistrer</button></td></tr>';
+      + '<td><button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" data-rpe-origkey="'+escapeHtml(s.origKey)+'" data-rpe-ts-input="ts-input-'+idx+'" data-rpe-type-input="type-fix-'+idx+'" data-rpe-score-input="score-input-'+idx+'" onclick="saveSessionFix(this)">Enregistrer</button></td></tr>';
   }).join('');
 }
 
@@ -11369,10 +11750,13 @@ function saveSessionFix(btn) {
   var newType = document.getElementById(btn.getAttribute('data-rpe-type-input')).value;
   var scoreVal = parseFloat(document.getElementById(btn.getAttribute('data-rpe-score-input')).value);
 
-  if (!/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}$/.test(tsVal)) {
+  // Les horodateurs du Google Sheet ont des secondes (JJ/MM/AAAA HH:MM:SS) : avant, le champ
+  // pre-rempli etait refuse et aucune correction de type/score ne pouvait etre enregistree.
+  if (!/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}(:\d{2})?$/.test(tsVal) || !normDateFR(tsVal.split(' ')[0])) {
     alert('Horodateur invalide. Format attendu : JJ/MM/AAAA HH:MM');
     return;
   }
+  tsVal = normTsFR(tsVal);
   if (isNaN(scoreVal) || scoreVal < 0 || scoreVal > 10) {
     alert('Score invalide (doit etre entre 0 et 10)');
     return;
@@ -11380,7 +11764,7 @@ function saveSessionFix(btn) {
 
   RPE_OVERRIDES.typeFixes[origKey] = newType;
   RPE_OVERRIDES.scoreFixes[origKey] = scoreVal;
-  var origTs = origKey.split('|')[2];
+  var origTs = normTsFR(origKey.split('|')[2]);
   if (tsVal !== origTs) { RPE_OVERRIDES.tsFixes[origKey] = tsVal; }
   else { delete RPE_OVERRIDES.tsFixes[origKey]; }
 
@@ -11392,6 +11776,13 @@ function saveSessionFix(btn) {
 function resetReglagesDay() {
   var d = document.getElementById('dateSelect').value;
   if (!confirm('Réinitialiser les réglages (durée + corrections) pour '+d+' ?')) return;
+  // Seances affichees ce jour mais dont la cle d'origine est une autre date (ex. RPE rattache
+  // a la veille, ou horodateur Sheet non normalise) : leurs corrections sont aussi annulees.
+  var dayKeys = {};
+  if (RPE[d]) RPE[d].sessions.forEach(function(s){ dayKeys[s.origKey] = true; });
+  ['typeFixes','scoreFixes','tsFixes'].forEach(function(f){
+    Object.keys(RPE_OVERRIDES[f]).forEach(function(k){ if (dayKeys[k]) delete RPE_OVERRIDES[f][k]; });
+  });
   Object.keys(RPE_OVERRIDES.durations).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.durations[k]; });
   Object.keys(RPE_OVERRIDES.typeFixes).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.typeFixes[k]; });
   Object.keys(RPE_OVERRIDES.scoreFixes).forEach(function(k){ if (k.indexOf(d+'|')===0) delete RPE_OVERRIDES.scoreFixes[k]; });
@@ -11454,7 +11845,10 @@ let playerProfiles = {};
 let physicalTests  = [];
 
 function loadPlayerProfiles() {
-  try { return JSON.parse(localStorage.getItem(PLAYER_PROFILES_KEY) || '{}'); }
+  try {
+    var p = JSON.parse(localStorage.getItem(PLAYER_PROFILES_KEY) || '{}');
+    return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
+  }
   catch(e) { return {}; }
 }
 function savePlayerProfiles() {
@@ -11471,17 +11865,55 @@ function normTestDate(s) {
   if (s === null || s === undefined) return '';
   var str = String(s).trim(), m;
   if ((m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return m[1] + '-' + m[2].padStart(2,'0') + '-' + m[3].padStart(2,'0');
-  if ((m = str.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/))) {
+  if ((m = str.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})(?:[ T].*)?$/))) {
     var y = m[3].length === 2 ? '20' + m[3] : m[3];
     return y + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+  }
+  // Date Excel restée en nombre (ex. « 46000 » = jours depuis 1899-12-30)
+  if (/^\d{5}(\.\d+)?$/.test(str)) {
+    var ser = parseFloat(str);
+    if (ser > 20000 && ser < 80000) return new Date(Math.round((ser - 25569) * 86400000)).toISOString().slice(0, 10);
   }
   return str;
 }
 // Clé de comparaison d'un nom : sans accents, sans casse, espaces normalisés.
 function testPlayerKey(n) { return stripAccentsGlobal(String(n || '')).toLowerCase().replace(/\s+/g, ' ').trim(); }
 
+// Id stable d'un test sans id : calculé sur son CONTENU (joueur, test, date,
+// valeur), jamais sur sa position. La synchro (nissaMergeIdArray) calcule le
+// même id pour la copie sans id venue du cloud ; avec un id basé sur la
+// position, chaque cycle de synchro recréait un doublon.
+function ptStableId(t) {
+  var v = parseFloat(String(t.value === undefined || t.value === null ? '' : t.value).replace(',', '.'));
+  return ('pt_' + testPlayerKey(t.player) + '_' + (t.type || '') + '_' + String(normTestDate(t.date || '')).replace(/[^0-9]/g, '') + '_' + (isFinite(v) ? Math.round(v * 100) : '')).toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+}
+// Donne un id aux tests qui n'en ont pas et rend uniques les ids en double
+// (2e occurrence -> « id-2 », dans l'ordre de la liste). Utilisé aussi par la
+// synchro, pour que tous les appareils obtiennent les mêmes ids.
+function ptAssignIds(list) {
+  var changed = false, seenIds = {};
+  list.forEach(function(t) {
+    if (!t || typeof t !== 'object') return;
+    if (t.id === undefined || t.id === null || t.id === '') { t.id = ptStableId(t); changed = true; }
+    var sid = String(t.id);
+    if (seenIds[sid]) {
+      var n = 2; while (seenIds[sid + '-' + n]) n++;
+      t.id = sid + '-' + n; sid = String(t.id); changed = true;
+    }
+    seenIds[sid] = 1;
+  });
+  return changed;
+}
 function normalizePhysicalTestNames(list) {
   var changed = false;
+  // Chaque test doit avoir un id unique : sinon impossible de le supprimer
+  // seul (la suppression retire toutes les lignes du même id) et la synchro
+  // fusionne les lignes de même id en une seule.
+  for (var i = list.length - 1; i >= 0; i--) {
+    var it = list[i];
+    if (!it || typeof it !== 'object') { list.splice(i, 1); changed = true; }
+  }
+  if (ptAssignIds(list)) changed = true;
   list.forEach(function(t) {
     if (!t) return;
     var d = normTestDate(t.date);
@@ -11502,6 +11934,7 @@ function loadPhysicalTests() {
   var list;
   try { list = JSON.parse(localStorage.getItem(PHYSICAL_TESTS_KEY) || '[]'); }
   catch(e) { return []; }
+  if (!Array.isArray(list)) return [];
   // Auto-corrige les noms mal orthographiés / sans accents (ex. "Clement" -> "Clément")
   // pour qu'ils retombent bien sur la fiche du joueur correspondant.
   if (normalizePhysicalTestNames(list)) {
@@ -11549,13 +11982,26 @@ function syncGpsVmaxToTests() {
     if (rec <= 0) return;
     var key = testPlayerKey(recName);
     var name = (typeof FIXED_ROSTER !== 'undefined' && FIXED_ROSTER.find(function(n){ return testPlayerKey(n) === key; })) || recName;
-    var autoId = 'gpsvmax:' + key;
-    var auto = physicalTests.find(function(t){ return t && String(t.id) === autoId; });
-    var others = getPlayerTests(name, 'vmax').filter(function(t){ return String(t.id) !== autoId; });
+    var baseAutoId = 'gpsvmax:' + key, autoId = baseAutoId;
+    var isAuto = function(t){ var s = String(t && t.id); return s === baseAutoId || s.indexOf(baseAutoId + '@') === 0; };
+    var auto = physicalTests.find(function(t){ return t && isAuto(t); });
+    var others = getPlayerTests(name, 'vmax').filter(function(t){ return !isAuto(t); });
     var bestTest = others.length ? Math.max.apply(null, others.map(function(t){ return parseFloat(t.value); })) : 0;
     var value = Math.round(rec * 100) / 100;
     if (value <= bestTest + 0.005) return;                       // un vrai test est déjà meilleur
     if (auto && Math.abs(parseFloat(auto.value) - value) < 0.005) return; // déjà à jour
+    if (!auto) {
+      // Entrée automatique supprimée à la main : le serveur garde la
+      // suppression (union), la recréer avec le même id la faisait
+      // disparaître/réapparaître à chaque synchro (écriture cloud toutes les
+      // 20 s). On respecte la suppression pour cette valeur ; un nouveau
+      // record crée une entrée avec un id propre à la valeur.
+      var delIds = (typeof loadDeletedIds === 'function') ? loadDeletedIds() : {};
+      if (delIds[PHYSICAL_TESTS_KEY + ':' + autoId]) {
+        autoId = baseAutoId + '@' + Math.round(value * 100);
+        if (delIds[PHYSICAL_TESTS_KEY + ':' + autoId]) return;
+      }
+    }
     var date = gpsRecordDateFor(name, rec);
     if (auto) { auto.value = value; auto.date = date; auto.player = name; }
     else physicalTests.push({ id: autoId, player: name, type: 'vmax', value: value, date: date, context: 'GPS (record saison)' });
@@ -11627,9 +12073,10 @@ function removePlayerEverywhere(name) {
 }
 
 // Corrige l'orthographe d'un nom partout où il est utilisé comme clé : la
-// liste des joueurs, le listing pro (groupe/poste) et sa photo. Les séances
-// déjà enregistrées gardent l'ancien nom (elles viennent du CSV importé, pas
-// de ce listing) — c'est volontaire, pas un oubli.
+// liste des joueurs, le listing pro (groupe/poste), sa photo, ses tests
+// physiques, son profil (taille, poste…) et son dossier médical. Les séances
+// GPS déjà enregistrées gardent l'ancien nom (elles viennent du CSV importé,
+// pas de ce listing) — c'est volontaire, pas un oubli.
 function renamePlayerEverywhere(oldName, newName) {
   var trimmed = (newName || "").trim();
   if (!trimmed || trimmed === oldName) return false;
@@ -11656,8 +12103,48 @@ function renamePlayerEverywhere(oldName, newName) {
     PLAYER_PHOTOS[trimmed] = PLAYER_PHOTOS[oldName];
     delete PLAYER_PHOTOS[oldName];
   }
+  renamePlayerData(oldName, trimmed);
   if (typeof renderJoueurGrid === "function") renderJoueurGrid();
   return true;
+}
+
+// Renomme le joueur dans les données rattachées à son nom : tests physiques,
+// profil et dossier médical (sinon sa fiche se retrouvait vide après correction).
+function renamePlayerData(oldName, newName) {
+  var oldKey = testPlayerKey(oldName);
+  try {
+    var tChanged = false;
+    (physicalTests || []).forEach(function(t) {
+      if (t && t.player && testPlayerKey(t.player) === oldKey) { t.player = newName; tChanged = true; }
+    });
+    if (tChanged) savePhysicalTests();
+  } catch (e) { console.warn("Renommage tests :", e); }
+  try {
+    if (playerProfiles && playerProfiles[oldName] !== undefined) {
+      var cur = playerProfiles[newName] || {}, old = playerProfiles[oldName] || {};
+      Object.keys(old).forEach(function(k) { if (cur[k] === undefined || cur[k] === '' || cur[k] === null) cur[k] = old[k]; });
+      playerProfiles[newName] = cur;
+      delete playerProfiles[oldName];
+      savePlayerProfiles();
+    }
+  } catch (e) { console.warn("Renommage profil :", e); }
+  try {
+    if (medicalRecords && medicalRecords[oldName] !== undefined) {
+      medicalRecords[newName] = (medicalRecords[newName] || []).concat(medicalRecords[oldName] || []);
+      delete medicalRecords[oldName];
+      saveMedicalRecords(medicalRecords);
+    }
+    var exOld = String(oldName).trim().toLowerCase(), exNew = String(newName).trim().toLowerCase();
+    var exIdx = medicalExcludedPlayers.indexOf(exOld);
+    if (exIdx !== -1) {
+      medicalExcludedPlayers.splice(exIdx, 1);
+      if (medicalExcludedPlayers.indexOf(exNew) === -1) medicalExcludedPlayers.push(exNew);
+      saveMedicalExcluded(medicalExcludedPlayers);
+    }
+  } catch (e) { console.warn("Renommage médical :", e); }
+  if (typeof currentProfilePlayer !== "undefined" && currentProfilePlayer === oldName) currentProfilePlayer = newName;
+  if (typeof pidPlayer !== "undefined" && pidPlayer === oldName) pidPlayer = newName;
+  try { if (typeof renderPerfHistory === "function") renderPerfHistory(); } catch (e) {}
 }
 
 
@@ -11793,7 +12280,7 @@ function joueurGridRenamePrompt(name) {
   renamePlayerEverywhere(name, next);
 }
 function joueurGridRemovePrompt(name) {
-  if (!confirm("Retirer définitivement \"" + name + "\" de la liste des joueurs ?\n\nSes séances déjà enregistrées ne seront pas supprimées.")) return;
+  if (!confirm("Retirer définitivement \"" + name + "\" de la liste des joueurs ?\n\nSes séances, tests et blessures déjà enregistrés ne seront pas supprimés.")) return;
   removePlayerEverywhere(name);
 }
 function joueurGridAddPrompt() {
@@ -11858,11 +12345,13 @@ function renderProfileMeta(name) {
 
 function renderProfileAnthropo(name) {
   var prof = playerProfiles[name] || {};
-  // Pour taille et poids : prendre la valeur manuelle ou la dernière valeur des tests physiques
+  // Pour taille et poids : la dernière mesure (tests physiques, pesées, fiche PID)
+  // est prioritaire ; la valeur manuelle du profil ne sert que s'il n'y en a aucune
+  // (avant, une vieille valeur manuelle masquait toutes les nouvelles pesées).
   var lastTaille = getPlayerTests(name, 'taille');
   var lastPoids  = getPlayerTests(name, 'poids');
-  var taille = prof.taille || (lastTaille.length ? lastTaille[lastTaille.length-1].value : null);
-  var poids  = prof.poids  || (lastPoids.length  ? lastPoids[lastPoids.length-1].value   : null);
+  var taille = lastTaille.length ? lastTaille[lastTaille.length-1].value : (prof.taille || null);
+  var poids  = lastPoids.length  ? lastPoids[lastPoids.length-1].value   : (prof.poids  || null);
 
   var values = {
     poste:     prof.poste     || '—',
@@ -11962,7 +12451,8 @@ function closeModal(id) {
 function showWellnessDetail(playerName, date) {
   var day = WD[date];
   if (!day || !day.r) return;
-  var p = day.r.find(function(r){ return r.n === playerName; });
+  var pl = String(playerName || '').toLowerCase();
+  var p = day.r.find(function(r){ return r.n && r.n.toLowerCase() === pl; });
   if (!p) return;
   var fa = Math.min(100, Math.max(0, ((35 - p.S) / 30) * 100));
   document.getElementById('wellnessDetailTitle').textContent = playerName + ' — ' + date;
@@ -11983,7 +12473,7 @@ function showWellnessDetail(playerName, date) {
 }
 
 function showTestEvo(playerName, testId) {
-  var test = TEST_DEFS.find(function(t){ return t.id === testId; });
+  var test = TEST_DEFS.find(function(t){ return t.id === testId; }) || { id: testId, label: testId, unit: '', lower: false };
   var history = getPlayerTests(playerName, testId);
   document.getElementById('testEvoTitle').textContent = test.label + ' — ' + playerName;
 
@@ -11994,7 +12484,7 @@ function showTestEvo(playerName, testId) {
   }
 
   var xLabels = history.map(function(t){ return shortDateLabel(t.date); });
-  var values  = history.map(function(t){ return t.value; });
+  var values  = history.map(function(t){ return parseFloat(t.value); });
 
   // Graphique SVG
   var W=420, H=180, ml=36, mb=30, mt=12, mr=12;
@@ -12032,8 +12522,8 @@ function showTestEvo(playerName, testId) {
     svg+='<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(v).toFixed(1)+'" r="4" fill="#D6001C" stroke="#111" stroke-width="1.5">';
     svg+='<title>'+xLabels[i]+' : '+v+' '+test.unit+'</title></circle>';
   });
-  // Best marker
-  var best=Math.max.apply(null,values);
+  // Best marker (le plus petit pour les tests chronométrés / la masse grasse)
+  var best=test.lower ? Math.min.apply(null,values) : Math.max.apply(null,values);
   var bi=values.lastIndexOf(best);
   svg+='<text x="'+sx(bi).toFixed(1)+'" y="'+(sy(best)-8).toFixed(1)+'" font-size="9" text-anchor="middle" fill="#2ecc8a" font-weight="700">'+best+' '+test.unit+'</text>';
   svg+='</svg>';
@@ -12059,10 +12549,24 @@ function openAnthropoEdit() {
 
 function saveAnthropo(name) {
   if (!playerProfiles[name]) playerProfiles[name] = {};
+  var testsAdded = false;
   ANTHRPO_FIELDS.forEach(function(f) {
     var el = document.getElementById('anthroinput-' + f.key);
-    if (el) playerProfiles[name][f.key] = el.value;
+    if (!el) return;
+    // Taille / poids modifiés : enregistrés aussi comme mesure du jour, pour
+    // que la nouvelle valeur s'affiche partout (fiche, PID, historique).
+    if ((f.key === 'taille' || f.key === 'poids') && el.value !== '' && String(el.value) !== String(playerProfiles[name][f.key] || '')) {
+      var v = parseFloat(String(el.value).replace(',', '.'));
+      var hist = getPlayerTests(name, f.key), last = hist[hist.length - 1];
+      if (isFinite(v) && (!last || parseFloat(last.value) !== v)) {
+        var d = new Date(); d = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        physicalTests.push({ id: Date.now() + Math.random(), player: name, type: f.key, value: v, date: d, context: 'Fiche joueur' });
+        testsAdded = true;
+      }
+    }
+    playerProfiles[name][f.key] = el.value;
   });
+  if (testsAdded) savePhysicalTests();
   savePlayerProfiles();
   renderProfileMeta(name);
   renderProfileAnthropo(name);
@@ -12299,6 +12803,8 @@ function renderPerfHistory() {
 function deleteAllPerfTests() {
   if (!physicalTests.length) { alert('Aucun test à supprimer.'); return; }
   if (!confirm('Supprimer TOUS les tests (' + physicalTests.length + ' résultats) ? Cette action est irréversible.')) return;
+  // Suppression volontaire explicite (sinon le garde-fou anti-effacement conserve les tests)
+  physicalTests.forEach(function(t){ if (t && t.id !== undefined) { try { markDeleted(PHYSICAL_TESTS_KEY, t.id); } catch (e) {} } });
   physicalTests = [];
   savePhysicalTests();
   renderPerfHistory();
@@ -12355,12 +12861,13 @@ function perfShowUndo(n) {
 }
 function perfUndoDelete() {
   if (!perfLastDeleted.length) return;
-  try {
-    var del = loadDeletedIds();
-    perfLastDeleted.forEach(function(t){ delete del[PHYSICAL_TESTS_KEY + ':' + t.id]; });
-    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(del));
-  } catch (e) {}
-  physicalTests = physicalTests.concat(perfLastDeleted);
+  // Le serveur garde toutes les suppressions (union) : retirer la pierre
+  // tombale ne suffit pas, le test redisparaissait à la synchro suivante.
+  // Les tests reviennent donc avec un nouvel id.
+  var seq = 0;
+  var revived = perfLastDeleted.filter(function(t){ return String(t.id).indexOf('gpsvmax:') !== 0; })   // VMAX GPS auto : recréée seule
+    .map(function(t){ var c = Object.assign({}, t); c.id = Date.now() + (++seq) + Math.random(); return c; });
+  physicalTests = physicalTests.concat(revived);
   perfLastDeleted = [];
   savePhysicalTests();
   renderPerfHistory();
@@ -12376,7 +12883,7 @@ function dedupePerfTests() {
   // (id le plus grand), et on prévient si les valeurs diffèrent (vrai conflit à trancher soi-même).
   var groups = {};
   physicalTests.forEach(function(t) {
-    var key = stripAccentsGlobal(t.player||'').toLowerCase().trim() + '|' + t.type + '|' + (t.date||'');
+    var key = testPlayerKey(t.player) + '|' + t.type + '|' + normTestDate(t.date||'');
     if (!groups[key]) groups[key] = [];
     groups[key].push(t);
   });
@@ -12389,10 +12896,13 @@ function dedupePerfTests() {
     if (arr.length === 1) { toKeep.push(arr[0]); return; }
     // Doublon(s) détecté(s)
     var values = arr.map(function(t){ return t.value; });
-    var allSame = values.every(function(v){ return v === values[0]; });
+    var allSame = values.every(function(v){ return parseFloat(v) === parseFloat(values[0]); });
     if (!allSame) conflicts.push(arr[0].player + ' — ' + arr[0].type + ' (' + arr[0].date + ') : valeurs différentes ' + values.join(' / ') + ', on garde la plus récente');
-    // Garde l'entrée la plus récemment ajoutée (id le plus grand)
-    arr.sort(function(a,b){ return (b.id||0) - (a.id||0); });
+    // Garde l'entrée la plus récemment ajoutée (id le plus grand) ; une VMAX
+    // reprise automatiquement du GPS (id « gpsvmax:… », non numérique) passe
+    // après un vrai test.
+    var idNum = function(t){ var n = parseFloat(t.id); return String(t.id).indexOf('gpsvmax:') === 0 ? -Infinity : (isFinite(n) ? n : 0); };
+    arr.sort(function(a,b){ return idNum(b) - idNum(a); });
     toKeep.push(arr[0]);
     removed += arr.length - 1;
   });
@@ -12503,7 +13013,7 @@ function handleWeightFile(file) {
   var reader = new FileReader();
   reader.onload = function(e) {
     try {
-      var wb = XLSX.read(e.target.result, { type: 'array' });
+      var wb = XLSX.read(e.target.result, { type: 'array', raw: true });
       var ws = wb.Sheets[wb.SheetNames[0]];
       var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
       weightRows = [];
@@ -12625,7 +13135,9 @@ function handleXlsxFile(file) {
   reader.onerror = function() { showStatus('⚠ Erreur lecture fichier.', '#e8564a'); };
   reader.onload = function(e) {
     try {
-      var wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      // raw:true : dans un CSV, garde « 09/11/2026 » et « 13,6 » tels quels
+      // (sinon lus à l'américaine : 11 septembre, 136). Sans effet sur un .xlsx.
+      var wb = XLSX.read(e.target.result, { type:'array', cellDates:true, raw:true });
       showStatus('✓ Fichier lu — ' + wb.SheetNames.length + ' feuille(s): ' + wb.SheetNames.join(', '), '#f5a623');
 
       // Chercher la feuille avec le plus de données
@@ -12705,8 +13217,10 @@ function handleXlsxFile(file) {
         if (!testId) { ignoredTests[testRaw] = (ignoredTests[testRaw]||0)+1; errors++; return; }
 
         // Valeur numérique
-        var val = typeof valRaw === 'number' ? valRaw : parseFloat(String(valRaw).replace(',','.'));
-        if (isNaN(val)) { errors++; return; }
+        var val = typeof valRaw === 'number' ? valRaw : parseFloat(String(valRaw).replace(/\s/g,'').replace(',','.'));
+        if (!isFinite(val)) { errors++; return; }
+        // % MG saisi au format pourcentage Excel (0,136 au lieu de 13,6)
+        if (testId === 'mg' && val > 0 && val < 1) val = val * 100;
 
         // Date
         var dateStr = '';
@@ -12718,7 +13232,7 @@ function handleXlsxFile(file) {
         } else if (typeof dateRaw === 'string' && dateRaw) {
           dateStr = normTestDate(dateRaw);
         }
-        if (!dateStr) { errors++; return; }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { errors++; return; } // date absente ou illisible
 
         var rowData = { player:playerRaw, type:testId, value:Math.round(val*100)/100, date:dateStr, context:ctx };
 
@@ -12737,11 +13251,8 @@ function handleXlsxFile(file) {
       var reviewNames = Object.keys(reviewGroups);
       if (!reviewNames.length) {
         // Rien à valider : on enregistre directement
-        pendingRows.forEach(function(r) {
-          physicalTests.push({ id:Date.now()+Math.random(), player:r.player, type:r.type, value:r.value, date:r.date, context:r.context });
-        });
-        saved = pendingRows.length;
-        finishXlsxImport(saved, skipped, errors, ignoredTests, []);
+        var resDirect = perfImportAddRows(pendingRows);
+        finishXlsxImport(resDirect.added, resDirect.dup, errors, ignoredTests, []);
       } else {
         // Ouvre la modale de validation des noms proches / inconnus
         openNameReviewModal(pendingRows, reviewGroups, skipped, errors, ignoredTests);
@@ -12753,6 +13264,27 @@ function handleXlsxFile(file) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// Ajoute les lignes importées en sautant les doublons : même joueur + même
+// test + même date + même valeur déjà enregistré (ou déjà vu dans le fichier).
+// Réimporter le même fichier ne crée donc plus de doublons.
+function perfImportAddRows(rows) {
+  var key = function(player, type, date, value) {
+    var v = parseFloat(value);
+    return testPlayerKey(player) + '|' + type + '|' + normTestDate(date) + '|' + (isFinite(v) ? Math.round(v * 100) / 100 : String(value));
+  };
+  var seen = {};
+  physicalTests.forEach(function(t){ if (t) seen[key(t.player, t.type, t.date, t.value)] = 1; });
+  var added = 0, dup = 0, base = Date.now();
+  rows.forEach(function(r) {
+    var k = key(r.player, r.type, r.date, r.value);
+    if (seen[k]) { dup++; return; }
+    seen[k] = 1;
+    physicalTests.push({ id: base + added + Math.random(), player:r.player, type:r.type, value:r.value, date:r.date, context:r.context });
+    added++;
+  });
+  return { added: added, dup: dup };
 }
 
 function finishXlsxImport(saved, skipped, errors, ignoredTests, keptAsIsNames) {
@@ -12775,11 +13307,11 @@ function finishXlsxImport(saved, skipped, errors, ignoredTests, keptAsIsNames) {
 
   var ignoredList = Object.keys(ignoredTests);
   var msg = '✓ ' + saved + ' test(s) importé(s)';
-  if (skipped) msg += ' · ' + skipped + ' ignoré(s) (masse grasse)';
+  if (skipped) msg += ' · ' + skipped + ' déjà présent(s), non réimporté(s)';
   if (errors) msg += ' · ' + errors + ' erreur(s)';
   if (ignoredList.length) msg += '\nTests non reconnus: ' + ignoredList.slice(0,5).join(', ');
   if (keptAsIsNames && keptAsIsNames.length) msg += '\n⚠ Nom(s) gardé(s) tel quel (absent de l\'effectif) : ' + keptAsIsNames.slice(0,8).join(', ');
-  showStatus(msg, saved > 0 ? (keptAsIsNames && keptAsIsNames.length ? '#f5a623' : '#2ecc8a') : '#e8564a');
+  showStatus(msg, saved > 0 ? (keptAsIsNames && keptAsIsNames.length ? '#f5a623' : '#2ecc8a') : (skipped ? '#f5a623' : '#e8564a'));
 }
 
 // ── Modale de validation des noms proches / inconnus à l'import ──
@@ -12825,6 +13357,7 @@ function confirmNameReview() {
   var names = Object.keys(nameReviewState.reviewGroups);
   var keptAsIsNames = [];
 
+  var toAdd = nameReviewState.pendingRows.slice();
   names.forEach(function(rawName, idx) {
     var sel = document.getElementById('nameReviewSel_' + idx);
     var chosen = sel ? sel.value : '__keep__';
@@ -12832,16 +13365,12 @@ function confirmNameReview() {
     var finalName = (chosen === '__keep__') ? rawName : chosen;
     if (chosen === '__keep__') keptAsIsNames.push(rawName);
     group.rows.forEach(function(r) {
-      physicalTests.push({ id:Date.now()+Math.random(), player:finalName, type:r.type, value:r.value, date:r.date, context:r.context });
+      toAdd.push({ player:finalName, type:r.type, value:r.value, date:r.date, context:r.context });
     });
   });
 
-  nameReviewState.pendingRows.forEach(function(r) {
-    physicalTests.push({ id:Date.now()+Math.random(), player:r.player, type:r.type, value:r.value, date:r.date, context:r.context });
-  });
-
-  var saved = nameReviewState.pendingRows.length + names.reduce(function(sum,n){ return sum + nameReviewState.reviewGroups[n].rows.length; }, 0);
-  finishXlsxImport(saved, nameReviewState.skipped, nameReviewState.errors, nameReviewState.ignoredTests, keptAsIsNames);
+  var res = perfImportAddRows(toAdd);
+  finishXlsxImport(res.added, nameReviewState.skipped + res.dup, nameReviewState.errors, nameReviewState.ignoredTests, keptAsIsNames);
 
   closeNameReviewModal(true);
 }
@@ -12940,6 +13469,13 @@ function collectAllData() {
 // été le cas avant l'ajout de cette protection).
 function backupLocalDataBeforeRestore() {
   try {
+    // On ne remplace pas une copie de secours recente (< 30 min) : sinon une
+    // 2e mise a jour cloud, juste apres un ecrasement, remplacait la bonne
+    // copie par les donnees deja abimees.
+    var prevRaw = localStorage.getItem('nissaPreRestoreBackup_v1');
+    if (prevRaw) {
+      try { var prevDate = Date.parse(JSON.parse(prevRaw)._date); if (prevDate && Date.now() - prevDate < 30 * 60000) return; } catch (e) {}
+    }
     var snapshot = { _date: new Date().toISOString() };
     SYNC_DATA_KEYS.forEach(function(k) {
       var v = localStorage.getItem(k);
@@ -12949,19 +13485,260 @@ function backupLocalDataBeforeRestore() {
   } catch(e) { console.warn('Backup avant restauration impossible :', e); }
 }
 
-// Restaure la sauvegarde de secours prise juste avant la dernière
-// restauration cloud (voir backupLocalDataBeforeRestore).
+// Copie de secours locale quotidienne (une fois par jour, au chargement,
+// AVANT la premiere synchro). Ignoree sans bruit si le stockage est trop
+// plein : elle ne doit jamais prendre la place de vraies donnees (et elle est
+// supprimee automatiquement si une vraie ecriture manque de place).
+function nissaDailyLocalBackup() {
+  try {
+    var today = new Date(); today = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    var prevRaw = localStorage.getItem('nissaDailyBackup_v1'), prev = null;
+    if (prevRaw) { try { prev = JSON.parse(prevRaw); } catch (e) {} }
+    if (prev && prev._day === today) return;
+    var snap = { _date: new Date().toISOString(), _day: today }, items = 0;
+    SYNC_DATA_KEYS.forEach(function (k) {
+      var v = localStorage.getItem(k);
+      if (!v) return;
+      snap[k] = v;
+      if (NISSA_ID_ARRAY_KEYS.indexOf(k) !== -1) { try { var a = JSON.parse(v); if (Array.isArray(a)) items += a.length; } catch (e) {} }
+    });
+    snap._items = items;
+    // Ne remplace pas une copie qui contenait des donnees par une copie vide
+    if (prev && (prev._items || 0) > 0 && items === 0) return;
+    var json = JSON.stringify(snap);
+    var used = 0;
+    for (var i = 0; i < localStorage.length; i++) { var kk = localStorage.key(i); if (kk !== 'nissaDailyBackup_v1') used += kk.length + (localStorage.getItem(kk) || '').length; }
+    if (used + json.length > 3500000) return; // garde de la marge pour les vraies donnees
+    localStorage.setItem('nissaDailyBackup_v1', json);
+  } catch (e) { /* stockage plein : on saute sans bruit */ }
+}
+
+// Restaure une copie de secours locale : celle prise juste avant la
+// derniere mise a jour cloud, ou la copie quotidienne. La restauration
+// FUSIONNE (elle n'efface rien) : les seances/matchs/tests/rapports de la
+// copie sont rajoutes (et ne sont plus consideres comme supprimes), les
+// reglages de la copie remplacent les reglages actuels.
 function restoreLocalBackup() {
-  var raw = localStorage.getItem('nissaPreRestoreBackup_v1');
-  if (!raw) { alert("Aucune sauvegarde de secours trouvée sur cet appareil."); return; }
-  var snapshot;
-  try { snapshot = JSON.parse(raw); } catch(e) { alert("Sauvegarde de secours illisible."); return; }
-  if (!confirm('Restaurer la sauvegarde locale du ' + new Date(snapshot._date).toLocaleString('fr-FR') + ' ? Ceci va remplacer les données actuellement affichées sur cet appareil (mais pas encore le cloud).')) return;
+  var cands = [];
+  [['nissaPreRestoreBackup_v1', 'copie prise avant la derniere mise a jour depuis le cloud'], ['nissaDailyBackup_v1', 'copie automatique du jour']].forEach(function (b) {
+    var raw = localStorage.getItem(b[0]); if (!raw) return;
+    try { var snap = JSON.parse(raw); if (snap && snap._date) cands.push({ snap: snap, label: b[1], raw: raw }); } catch (e) {}
+  });
+  // Doublon exact : on n'en propose qu'une
+  if (cands.length === 2) {
+    var a0 = Object.assign({}, cands[0].snap), a1 = Object.assign({}, cands[1].snap);
+    ['_date', '_day', '_items'].forEach(function (x) { delete a0[x]; delete a1[x]; });
+    if (JSON.stringify(a0) === JSON.stringify(a1)) cands.pop();
+  }
+  if (!cands.length) { alert("Aucune sauvegarde de secours trouvée sur cet appareil."); return; }
+  cands.sort(function (x, y) { return String(y.snap._date).localeCompare(String(x.snap._date)); });
+  var snapshot = null;
+  for (var i = 0; i < cands.length; i++) {
+    var c = cands[i];
+    if (confirm('Restaurer la ' + c.label + ' (' + new Date(c.snap._date).toLocaleString('fr-FR') + ') ?\n\n' +
+        'Les séances, matchs, tests et rapports de cette copie seront rajoutés (rien n\'est effacé) ; ses réglages remplaceront les réglages actuels.' +
+        (i < cands.length - 1 ? '\n\nAnnuler = voir l\'autre copie disponible.' : ''))) { snapshot = c.snap; break; }
+  }
+  if (!snapshot) return;
   SYNC_DATA_KEYS.forEach(function(k) {
-    if (snapshot[k] !== undefined) safeLocalStorageSet(k, snapshot[k]);
+    if (snapshot[k] === undefined) return;
+    var bv; try { bv = JSON.parse(snapshot[k]); } catch (e) { return; }
+    var lv = null; try { lv = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) {}
+    var out = bv;
+    if (lv !== null && NISSA_ID_ARRAY_KEYS.indexOf(k) !== -1 && Array.isArray(lv) && Array.isArray(bv)) {
+      // Rajoute les elements de la copie. Un element supprime depuis revient
+      // avec un NOUVEL id : le serveur conserve toujours les « suppressions »
+      // (union), un element qui reprendrait son ancien id disparaitrait a la
+      // synchro suivante.
+      bv = nissaReviveDeletedItems(k, bv, lv);
+      out = nissaMergeIdArray(k, lv, bv, { prefer: 'second' });
+    } else if (k === 'gpsDeletedIds_v1' && nissaIsObj(lv)) {
+      out = lv; // les suppressions recentes ne sont pas reimportees depuis une copie
+    } else if (nissaIsObj(lv) && nissaIsObj(bv)) {
+      out = Object.assign({}, lv, bv);
+    }
+    safeLocalStorageSet(k, JSON.stringify(out));
   });
   reloadAllVariablesAndRerender();
-  alert('Sauvegarde locale restaurée. Pense à cliquer sur la pastille de synchro pour la renvoyer au cloud si elle est correcte.');
+  alert('Sauvegarde locale restaurée. Elle sera envoyée automatiquement au cloud (pastille de synchro).');
+}
+
+/* ══ SAUVEGARDE COMPLETE (fichier) ══
+   Export : un fichier JSON avec TOUTES les donnees synchronisees.
+   Import : FUSION uniquement, jamais d'effacement. Listes avec id : ajout des
+   elements absents (les suppressions volontaires sont respectees, sauf si
+   l'utilisateur demande de les restaurer aussi) ; objets : ajout des cles
+   manquantes, la valeur locale est gardee en cas de conflit. */
+var NISSA_KEY_LABELS = {
+  nissaPhysicalTests_v1: 'Tests physiques', nissaPlayerProfiles_v1: 'Profils joueurs', gpsSavedSessions_v1: 'Séances GPS',
+  gpsSavedMatches_v1: 'Matchs GPS', gpsSeasonRecords_v1: 'Records de saison', gpsReportRoster_v1: 'Effectif (postes)',
+  gpsReportObjectives_v1: 'Objectifs', gpsReportColumnVisibility_v1: 'Colonnes affichées', gpsRosterPositions_v1: 'Postes',
+  gpsMatchObjectives_v1: 'Objectifs match', gpsMedicalRecords_v1: 'Dossiers médicaux', gpsMedicalExcludedPlayers_v1: 'Exclusions médicales',
+  nissa_espoirs_rpe_overrides_v1: 'Corrections RPE', gpsP1Roster_v1: 'Effectif P1', gpsP1WeekExclusions_v1: 'Exclusions P1',
+  nissa_gps_fixed_roster_v1: 'Liste des joueurs', gpsCoachMatchRef_v1: 'Références coach', gpsCoachThemes_v1: 'Thèmes coach',
+  nissaMatchReports_v1: 'Rapports de match'
+};
+function nissaLocalDay() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function nissaExportFullBackup() {
+  var data = {};
+  SYNC_DATA_KEYS.forEach(function (k) {
+    var v = localStorage.getItem(k); if (v === null) return;
+    try { data[k] = JSON.parse(v); } catch (e) { data[k] = v; }
+  });
+  var file = { _nissaBackup: 1, _date: new Date().toISOString(), _app: 'Nissa Rugby Performance Hub', data: data };
+  var blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'nissa-sauvegarde-' + nissaLocalDay() + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+}
+function nissaPickBackupFile() {
+  var inp = document.getElementById('nissaBackupFileInput');
+  if (!inp) {
+    inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json'; inp.id = 'nissaBackupFileInput'; inp.style.display = 'none';
+    inp.addEventListener('change', function () { var f = inp.files && inp.files[0]; inp.value = ''; if (f) nissaImportBackupFile(f); });
+    document.body.appendChild(inp);
+  }
+  inp.click();
+}
+function nissaImportBackupFile(file) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    var obj; try { obj = JSON.parse(reader.result); } catch (e) { alert('Fichier illisible : ce n\'est pas une sauvegarde Nissa (JSON invalide).'); return; }
+    nissaImportBackupData(obj);
+  };
+  reader.onerror = function () { alert('Lecture du fichier impossible.'); };
+  reader.readAsText(file);
+}
+// Ajoute dans `into` les cles absentes de `from` (recursif). Retourne le nombre de cles ajoutees.
+// Si stats est fourni : stats.conflicts compte les valeurs differentes ;
+// avec stats.takeFrom = true, ces valeurs sont remplacees par celles de `from`.
+function nissaAddMissing(into, from, depth, stats) {
+  var n = 0;
+  Object.keys(from).forEach(function (key) {
+    if (into[key] === undefined) { into[key] = from[key]; n++; }
+    else if (depth < 6 && nissaIsObj(into[key]) && nissaIsObj(from[key])) n += nissaAddMissing(into[key], from[key], depth + 1, stats);
+    else if (stats && JSON.stringify(into[key]) !== JSON.stringify(from[key])) {
+      stats.conflicts++;
+      if (stats.takeFrom) { into[key] = from[key]; n++; }
+    }
+  });
+  return n;
+}
+// Calcule la fusion sans rien ecrire. Retourne { plan: {k: valeur}, counts: {k: n}, skipped: {k: [items]} }
+// Le serveur garde toutes les « suppressions » (gpsDeletedIds_v1 en union) :
+// retirer une pierre tombale cote appareil ne sert a rien, elle revient. Pour
+// remettre un element supprime, on lui donne donc un NOUVEL id.
+var _nissaReviveSeq = 0;
+function nissaNewIdFor(id) {
+  _nissaReviveSeq++;
+  if (typeof id === 'number') return Date.now() + _nissaReviveSeq + (Number.isInteger(id) ? 0 : Math.random());
+  return String(id) + '_r' + Date.now().toString(36) + _nissaReviveSeq;
+}
+function nissaSameContent(a, b) {
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  var x = Object.assign({}, a), y = Object.assign({}, b); delete x.id; delete y.id;
+  return JSON.stringify(x) === JSON.stringify(y);
+}
+// Pour chaque element de `items` dont l'id est marque supprime : on le garde
+// avec un nouvel id, sauf s'il est deja present (meme contenu) dans `existing`
+// ou s'il s'agit d'une VMAX GPS automatique (recreee toute seule).
+function nissaReviveDeletedItems(k, items, existing) {
+  var del = {}; try { del = JSON.parse(localStorage.getItem('gpsDeletedIds_v1') || '{}') || {}; } catch (e) {}
+  var ex = Array.isArray(existing) ? existing : [];
+  var out = [];
+  items.forEach(function (it) {
+    if (!it || typeof it !== 'object' || it.id === undefined || it.id === null || !del[k + ':' + String(it.id)]) { out.push(it); return; }
+    if (String(it.id).indexOf('gpsvmax:') === 0) return;
+    if (ex.some(function (e) { return nissaSameContent(e, it); }) || out.some(function (e) { return nissaSameContent(e, it); })) return;
+    var c = JSON.parse(JSON.stringify(it)); c.id = nissaNewIdFor(it.id); out.push(c);
+  });
+  return out;
+}
+function nissaPlanImport(data, includeDeleted, takeBackupValues) {
+  var del = {}; try { del = JSON.parse(localStorage.getItem('gpsDeletedIds_v1') || '{}') || {}; } catch (e) {}
+  var res = { plan: {}, counts: {}, skipped: {}, conflicts: {} };
+  SYNC_DATA_KEYS.forEach(function (k) {
+    if (k === 'gpsDeletedIds_v1') return;            // on n'importe jamais de suppressions
+    var inc = data[k];
+    if (inc === undefined || inc === null) return;
+    var raw = localStorage.getItem(k), loc = null;
+    if (raw !== null) { try { loc = JSON.parse(raw); } catch (e) { loc = null; } }
+    var n = 0, out;
+    if (Array.isArray(inc)) {
+      out = Array.isArray(loc) ? loc.slice() : [];
+      var have = {}, haveJson = {};
+      out.forEach(function (it) { if (it && typeof it === 'object' && it.id !== undefined && it.id !== null) have[String(it.id)] = 1; else haveJson[JSON.stringify(it)] = 1; });
+      inc.forEach(function (it) {
+        if (it && typeof it === 'object' && it.id !== undefined && it.id !== null) {
+          var id = String(it.id);
+          if (have[id]) return;
+          if (del[k + ':' + id]) {
+            if (out.some(function (e) { return nissaSameContent(e, it); })) return;   // deja restaure
+            if (!includeDeleted) { (res.skipped[k] = res.skipped[k] || []).push(it); return; }
+            // Restauration demandee : nouvel id (voir nissaReviveDeletedItems)
+            var rv = nissaReviveDeletedItems(k, [it], out);
+            if (rv.length) { out.push(rv[0]); n++; }
+            return;
+          }
+          have[id] = 1; out.push(it); n++;
+        } else {
+          var j = JSON.stringify(it); if (haveJson[j]) return;
+          haveJson[j] = 1; out.push(it); n++;
+        }
+      });
+    } else if (nissaIsObj(inc)) {
+      out = nissaIsObj(loc) ? JSON.parse(JSON.stringify(loc)) : {};
+      var st = { conflicts: 0, takeFrom: !!takeBackupValues };
+      n = nissaAddMissing(out, inc, 0, st);
+      if (st.conflicts) res.conflicts[k] = st.conflicts;
+    } else {
+      if (loc !== null) return;                        // valeur simple : la locale est gardee
+      out = inc; n = 1;
+    }
+    if (n > 0) { res.plan[k] = out; res.counts[k] = n; }
+  });
+  return res;
+}
+function nissaImportBackupData(obj) {
+  var data = obj && (obj.data && typeof obj.data === 'object' ? obj.data : obj);
+  if (!nissaIsObj(data) || !SYNC_DATA_KEYS.some(function (k) { return data[k] !== undefined; })) {
+    alert('Ce fichier ne contient aucune donnée Nissa reconnue.'); return;
+  }
+  var p = nissaPlanImport(data, false);
+  var skippedN = Object.keys(p.skipped).reduce(function (s, k) { return s + p.skipped[k].length; }, 0);
+  var includeDeleted = false;
+  if (skippedN && confirm(skippedN + ' élément(s) de cette sauvegarde avaient été SUPPRIMÉS volontairement sur cet appareil (ou un autre).\n\n' +
+      Object.keys(p.skipped).map(function (k) { return '• ' + (NISSA_KEY_LABELS[k] || k) + ' : ' + p.skipped[k].length; }).join('\n') +
+      '\n\nOK = les restaurer aussi\nAnnuler = les laisser supprimés')) {
+    includeDeleted = true; p = nissaPlanImport(data, true);
+  }
+  // Réglages (objectifs, profils, RPE, médical...) dont la valeur diffère :
+  // par défaut on garde celle de cet appareil ; l'utilisateur peut choisir
+  // celle de la sauvegarde (utile sur un appareil vidé, où l'appli a remis
+  // des valeurs par défaut au chargement).
+  var conflictKeys = Object.keys(p.conflicts);
+  if (conflictKeys.length) {
+    var nConf = conflictKeys.reduce(function (s2, k) { return s2 + p.conflicts[k]; }, 0);
+    if (confirm(nConf + ' réglage(s) ont une valeur DIFFÉRENTE dans la sauvegarde et sur cet appareil :\n' +
+        conflictKeys.map(function (k) { return '• ' + (NISSA_KEY_LABELS[k] || k) + ' : ' + p.conflicts[k]; }).join('\n') +
+        '\n\nOK = prendre les valeurs de la SAUVEGARDE\nAnnuler = garder celles de CET APPAREIL')) {
+      p = nissaPlanImport(data, includeDeleted, true);
+    }
+  }
+  var keys = Object.keys(p.counts);
+  var when = obj && obj._date ? ' du ' + new Date(obj._date).toLocaleString('fr-FR') : '';
+  if (!keys.length) { alert('Sauvegarde' + when + ' : rien à ajouter, toutes ses données sont déjà présentes sur cet appareil.'); return; }
+  var lines = keys.map(function (k) { return '• ' + (NISSA_KEY_LABELS[k] || k) + ' : +' + p.counts[k]; });
+  if (!confirm('Importer la sauvegarde' + when + ' ?\n\nÉléments qui seront ajoutés ou mis à jour (rien ne sera effacé) :\n' + lines.join('\n'))) return;
+  var failed = [];
+  keys.forEach(function (k) {
+    try { localStorage.setItem(k, JSON.stringify(p.plan[k])); }   // marque la donnee « modifiee » -> envoi au cloud
+    catch (e) { failed.push(NISSA_KEY_LABELS[k] || k); }
+  });
+  reloadAllVariablesAndRerender();
+  if (failed.length) alert('⚠ Stockage plein : ces données n\'ont PAS pu être importées : ' + failed.join(', '));
+  else alert('✓ Sauvegarde importée. Les données ajoutées partent automatiquement vers le cloud.');
 }
 
 // Fusion "jamais de perte" : au lieu d'écraser une donnée locale par ce qui
@@ -13064,6 +13841,11 @@ function reloadAllVariablesAndRerender() {
   // perd sa place. Dans tous les cas on garde la position de défilement.
   var ae = document.activeElement;
   if (ae && (ae.isContentEditable || /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) && ae.closest && ae.closest('.hub-section')) {
+    // Le REDESSIN attend, mais les données en mémoire sont rechargées tout de
+    // suite : sinon, une sauvegarde faite pendant l'attente (ex. : saisie d'un
+    // test validée par Entrée) réécrivait l'ancienne liste en mémoire par-dessus
+    // les données qui venaient d'arriver du cloud — et les faisait disparaître.
+    try { __nissaReloadVariablesOnly(); } catch (e) {}
     clearTimeout(window.__nissaRerenderLater);
     window.__nissaRerenderLater = setTimeout(reloadAllVariablesAndRerender, 2500);
     return;
@@ -13071,6 +13853,24 @@ function reloadAllVariablesAndRerender() {
   var __sy = window.scrollY;
   try { __reloadAllVariablesAndRerenderInner(); }
   finally { window.scrollTo(0, __sy); requestAnimationFrame(function(){ window.scrollTo(0, __sy); }); }
+}
+function __nissaReloadVariablesOnly() {
+  var L = function (fn, set) { if (typeof fn === 'function') { try { set(fn()); } catch (e) {} } };
+  if (typeof loadRoster === 'function') L(loadRoster, function (v) { roster = v; });
+  if (typeof loadRosterPositions === 'function') L(loadRosterPositions, function (v) { rosterPositions = v; });
+  if (typeof loadMatchObjectives === 'function') L(loadMatchObjectives, function (v) { matchObjectives = v; });
+  if (typeof loadColumnVisibility === 'function') L(loadColumnVisibility, function (v) { columnVisibility = v; });
+  if (typeof loadObjectives === 'function') L(loadObjectives, function (v) { objectives = v; });
+  if (typeof loadSavedSessions === 'function') L(loadSavedSessions, function (v) { savedSessions = v; });
+  if (typeof loadSavedMatches === 'function') L(loadSavedMatches, function (v) { savedMatches = v; });
+  if (typeof loadSeasonRecords === 'function') L(loadSeasonRecords, function (v) { seasonRecords = v; });
+  if (typeof loadMedicalRecords === 'function') L(loadMedicalRecords, function (v) { medicalRecords = v; });
+  if (typeof medicalExcludedPlayers !== 'undefined' && typeof loadMedicalExcluded === 'function') L(loadMedicalExcluded, function (v) { medicalExcludedPlayers = v; });
+  if (typeof physicalTests !== 'undefined' && typeof loadPhysicalTests === 'function') L(loadPhysicalTests, function (v) { physicalTests = v; });
+  if (typeof playerProfiles !== 'undefined' && typeof loadPlayerProfiles === 'function') L(loadPlayerProfiles, function (v) { playerProfiles = v; });
+  if (typeof RPE_OVERRIDES !== 'undefined' && typeof loadOverrides === 'function') L(loadOverrides, function (v) { RPE_OVERRIDES = v; });
+  if (typeof p1Roster !== 'undefined' && typeof loadP1Roster === 'function') L(loadP1Roster, function (v) { p1Roster = v; });
+  if (typeof p1WeekExclusions !== 'undefined' && typeof loadP1WeekExclusions === 'function') L(loadP1WeekExclusions, function (v) { p1WeekExclusions = v; });
 }
 function __reloadAllVariablesAndRerenderInner() {
   if (typeof loadRoster === 'function') {
@@ -13213,48 +14013,93 @@ function nissaMerge3(l, c, b, depth) {
   }
   return l; // vrai conflit sur la même valeur : la modification locale l'emporte
 }
-function nissaMergeIdArray(k, local, cloud) {
+// Union par id de deux listes. Par defaut la version de `local` l'emporte
+// pour un meme id ; opts.prefer === 'second' => celle de `cloud` l'emporte.
+// Les elements SANS id ne sont plus jetes (ils l'etaient avant) : ils sont
+// gardes, sans doublon exact.
+function nissaMergeIdArray(k, local, cloud, opts) {
+  var preferSecond = !!(opts && opts.prefer === 'second');
   var del = {};
   try { del = JSON.parse(localStorage.getItem('gpsDeletedIds_v1') || '{}') || {}; } catch (e) {}
-  var order = [], byId = {};
-  cloud.forEach(function (it) { if (it && it.id !== undefined) { var id = String(it.id); if (!byId[id]) order.push(id); byId[id] = it; } });
-  local.forEach(function (it) { if (it && it.id !== undefined) { var id = String(it.id); if (!byId[id]) order.push(id); byId[id] = it; } });
-  return order.filter(function (id) { return !del[k + ':' + id]; }).map(function (id) { return byId[id]; });
+  var order = [], byId = {}, noId = [], noIdSeen = {};
+  // Tests physiques : mêmes règles d'id que loadPhysicalTests (id stable pour
+  // un test sans id, « id-2 » pour un id en double). Sinon un test sans id du
+  // cloud était recopié à chaque synchro, et un id en double faisait perdre
+  // l'un des deux tests.
+  if (k === 'nissaPhysicalTests_v1' && typeof ptAssignIds === 'function') {
+    var fixIds = function (arr) {
+      if (!Array.isArray(arr)) return arr;
+      var c = arr.map(function (it) { return (it && typeof it === 'object') ? Object.assign({}, it) : it; });
+      try { ptAssignIds(c); } catch (e) { return arr; }
+      return c;
+    };
+    cloud = fixIds(cloud); local = fixIds(local);
+  }
+  function add(it, win) {
+    if (it && typeof it === 'object' && it.id !== undefined && it.id !== null) {
+      var id = String(it.id);
+      if (!byId[id]) { order.push(id); byId[id] = it; } else if (win) byId[id] = it;
+    } else if (it !== undefined) {
+      var j = JSON.stringify(it); if (!noIdSeen[j]) { noIdSeen[j] = 1; noId.push(it); }
+    }
+  }
+  (Array.isArray(cloud) ? cloud : []).forEach(function (it) { add(it, true); });
+  (Array.isArray(local) ? local : []).forEach(function (it) { add(it, !preferSecond); });
+  return order.filter(function (id) { return !del[k + ':' + id]; }).map(function (id) { return byId[id]; }).concat(noId);
 }
 
 // Applique les données du cloud sur cet appareil. Retourne true si quelque chose a changé.
 function nissaApplyCloud(data, opts) {
   opts = opts || {};
   var dirty = opts.ignoreDirty ? {} : nissaGetDirty();
-  var base = nissaReadBase(), newDirty = Object.assign({}, dirty), changed = false, backedUp = false;
+  var base = nissaReadBase(), newDirty = Object.assign({}, dirty), changed = false, backedUp = false, writeFailed = [];
   window.__nissaSyncApplying = true;
   try {
     SYNC_DATA_KEYS.forEach(function (k) {
       var localRaw = localStorage.getItem(k);
       var cloudV = data[k];
       var isIdArr = NISSA_ID_ARRAY_KEYS.indexOf(k) !== -1;
-      if (cloudV === undefined) {                 // le cloud ne connaît pas encore cette donnée → on l'enverra
+      // Le cloud ne connaît pas encore cette donnée (ou elle y est vide/abîmée)
+      // → on garde la version locale et on l'enverra.
+      if (cloudV === undefined || cloudV === null || (isIdArr && !Array.isArray(cloudV))) {
         if (localRaw !== null) newDirty[k] = newDirty[k] || Date.now();
         return;
       }
       var cloudRaw = JSON.stringify(cloudV), result = cloudRaw;
-      if (dirty[k] && localRaw !== null) {
-        var local = null; try { local = JSON.parse(localRaw); } catch (e) {}
-        if (local !== null) {
-          if (isIdArr && Array.isArray(local) && Array.isArray(cloudV)) result = JSON.stringify(nissaMergeIdArray(k, local, cloudV));
-          else result = JSON.stringify(nissaMerge3(local, cloudV, base[k] !== undefined ? JSON.parse(base[k]) : undefined));
-        }
+      var local = null;
+      if (localRaw !== null) { try { local = JSON.parse(localRaw); } catch (e) {} }
+      if (isIdArr && Array.isArray(local)) {
+        // Séances / matchs / tests / rapports : TOUJOURS une union par id (même
+        // si cet appareil n'a rien modifié, même au 1er lancement ou au
+        // rechargement forcé). Un élément présent ici et absent du cloud sans
+        // suppression volontaire n'est donc jamais effacé : il est conservé
+        // et renvoyé au cloud (auto-réparation d'un cloud abîmé).
+        // Version modifiée ici → la locale l'emporte ; sinon → celle du cloud.
+        var mergedArr = nissaMergeIdArray(k, local, cloudV, (dirty[k] ? null : { prefer: 'second' }));
+        result = JSON.stringify(mergedArr);
+        if (result !== cloudRaw) newDirty[k] = newDirty[k] || Date.now();
+      } else if (dirty[k] && local !== null) {
+        var bk; try { bk = base[k] !== undefined ? JSON.parse(base[k]) : undefined; } catch (e) { bk = undefined; }
+        result = JSON.stringify(nissaMerge3(local, cloudV, bk));
       }
-      if (!isIdArr) base[k] = cloudRaw;
       if (result !== localRaw) {
         if (!backedUp && !dirty[k]) { try { backupLocalDataBeforeRestore(); } catch (e) {} backedUp = true; }
-        try { localStorage.setItem(k, result); } catch (e) { console.warn('Écriture locale impossible pour', k, e); }
+        try { localStorage.setItem(k, result); }
+        catch (e) {
+          // Écriture impossible (stockage plein) : on ne fait PAS comme si
+          // c'était fait (la base n'est pas avancée), et on prévient.
+          console.warn('Écriture locale impossible pour', k, e);
+          writeFailed.push(k);
+          return;
+        }
         changed = true;
       }
+      if (!isIdArr) base[k] = cloudRaw;
     });
   } finally { window.__nissaSyncApplying = false; }
   nissaWriteBase(base);
   nissaWriteDirty(newDirty);
+  if (writeFailed.length) showGlobalSyncWarning('- stockage local plein : ' + writeFailed.length + ' donnée(s) du cloud non enregistrée(s) sur cet appareil (' + writeFailed.join(', ') + ').');
   // Après l'enregistrement de l'état « modifié » : si le rechargement des
   // écrans recalcule et réécrit une donnée (ex. records réalignés sur les
   // séances), elle est bien repérée et envoyée au prochain cycle.
@@ -13275,7 +14120,11 @@ async function nissaFetchCloud() {
 // Écriture conditionnelle : n'écrit que si le cloud n'a pas bougé depuis notre lecture.
 async function nissaWriteCloud(payload, updatedAt, opts) {
   var now = new Date().toISOString();
-  var keep = !!(opts && opts.keepalive);
+  // keepalive : limité à 64 Ko par les navigateurs (au-delà, l'envoi échouait
+  // à chaque fois). Au-delà, envoi normal : il aboutit quand l'onglet passe
+  // en arrière-plan ; sinon les modifications restent « à envoyer » sur cet
+  // appareil et partent à la prochaine ouverture.
+  var keep = !!(opts && opts.keepalive) && JSON.stringify(payload).length < 60000;
   var headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
   if (updatedAt) {
     var r = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&updated_at=eq.' + encodeURIComponent(updatedAt), {
@@ -13316,20 +14165,102 @@ function nissaFirstRunChoice(cloudData) {
     return lr !== null && cloudData[k] !== undefined && lr !== JSON.stringify(cloudData[k]);
   });
   if (!differs) return 'cloud';
+  // Nouvel appareil : au chargement, l'appli écrit des valeurs par défaut
+  // (records, objectifs, tests VMAX automatiques...). Ce n'est pas une
+  // « donnée de cet ordinateur » : on ne pose la question QUE si cet appareil
+  // possède de vrais éléments (séance, match, test, rapport) absents du cloud.
+  // Sinon on prend le cloud (une copie de secours locale est prise avant).
+  var uniqueLocal = NISSA_ID_ARRAY_KEYS.some(function (k) {
+    var loc; try { loc = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return false; }
+    if (!Array.isArray(loc)) return false;
+    var cl = {}; (Array.isArray(cloudData[k]) ? cloudData[k] : []).forEach(function (it) { if (it && it.id !== undefined) cl[String(it.id)] = 1; });
+    return loc.some(function (it) { return it && it.id !== undefined && !cl[String(it.id)] && String(it.id).indexOf('gpsvmax:') !== 0; });
+  });
+  if (!uniqueLocal) return 'cloud';
   return confirm(
     'Synchronisation : les données de cet ordinateur sont différentes de celles du cloud.\n\n' +
     'OK = remplacer les données de CET ordinateur par celles du cloud (recommandé si l\'autre ordinateur est à jour).\n\n' +
-    'Annuler = garder les données de CET ordinateur et les envoyer au cloud (elles remplaceront celles de l\'autre ordinateur).'
+    'Annuler = garder les données de CET ordinateur et les envoyer au cloud (fusionnées avec celles du cloud : rien n\'est effacé).'
   ) ? 'cloud' : 'local';
+}
+
+// Protection anti-perte : quand cet appareil devient la reference (bouton
+// "Utiliser cet appareil comme reference" ou choix "garder cet ordinateur"),
+// il ne doit JAMAIS effacer ce qui existe dans le cloud et pas ici.
+// - listes avec identifiants (tests physiques, seances, matchs) : union cloud + local,
+//   seules les suppressions volontaires (gpsDeletedIds_v1) sont appliquees ;
+// - profils joueurs et records : les joueurs absents ici sont repris du cloud.
+var NISSA_KEEP_OBJECT_KEYS = ['nissaPlayerProfiles_v1', 'gpsSeasonRecords_v1'];
+function nissaProtectAgainstLoss(cloudData) {
+  var changed = false;
+  window.__nissaSyncApplying = true;
+  try {
+    NISSA_ID_ARRAY_KEYS.forEach(function (k) {
+      var cv = cloudData[k];
+      if (!Array.isArray(cv) || !cv.length) return;
+      var local = []; try { local = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (e) { local = []; }
+      if (!Array.isArray(local)) local = [];
+      var merged = nissaMergeIdArray(k, local, cv);
+      var mr = JSON.stringify(merged);
+      if (mr !== JSON.stringify(local)) { localStorage.setItem(k, mr); changed = true; }
+    });
+    // Toutes les données « objet » (profils, records, médical, RPE, objectifs,
+    // références coach...) : ce qui existe dans le cloud et pas ici est
+    // repris (à toute profondeur) ; en cas de conflit, la valeur d'ici gagne.
+    SYNC_DATA_KEYS.forEach(function (k) {
+      if (NISSA_ID_ARRAY_KEYS.indexOf(k) !== -1) return;
+      var cv = cloudData[k], lr = localStorage.getItem(k);
+      var local = null; try { local = lr !== null ? JSON.parse(lr) : null; } catch (e) { local = null; }
+      if (nissaIsObj(cv)) {
+        if (local !== null && !nissaIsObj(local)) return;
+        local = local || {};
+        if (nissaAddMissing(local, cv, 0) > 0) { localStorage.setItem(k, JSON.stringify(local)); changed = true; }
+      } else if (Array.isArray(cv) && cv.length && (local === null || (Array.isArray(local) && !local.length))) {
+        localStorage.setItem(k, JSON.stringify(cv)); changed = true;   // liste vide ici : on reprend celle du cloud
+      }
+    });
+  } finally { window.__nissaSyncApplying = false; }
+  if (changed) { try { reloadAllVariablesAndRerender(); } catch (e) {} }
+  return changed;
+}
+
+// Contenu envoyé au cloud : les données locales, PLUS tout ce que le cloud
+// contient et que cet appareil n'a pas (clé absente ici, éléments de liste
+// non supprimés volontairement). Un envoi ne peut donc plus jamais retirer
+// du cloud une donnée qu'un autre appareil y a mise (ex. : écriture locale
+// ratée faute de place, appareil vide, version plus récente de l'appli).
+var _nissaLastCloudData = null;
+function nissaBuildPayload(cloudData) {
+  var payload = collectAllData();
+  if (!cloudData || typeof cloudData !== 'object') return payload;
+  Object.keys(cloudData).forEach(function (k) {
+    if (k.charAt(0) === '_') return;
+    var cv = cloudData[k];
+    if (payload[k] === undefined) { if (cv !== null && cv !== undefined) payload[k] = cv; return; }
+    if (NISSA_ID_ARRAY_KEYS.indexOf(k) !== -1 && Array.isArray(payload[k]) && Array.isArray(cv)) payload[k] = nissaMergeIdArray(k, payload[k], cv);
+  });
+  return payload;
 }
 
 async function nissaSyncCycle(opts) {
   opts = opts || {};
-  if (_nissaSyncBusy) { _nissaSyncAgain = true; return; }
+  if (_nissaSyncBusy) {
+    // Une synchro tourne déjà : on garde la demande (avec ses options !) pour
+    // juste après. Avant, un clic sur « Cet ordinateur fait référence » ou
+    // « Recharger depuis le cloud » pendant une synchro automatique était
+    // remplacé par une synchro ordinaire, sans le dire.
+    var prevQ = _nissaSyncAgain && typeof _nissaSyncAgain === 'object' ? _nissaSyncAgain : null;
+    var q = Object.assign({}, prevQ || {}, opts);
+    q.silent = !!opts.silent && (!prevQ || !!prevQ.silent);
+    _nissaSyncAgain = q;
+    return;
+  }
   _nissaSyncBusy = true;
+  var done = false;
   try {
     for (var attempt = 0; attempt < 4; attempt++) {
       var cloud = await nissaFetchCloud();
+      if (cloud && cloud.data) _nissaLastCloudData = cloud.data;
       var firstRun = !localStorage.getItem(NISSA_SYNC_INIT_FLAG);
       var reference = !!opts.reference;
       if (cloud && cloud.data && cloud.data._version) {
@@ -13338,6 +14269,7 @@ async function nissaSyncCycle(opts) {
         }
         if (!reference) nissaApplyCloud(cloud.data, { ignoreDirty: firstRun || opts.cloudWins });
       }
+      if (reference && cloud && cloud.data) nissaProtectAgainstLoss(cloud.data);
       if (reference) { var all = {}; SYNC_DATA_KEYS.forEach(function (k) { if (localStorage.getItem(k) !== null) all[k] = Date.now(); }); nissaWriteDirty(all); }
       __nissaRawSet(NISSA_SYNC_INIT_FLAG, new Date().toISOString());
 
@@ -13347,10 +14279,11 @@ async function nissaSyncCycle(opts) {
         setSyncPill('ok', 'À jour', 'Identique au cloud (vérifié le ' + lbl + ')');
         if (!opts.silent) syncSetStatus('✓ Identique au cloud (' + lbl + ')', '#2ecc8a');
         hideGlobalSyncWarning();
+        done = true;
         break;
       }
       setSyncPill('pending', 'Envoi…', 'Envoi des modifications au cloud');
-      var payload = collectAllData();
+      var payload = nissaBuildPayload(cloud ? cloud.data : null);
       var sentAt = Date.now();
       var res = await nissaWriteCloud(payload, cloud ? cloud.updatedAt : null);
       if (res === 'conflict') { opts.reference = false; continue; } // l'autre appareil vient d'écrire → on re-fusionne
@@ -13359,7 +14292,14 @@ async function nissaSyncCycle(opts) {
       setSyncPill('ok', 'Envoyé', 'Données envoyées au cloud le ' + savedLabel);
       if (!opts.silent) syncSetStatus('✓ Sauvegardé le ' + savedLabel, '#2ecc8a');
       hideGlobalSyncWarning();
+      done = true;
       break;
+    }
+    if (!done) {
+      // 4 conflits d'affilée (autre appareil très actif) : rien n'est perdu,
+      // les modifications restent « à envoyer » et repartent au prochain cycle.
+      setSyncPill('warn', 'En attente', 'Envoi reporté (le cloud change en ce moment) — nouvel essai automatique');
+      if (!opts.silent) syncSetStatus('⏳ Envoi reporté, nouvel essai automatique', '#e0b341');
     }
   } catch (e) {
     var pending = Object.keys(nissaGetDirty()).length;
@@ -13368,7 +14308,11 @@ async function nissaSyncCycle(opts) {
     if (pending) showGlobalSyncWarning('(' + e.message + ')');
   } finally {
     _nissaSyncBusy = false;
-    if (_nissaSyncAgain) { _nissaSyncAgain = false; setTimeout(function () { nissaSyncCycle({ silent: true }); }, 300); }
+    if (_nissaSyncAgain) {
+      var nextOpts = typeof _nissaSyncAgain === 'object' ? _nissaSyncAgain : { silent: true };
+      _nissaSyncAgain = false;
+      setTimeout(function () { nissaSyncCycle(nextOpts); }, 300);
+    }
   }
 }
 
@@ -13377,14 +14321,14 @@ async function syncLoad(silent) { return nissaSyncCycle({ silent: !!silent }); }
 async function syncSave() { return nissaSyncCycle({ forcePush: true }); }
 // Recharger depuis le cloud en abandonnant les modifications locales non envoyées
 async function forceSyncLoad() {
-  if (!confirm('Remplacer les données de cet ordinateur par celles du cloud ? Les modifications locales non envoyées seront perdues.')) return;
+  if (!confirm('Remplacer les données de cet ordinateur par celles du cloud ?\n\nLes réglages modifiés ici et pas encore envoyés seront remplacés. Les séances, matchs, tests et rapports présents ici sont toujours conservés (fusionnés avec le cloud). Une copie de secours locale est prise avant.')) return;
   nissaWriteDirty({});
   setSyncPill('pending', 'Chargement…', 'Récupération des données du cloud');
   return nissaSyncCycle({ cloudWins: true });
 }
 // Cet ordinateur devient la référence : ses données remplacent celles du cloud
 async function syncUseThisDeviceAsReference() {
-  if (!confirm('Envoyer TOUTES les données de cet ordinateur au cloud ?\n\nElles remplaceront celles du cloud, et les autres ordinateurs les recevront automatiquement. À utiliser sur l\'ordinateur qui a les bonnes données.')) return;
+  if (!confirm('Envoyer TOUTES les données de cet ordinateur au cloud ?\n\nElles seront fusionnées avec celles du cloud (aucun test, séance, match, profil ou record du cloud ne sera effacé), et les autres ordinateurs les recevront automatiquement. À utiliser sur l\'ordinateur qui a les bonnes données.')) return;
   return nissaSyncCycle({ reference: true, forcePush: true });
 }
 
@@ -13413,6 +14357,7 @@ function scheduleAutoSync() {
 window.nissaOnLocalChange = function () { if (localStorage.getItem(NISSA_SYNC_INIT_FLAG)) scheduleAutoSync(); };
 
 document.addEventListener('DOMContentLoaded', function () {
+  nissaDailyLocalBackup();                                                     // copie locale du jour, avant toute synchro
   setTimeout(function () { nissaSyncCycle({ silent: true }); }, 1500);       // au démarrage
   setInterval(function () { nissaSyncCycle({ silent: true }); }, 20000);      // puis toutes les 20 s
 });
@@ -13427,7 +14372,7 @@ window.addEventListener('pagehide', flushPendingSyncOnExit);
 function flushPendingSyncOnExit() {
   if (!Object.keys(nissaGetDirty()).length || !_nissaLastCloudUpdatedAt || _nissaSyncBusy) return;
   try {
-    var payload = collectAllData(), sentAt = Date.now();
+    var payload = nissaBuildPayload(_nissaLastCloudData), sentAt = Date.now();
     nissaWriteCloud(payload, _nissaLastCloudUpdatedAt, { keepalive: true })
       .then(function (r) { if (r === 'ok') nissaMarkSent(payload, sentAt); }).catch(function () {});
   } catch (e) {}
@@ -14118,10 +15063,29 @@ document.addEventListener('DOMContentLoaded', function() {
 const MEDICAL_STORAGE_KEY = 'gpsMedicalRecords_v1';
 
 function loadMedicalRecords() {
+  let rec;
   try {
     const raw = localStorage.getItem(MEDICAL_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    rec = raw ? JSON.parse(raw) : {};
   } catch (e) { return {}; }
+  if (!rec || typeof rec !== 'object' || Array.isArray(rec)) return {};
+  // Nettoyage défensif : chaque joueur -> liste de blessures, chaque blessure
+  // avec un id unique (sans id, impossible de la modifier ou de la supprimer),
+  // et les blessures supprimées (pierres tombales) ne reviennent pas via la synchro.
+  let del = {};
+  try { del = (typeof loadDeletedIds === 'function') ? loadDeletedIds() : {}; } catch (e) {}
+  const seen = {};
+  Object.keys(rec).forEach(function(player) {
+    if (!Array.isArray(rec[player])) { delete rec[player]; return; }
+    rec[player] = rec[player].filter(function(inj, i) {
+      if (!inj || typeof inj !== 'object') return false;
+      if (!inj.id) inj.id = 'med_' + String(player).replace(/[^A-Za-z0-9]+/g, '_') + '_' + String(inj.date || '').replace(/[^0-9]/g, '') + '_' + i;
+      if (seen[inj.id]) inj.id = inj.id + '_' + i;
+      seen[inj.id] = 1;
+      return !del[MEDICAL_STORAGE_KEY + ':' + inj.id];
+    });
+  });
+  return rec;
 }
 function saveMedicalRecords(records) {
   safeLocalStorageSet(MEDICAL_STORAGE_KEY, JSON.stringify(records));
@@ -14559,6 +15523,12 @@ function saveMedicalInjury() {
   if (!medicalSelectedKey) { if (errEl) errEl.textContent = 'Choisissez un lieu de blessure.'; return; }
   const date = document.getElementById('medicalDateBlessure').value;
   if (!date) { if (errEl) errEl.textContent = 'Indiquez la date de la blessure.'; return; }
+  const retPrev = document.getElementById('medicalDateRetourPrevue').value || '';
+  const retReel = document.getElementById('medicalDateRetourReelle').value || '';
+  if ((retPrev && retPrev < date) || (retReel && retReel < date)) {
+    if (errEl) errEl.textContent = 'La date de retour ne peut pas être avant la date de blessure.';
+    return;
+  }
 
   // Si on modifie une blessure et qu'on a changé le joueur, on la déplace.
   if (medicalEditingId) {
@@ -14614,8 +15584,12 @@ function deleteMedicalInjury(injuryId) {
   if (!found) return;
   if (!confirm('Supprimer cette blessure (' + found.player + ') ?')) return;
   medicalRecords[found.player].splice(found.index, 1);
+  // Mémorise la suppression (comme pour les tests / séances) pour que la
+  // synchro ne fasse pas revenir la blessure depuis un autre appareil.
+  try { markDeleted(MEDICAL_STORAGE_KEY, injuryId); } catch (e) {}
   saveMedicalRecords(medicalRecords);
   if (medicalEditingId === injuryId) closeMedicalInjuryForm();
+  if (typeof currentProfilePlayer !== 'undefined' && currentProfilePlayer === found.player && typeof renderProfileMedical === 'function') renderProfileMedical(found.player);
   renderMedicalDashboardTable();
   renderMedicalStatsCards();
   renderMedicalAnalytics();
@@ -14638,12 +15612,14 @@ function medicalStatutLabel(statut) {
 
 // ── Dashboard : compteurs joueurs (blessés / réathlétisation / adapté / aptes) ──
 function medicalPlayerStatus(name) {
-  const list = (medicalRecords[name] || []).slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
-  if (!list.length) return 'apte';
-  const latest = list[list.length - 1];
-  if (latest.statut === 'En cours') return 'blesse';
-  if (latest.statut === 'Réathlétisation') return 'reathletisation';
-  if (latest.statut === 'Adapté') return 'adapte';
+  // Statut le plus restrictif parmi les blessures non guéries : avant, seule la
+  // blessure la plus récente comptait, donc un joueur encore blessé (ancienne
+  // blessure « En cours ») passait « apte » dès qu'une nouvelle était guérie.
+  const list = medicalRecords[name] || [];
+  const has = function(st){ return list.some(function(inj){ return inj && inj.statut === st; }); };
+  if (has('En cours')) return 'blesse';
+  if (has('Réathlétisation')) return 'reathletisation';
+  if (has('Adapté')) return 'adapte';
   return 'apte';
 }
 
@@ -15105,12 +16081,12 @@ function computeAccueilRpeRecap() {
     return { type: t, avg: avg, n: arr.length };
   });
 
+  // sRPE de la semaine calendaire en cours (lundi -> dimanche). Avant : semaine affichee dans
+  // l'onglet Semaine (CUR_RPE_WEEK), qui change quand on navigue vers une ancienne semaine.
   var totalSrpe = null;
-  if (typeof initRpeSemaineWeek === 'function') {
-    initRpeSemaineWeek();
-    if (typeof CUR_RPE_WEEK !== 'undefined' && CUR_RPE_WEEK) {
-      totalSrpe = (typeof SRPE_WEEK !== 'undefined' && SRPE_WEEK[CUR_RPE_WEEK]) ? SRPE_WEEK[CUR_RPE_WEEK].total : 0;
-    }
+  if (typeof mondayOf === 'function' && typeof fmtFR === 'function') {
+    var curWeekKey = fmtFR(mondayOf(new Date()));
+    totalSrpe = (typeof SRPE_WEEK !== 'undefined' && SRPE_WEEK[curWeekKey]) ? SRPE_WEEK[curWeekKey].total : 0;
   }
 
   return { day: day, items: items, totalSrpe: totalSrpe };
@@ -15145,9 +16121,9 @@ function computeAccueilPerfPhysiqueRecap() {
   if (typeof physicalTests === 'undefined') return { count: 0, entries: [] };
   var range = accueilWeekRange(new Date());
   var entries = physicalTests.filter(function(t) {
-    if (!t.date) return false;
+    if (!t || !t.date) return false;
     if (String(t.id).indexOf('gpsvmax:') === 0) return false; // VMAX reprise du GPS : pas un test passé cette semaine
-    var d = new Date(t.date + 'T00:00:00');
+    var d = new Date(normTestDate(t.date) + 'T00:00:00');
     return d >= range.monday && d <= range.sunday;
   });
   return { count: entries.length, entries: entries };
@@ -15277,10 +16253,10 @@ function renderAccueilRecap() {
       : '';
     var itemsMini = rpe.items.map(function(it) {
       var color = (typeof rpeColor === 'function') ? rpeColor(it.avg) : '#1a0003';
-      return '<div class="recap-mini" style="--mc:' + color + '"><div class="recap-mini-val">' + fmt1(it.avg) + '/10</div><div class="recap-mini-lbl">' + it.type + '</div></div>';
+      return '<div class="recap-mini" style="--mc:' + color + '"><div class="recap-mini-val">' + fmt1(it.avg) + '/10</div><div class="recap-mini-lbl">' + esc(it.type) + '</div></div>';
     }).join('');
     rpeHtml = '<div class="recap-mini-grid">' + srpeMini + itemsMini + '</div>'
-      + (rpe.items.length ? '<div class="recap-date-note">Moyenne de la veille (' + rpe.day + ') par type de séance</div>' : '');
+      + (rpe.items.length ? '<div class="recap-date-note">Moyenne du dernier jour RPE (' + esc(rpe.day) + ') par type de séance</div>' : '');
   }
   document.getElementById('recapRpeBody').innerHTML = rpeHtml;
 
@@ -15500,7 +16476,7 @@ switchHub = function(name) {
 <script>
 /* ═══════ FICHE PID — vue A4 paysage de la fiche joueur ═══════ */
 var pidPlayer = null;
-var PID_LOWER = { '10m':1, '20m':1, '30m':1, '50m':1, '5m':1, bronco:1 };
+var PID_LOWER = { '10m':1, '20m':1, '30m':1, '50m':1, '5m':1, bronco:1, mg:1 };
 
 function pidNum(v, dec) {
   if (v === null || v === undefined || v === '' || isNaN(parseFloat(v))) return '—';
@@ -15606,9 +16582,13 @@ function pidRender() {
   var sheet = document.getElementById('pidSheet');
   if (!sheet || !pidPlayer) return;
   var prof = (playerProfiles||{})[pidPlayer] || {};
-  var taille = prof.taille !== undefined && prof.taille !== '' && prof.taille !== null ? prof.taille : pidLast('taille');
-  var poids  = prof.poids  !== undefined && prof.poids  !== '' && prof.poids  !== null ? prof.poids  : pidLast('poids');
-  var mgVal  = prof.mg     !== undefined && prof.mg     !== '' && prof.mg     !== null ? prof.mg     : pidLast('mg');
+  // Bandeau : la dernière mesure enregistrée (import Excel, pesée, saisie PID)
+  // est prioritaire ; la valeur du profil ne sert que s'il n'y a aucun test.
+  // Avant, une ancienne valeur de profil masquait les nouvelles pesées / % MG importés.
+  var profOr = function(type) { var v = pidLast(type); return v !== null ? v : (prof[type] !== undefined && prof[type] !== '' ? prof[type] : null); };
+  var taille = profOr('taille');
+  var poids  = profOr('poids');
+  var mgVal  = profOr('mg');
 
   var banner = pidBannerCard('Taille', pidNum(taille,0), 'cm', "pidBannerChart('taille','Taille',0,'cm')", "Voir l'évolution / ajouter une mesure")
     + pidBannerCard('% MG', pidNum(mgVal, 1), '%', "pidBannerChart('mg','Masse grasse',1,'%')", "Voir l'évolution / ajouter une mesure")
@@ -15775,8 +16755,8 @@ function pidAddMeasure(type, label, dec, unit) {
   if (isNaN(val)) { alert('Entre une valeur numérique.'); if (valEl) valEl.focus(); return; }
   physicalTests.push({ id: Date.now() + Math.random(), player: pidPlayer, type: type, value: val, date: date, context: 'Fiche PID' });
   savePhysicalTests();
-  // Taille / Poids : la valeur du profil (saisie manuelle) est prioritaire dans
-  // le bandeau — on la met à jour pour que la nouvelle mesure s'affiche.
+  // Taille / Poids / MG : le bandeau affiche la dernière mesure ; on garde aussi
+  // le profil à jour (valeur de secours s'il n'y a plus de test).
   if (type === 'taille' || type === 'poids' || type === 'mg') {
     var last = getPlayerTests(pidPlayer, type).slice(-1)[0];
     if (last) {
