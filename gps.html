@@ -2486,6 +2486,22 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
 </head>
 <body>
 
+<style>
+.pw-modal{position:fixed;inset:0;z-index:100000;background:rgba(10,10,10,.6);display:none;align-items:center;justify-content:center;padding:16px}
+.pw-box{background:#FBFBF8;color:#1D1D1B;border-radius:16px;padding:22px 24px;width:min(420px,100%);font-family:Inter,Arial,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.pw-box h2{margin:0 0 4px;font-size:22px}.pw-box p{margin:0 0 12px;color:#6B6B67;font-size:14px}
+.pw-box label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:#55554f;margin-bottom:10px}
+.pw-box input{font:16px Inter,Arial,sans-serif;padding:9px 11px;border:1px solid #CFCCC4;border-radius:8px;background:#fff;color:#1D1D1B}
+.pw-err{color:#B3121F!important;font-weight:700;min-height:1em}
+.pw-act{display:flex;gap:10px}.pw-act button,.sa-btn{font:700 14px Inter,Arial,sans-serif;padding:9px 14px;border-radius:9px;border:1px solid #B3121F;background:#D7192A;color:#fff;cursor:pointer}
+.pw-act button.ghost,.sa-btn.ghost{background:#fff;color:#1D1D1B;border-color:#CFCCC4}
+.staff-accounts{background:#FBFBF8;color:#1D1D1B;border-radius:14px;padding:16px 18px;margin:0 0 16px;font-family:Inter,Arial,sans-serif}
+.sa-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.sa-head h3{margin:0;font-size:17px}
+.sa-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}.sa-table th{text-align:left;font-size:12px;color:#6B6B67;background:#EFEDE7;padding:7px 9px}
+.sa-table td{padding:7px 9px;border-top:1px solid #E4E2DC}.sa-table select,.sa-new input,.sa-new select{font:14px Inter,Arial,sans-serif;padding:7px 9px;border:1px solid #CFCCC4;border-radius:8px;background:#fff;color:#1D1D1B}
+.sa-acts{display:flex;gap:6px;flex-wrap:wrap}.sa-acts .sa-btn{padding:6px 10px;font-size:12px}
+.sa-new{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.sa-help{font-size:13px;color:#6B6B67;margin:10px 0 0}.sa-help code{background:#EFEDE7;padding:2px 6px;border-radius:5px;font-size:14px;color:#1D1D1B}
+</style>
 <!-- ══ PAGE DE CONNEXION ══ -->
 <div id="login-screen">
   <div class="login-box">
@@ -2767,7 +2783,7 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
         <button class="tab-btn" data-tab="match">Importer un match</button>
         <button class="tab-btn" data-tab="stats">Statistiques</button>
         <button class="tab-btn" data-tab="p1">Suivi Joueurs P1</button>
-        <button class="tab-btn" data-tab="reglages">Réglages</button>
+        <button class="tab-btn" data-tab="reglages" onclick="setTimeout(renderStaffAccounts,0)">Réglages</button>
       </nav>
     </div>
   </header>
@@ -3155,6 +3171,8 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
 
   <!-- ===================== ONGLET REGLAGES ===================== -->
   <section id="tab-reglages" class="tab-panel">
+<div id="staffAccounts" class="staff-accounts no-light-fix"></div>
+
 
     <div class="settings-card" id="coachThemesCard" style="margin-bottom:16px">
       <h2 class="section-title" style="margin-top:0">Thèmes de séance — rapport coach</h2>
@@ -4399,14 +4417,7 @@ Petit Enzo ; 9</pre>
    ═══════════════════════════════════ */
 
 // Identifiants — modifiez librement
-var USERS = [
-  { user: 'Buge.theo', pass: 'nissa2025', role: 'admin' },
-  // Accès restreint : uniquement le dashboard Wellness (Joueurs / Dashboard
-  // staff / Moyennes / Évolution / Légende) avec navigation dans les dates.
-  // Pas d'accès à RPE, aux réglages, ni aux autres onglets (GPS, Joueur,
-  // Perf physique). Voir applyRoleRestrictions().
-  { user: 'Tato.luca', pass: 'Tatoluca2026', role: 'prepa' },
-];
+var USERS = []; // comptes gérés par la base (fonctions staff_*), plus aucun mot de passe dans la page
 
 // Restreint l'interface visible selon le rôle du compte connecté. C'est une
 // restriction côté interface (cohérente avec le système de connexion actuel,
@@ -4426,94 +4437,193 @@ function applyRoleRestrictions() {
   if (vsRpe) vsRpe.style.display = isPrepa ? 'none' : '';
 }
 
-var SESSION_KEY = 'nissaHubSession_v1';
+var SESSION_KEY = 'nissaHubSession_v2';
 var currentUser = null;
+try { sessionStorage.removeItem('nissaHubSession_v1'); } catch (e) {}
 
 function getSession() {
-  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); }
-  catch(e) { return null; }
+  try {
+    var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    if (s && s.token && s.expires && new Date(s.expires) > new Date()) return s;
+  } catch (e) {}
+  return null;
 }
-function setSession(user) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
-  currentUser = user;
+function setSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {} currentUser = s; }
+function staffToken() { return (currentUser && currentUser.token) || null; }
+async function staffRpc(fn, args, opts) {
+  var r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST', cache: 'no-store', keepalive: !!(opts && opts.keepalive),
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args || {})
+  });
+  var txt = await r.text(), j = null;
+  try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
+  if (!r.ok) {
+    var msg = (j && (j.message || j.hint)) || ('erreur ' + r.status);
+    if (/session_invalide/.test(msg)) staffSessionLost();
+    var err = new Error(msg); err.status = r.status; throw err;
+  }
+  return j;
+}
+function staffSessionLost() {
+  if (!currentUser) return;
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+  currentUser = null;
+  showLoginScreen('Ta session a expiré ou a été fermée. Reconnecte-toi.');
+}
+function showLoginScreen(msg) {
+  document.getElementById('login-screen').style.display = 'flex';
+  var tb = document.querySelector('.hub-topbar'); if (tb) tb.style.display = 'none';
+  document.querySelectorAll('.hub-section').forEach(function (s) { s.style.display = 'none'; });
+  var ac = document.getElementById('hub-accueil'); if (ac) ac.style.display = 'none';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = msg || '';
+  var lb = document.getElementById('logoutBtn'); if (lb) lb.style.display = 'none';
 }
 function logout() {
-  sessionStorage.removeItem(SESSION_KEY);
+  var tok = staffToken();
+  if (tok) staffRpc('staff_logout', { p_token: tok }).catch(function () {});
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
   currentUser = null;
-  document.getElementById('login-screen').style.display = 'flex';
-  document.querySelector('.hub-topbar').style.display = 'none';
-  document.querySelectorAll('.hub-section').forEach(function(s){ s.style.display='none'; });
-  document.getElementById('hub-accueil').style.display = 'none';
+  showLoginScreen('');
   document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  document.getElementById('loginError').textContent = '';
+}
+function showSiteFor(s) {
+  document.getElementById('login-screen').style.display = 'none';
+  var logo = document.getElementById('loginLogo');
+  if (logo && typeof NISSA_LOGO_B64 !== 'undefined') logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
+  var topbar = document.querySelector('.hub-topbar'); if (topbar) topbar.style.display = 'flex';
+  applyRoleRestrictions();
+  switchHub(s.role === 'prepa' ? 'wellness' : 'accueil');
+  var logoutBtn = document.getElementById('logoutBtn'); if (logoutBtn) logoutBtn.style.display = 'flex';
+  var userLabel = document.getElementById('userLabel'); if (userLabel) userLabel.textContent = s.user;
+  if (typeof renderAccueilHeader === 'function') { try { renderAccueilHeader(); } catch (e) {} }
+  if (s.must_change) openPasswordModal(true);
 }
 
-function doLogin() {
+async function doLogin() {
   var user = (document.getElementById('loginUser').value || '').trim();
-  var pass = (document.getElementById('loginPass').value || '').trim();
-  var match = USERS.find(function(u){ return u.user === user && u.pass === pass; });
-  if (!match) {
-    document.getElementById('loginError').textContent = '⚠ Identifiant ou mot de passe incorrect.';
+  var pass = document.getElementById('loginPass').value || '';
+  var err = document.getElementById('loginError'), btn = document.querySelector('.login-btn');
+  if (!user || !pass) { err.textContent = 'Renseigne ton identifiant et ton mot de passe.'; return; }
+  err.textContent = ''; if (btn) { btn.disabled = true; btn.textContent = 'Connexion…'; }
+  try {
+    var r = await staffRpc('staff_login', { p_user: user, p_pass: pass, p_agent: navigator.userAgent });
+    if (!r || !r.ok) {
+      err.textContent = r && r.error === 'bloque' ? '⚠ Trop d’essais : compte bloqué 15 minutes.' : '⚠ Identifiant ou mot de passe incorrect.';
+      document.getElementById('loginPass').value = '';
+      return;
+    }
+    var s = { user: r.user, role: r.role, token: r.token, expires: r.expires, must_change: !!r.must_change };
+    setSession(s);
     document.getElementById('loginPass').value = '';
-    return;
+    showSiteFor(s);
+    if (typeof nissaSyncCycle === 'function') setTimeout(function () { nissaSyncCycle({ silent: true }); }, 300);
+  } catch (e) {
+    err.textContent = '⚠ Connexion impossible (réseau ?). ' + (e && e.message ? e.message : '');
+  } finally { if (btn) { btn.disabled = false; btn.textContent = 'Se connecter'; } }
+}
+
+/* Mot de passe : changement obligatoire à la première connexion, ou à la demande */
+function openPasswordModal(forced) {
+  var m = document.getElementById('pwModal');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'pwModal'; m.className = 'pw-modal no-light-fix';
+    m.innerHTML = '<div class="pw-box" role="dialog" aria-modal="true" aria-labelledby="pwTitle"><h2 id="pwTitle">Changer mon mot de passe</h2><p id="pwSub"></p>' +
+      '<label>Mot de passe actuel<input type="password" id="pwOld" autocomplete="current-password"></label>' +
+      '<label>Nouveau mot de passe (10 caractères minimum)<input type="password" id="pwNew" autocomplete="new-password"></label>' +
+      '<label>Confirmer le nouveau mot de passe<input type="password" id="pwNew2" autocomplete="new-password"></label>' +
+      '<p class="pw-err" id="pwErr"></p><div class="pw-act"><button id="pwOk">Enregistrer</button><button id="pwCancel" class="ghost">Annuler</button></div></div>';
+    document.body.appendChild(m);
+    document.getElementById('pwOk').onclick = submitPassword;
+    document.getElementById('pwCancel').onclick = function () { m.style.display = 'none'; };
   }
-  setSession(match);
-  document.getElementById('login-screen').style.display = 'none';
-  // Logo
-  var logo = document.getElementById('loginLogo');
-  if (logo && typeof NISSA_LOGO_B64 !== 'undefined') {
-    logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
-  }
-  // Afficher le site
-  var topbar = document.querySelector('.hub-topbar');
-  if (topbar) topbar.style.display = 'flex';
-  applyRoleRestrictions();
-  switchHub(match.role === 'prepa' ? 'wellness' : 'accueil');
-  // Ajouter bouton logout dans topbar
-  var logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) logoutBtn.style.display = 'flex';
-  var userLabel = document.getElementById('userLabel');
-  if (userLabel) userLabel.textContent = match.user;
+  document.getElementById('pwSub').textContent = forced ? 'Première connexion : choisis ton propre mot de passe pour continuer.' : 'Tes autres appareils seront déconnectés.';
+  document.getElementById('pwCancel').style.display = forced ? 'none' : '';
+  ['pwOld', 'pwNew', 'pwNew2'].forEach(function (id) { document.getElementById(id).value = ''; });
+  document.getElementById('pwErr').textContent = '';
+  m.style.display = 'flex';
+  setTimeout(function () { document.getElementById('pwOld').focus(); }, 50);
+}
+async function submitPassword() {
+  var o = document.getElementById('pwOld').value, n = document.getElementById('pwNew').value, n2 = document.getElementById('pwNew2').value, e = document.getElementById('pwErr');
+  if (n.length < 10) { e.textContent = 'Le nouveau mot de passe doit faire au moins 10 caractères.'; return; }
+  if (n !== n2) { e.textContent = 'Les deux nouveaux mots de passe ne sont pas identiques.'; return; }
+  try {
+    var r = await staffRpc('staff_change_password', { p_token: staffToken(), p_old: o, p_new: n });
+    if (!r || !r.ok) { e.textContent = r && r.error === 'ancien' ? 'Mot de passe actuel incorrect.' : 'Mot de passe refusé (10 caractères minimum, différent de l’ancien).'; return; }
+    currentUser.must_change = false; setSession(currentUser);
+    document.getElementById('pwModal').style.display = 'none';
+  } catch (err) { e.textContent = 'Erreur : ' + err.message; }
+}
+
+/* Comptes (admin) : liste, création, mot de passe provisoire, désactivation */
+function staffTempPass() { var a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', o = ''; var c = new Uint32Array(12); crypto.getRandomValues(c); for (var i = 0; i < 12; i++) { o += a[c[i] % a.length]; if (i === 5) o += '-'; } return o; }
+async function renderStaffAccounts() {
+  var box = document.getElementById('staffAccounts'); if (!box) return;
+  var isAdmin = currentUser && currentUser.role === 'admin';
+  var head = '<div class="sa-head"><h3>🔐 Comptes et accès</h3><button class="sa-btn" onclick="openPasswordModal(false)">Changer mon mot de passe</button></div>';
+  if (!isAdmin) { box.innerHTML = head; return; }
+  box.innerHTML = head + '<p class="sa-help">Chargement…</p>';
+  try {
+    var list = await staffRpc('staff_users', { p_token: staffToken() }) || [];
+    var ROLES = { admin: 'Admin (tout)', prepa: 'Prépa (wellness / RPE)', lecture: 'Lecture seule' };
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    box.innerHTML = head + '<table class="sa-table"><thead><tr><th>Identifiant</th><th>Accès</th><th>État</th><th>Dernière activité</th><th></th></tr></thead><tbody>' +
+      list.map(function (u) {
+        var me = u.user === currentUser.user;
+        return '<tr><td><b>' + esc(u.user) + '</b>' + (me ? ' <small>(toi)</small>' : '') + '</td><td><select data-u="' + esc(u.user) + '" class="sa-role"' + (me ? ' disabled' : '') + '>' +
+          Object.keys(ROLES).map(function (r) { return '<option value="' + r + '"' + (r === u.role ? ' selected' : '') + '>' + ROLES[r] + '</option>'; }).join('') + '</select></td>' +
+          '<td>' + (u.active ? (u.locked ? 'bloqué 15 min' : u.must_change ? 'mot de passe provisoire' : 'actif') : 'désactivé') + '</td>' +
+          '<td>' + (u.last ? new Date(u.last).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '–') + '</td>' +
+          '<td class="sa-acts">' + (me ? '' : '<button class="sa-btn" onclick="staffResetPass(\'' + esc(u.user) + '\')">Nouveau mot de passe</button><button class="sa-btn ghost" onclick="staffToggle(\'' + esc(u.user) + '\',' + (!u.active) + ')">' + (u.active ? 'Désactiver' : 'Réactiver') + '</button>') + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="sa-new"><input id="saNewUser" placeholder="identifiant (ex. prenom.nom)" autocomplete="off"><select id="saNewRole">' + Object.keys(ROLES).map(function (r) { return '<option value="' + r + '"' + (r === 'lecture' ? ' selected' : '') + '>' + ROLES[r] + '</option>'; }).join('') + '</select><button class="sa-btn" onclick="staffCreate()">Créer le compte</button></div>' +
+      '<p class="sa-help" id="saMsg">Un compte créé ou réinitialisé reçoit un mot de passe provisoire, à changer à sa première connexion.</p>';
+    box.querySelectorAll('.sa-role').forEach(function (s) { s.onchange = function () { staffSet(s.dataset.u, s.value, null, null); }; });
+  } catch (e) { box.innerHTML = head + '<p class="sa-help">Impossible de charger les comptes : ' + e.message + '</p>'; }
+}
+async function staffSet(user, role, active, pass) {
+  var r = await staffRpc('staff_user_set', { p_token: staffToken(), p_user: user, p_role: role, p_active: active, p_temp_pass: pass });
+  if (!r || !r.ok) throw new Error(r && r.error ? r.error : 'refusé');
+}
+function staffRoleOf(user) { var s = document.querySelector('.sa-role[data-u="' + user + '"]'); return s ? s.value : 'lecture'; }
+async function staffCreate() {
+  var u = (document.getElementById('saNewUser').value || '').trim().toLowerCase(), role = document.getElementById('saNewRole').value, p = staffTempPass(), msg = document.getElementById('saMsg');
+  if (!/^[a-z0-9._-]{3,40}$/.test(u)) { msg.textContent = 'Identifiant : 3 à 40 caractères, lettres, chiffres, point, tiret.'; return; }
+  try { await staffSet(u, role, true, p); await renderStaffAccounts(); document.getElementById('saMsg').innerHTML = 'Compte <b>' + u + '</b> créé. Mot de passe provisoire : <code>' + p + '</code> (à transmettre de vive voix, il ne sera plus affiché).'; }
+  catch (e) { msg.textContent = 'Création refusée : ' + e.message; }
+}
+async function staffResetPass(u) {
+  var p = staffTempPass();
+  try { await staffSet(u, staffRoleOf(u), true, p); await renderStaffAccounts(); document.getElementById('saMsg').innerHTML = 'Nouveau mot de passe provisoire pour <b>' + u + '</b> : <code>' + p + '</code>. Ses sessions ouvertes sont fermées.'; }
+  catch (e) { document.getElementById('saMsg').textContent = 'Refusé : ' + e.message; }
+}
+async function staffToggle(u, active) {
+  try { await staffSet(u, staffRoleOf(u), active, null); await renderStaffAccounts(); } catch (e) { document.getElementById('saMsg').textContent = 'Refusé : ' + e.message; }
 }
 
 // Vérifier la session au chargement
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   var session = getSession();
   if (session) {
     currentUser = session;
-    document.getElementById('login-screen').style.display = 'none';
-    var topbar = document.querySelector('.hub-topbar');
-    if (topbar) topbar.style.display = 'flex';
-    // Logo login
-    setTimeout(function(){
-      var logo = document.getElementById('loginLogo');
-      if (logo && typeof NISSA_LOGO_B64 !== 'undefined') {
-        logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
-      }
-      var userLabel = document.getElementById('userLabel');
-      if (userLabel) userLabel.textContent = session.user;
-      var logoutBtn = document.getElementById('logoutBtn');
-      if (logoutBtn) logoutBtn.style.display = 'flex';
-    }, 300);
-    applyRoleRestrictions();
-    switchHub(session.role === 'prepa' ? 'wellness' : 'accueil');
+    setTimeout(function () { showSiteFor(session); }, 0);
+    // Vérification côté serveur (session révoquée, compte désactivé…)
+    setTimeout(function () {
+      staffRpc('staff_whoami', { p_token: session.token }).then(function (w) {
+        if (w && currentUser) { currentUser.role = w.role; currentUser.must_change = !!w.must_change; setSession(currentUser); applyRoleRestrictions(); if (w.must_change) openPasswordModal(true); }
+      }).catch(function () {});
+    }, 800);
   } else {
-    // Masquer le site, afficher login
-    var topbar = document.querySelector('.hub-topbar');
-    if (topbar) topbar.style.display = 'none';
-    document.querySelectorAll('.hub-section').forEach(function(s){ s.style.display='none'; });
-    document.getElementById('hub-accueil').style.display = 'none';
-    // Logo login
-    setTimeout(function(){
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    showLoginScreen('');
+    setTimeout(function () {
       var logo = document.getElementById('loginLogo');
-      if (logo && typeof NISSA_LOGO_B64 !== 'undefined') {
-        logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
-      }
+      if (logo && typeof NISSA_LOGO_B64 !== 'undefined') logo.style.backgroundImage = "url('" + NISSA_LOGO_B64 + "')";
     }, 500);
   }
 });
-
 </script>
 
 <!-- HUB NAV -->
@@ -7868,15 +7978,8 @@ async function runSyncComparisonDiagnostic() {
 
   let cloud = null, cloudError = null;
   try {
-    const resp = await fetch(SUPABASE_REST_URL + "?id=eq." + SUPABASE_ROW_ID + "&select=data,updated_at", {
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
-    });
-    if (resp.ok) {
-      const rows = await resp.json();
-      if (rows && rows.length) cloud = rows[0];
-    } else {
-      cloudError = "Erreur HTTP " + resp.status;
-    }
+    const r = await staffRpc("staff_get", { p_token: staffToken() });
+    if (r && r.data) cloud = { data: r.data, updated_at: r.updated_at };
   } catch (e) {
     cloudError = e.message;
   }
@@ -14312,43 +14415,21 @@ function nissaApplyCloud(data, opts) {
 }
 
 async function nissaFetchCloud() {
-  var resp = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&select=data,updated_at', {
-    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }, cache: 'no-store'
-  });
-  if (!resp.ok) throw new Error('lecture cloud impossible (erreur ' + resp.status + ')');
-  var rows = await resp.json();
-  if (!rows || !rows.length) return null;
-  _nissaLastCloudUpdatedAt = rows[0].updated_at || null;
-  return { data: rows[0].data, updatedAt: rows[0].updated_at || null };
+  if (!staffToken()) throw new Error('non connecté');
+  var r = await staffRpc('staff_get', { p_token: staffToken() });
+  if (!r || !r.data) return null;
+  _nissaLastCloudUpdatedAt = r.updated_at || null;
+  return { data: r.data, updatedAt: r.updated_at || null };
 }
 // Écriture conditionnelle : n'écrit que si le cloud n'a pas bougé depuis notre lecture.
 async function nissaWriteCloud(payload, updatedAt, opts) {
-  var now = new Date().toISOString();
-  // keepalive : limité à 64 Ko par les navigateurs (au-delà, l'envoi échouait
-  // à chaque fois). Au-delà, envoi normal : il aboutit quand l'onglet passe
-  // en arrière-plan ; sinon les modifications restent « à envoyer » sur cet
-  // appareil et partent à la prochaine ouverture.
+  if (!staffToken()) throw new Error('non connecté');
+  // keepalive : limité à 64 Ko par les navigateurs ; au-delà, envoi normal.
   var keep = !!(opts && opts.keepalive) && JSON.stringify(payload).length < 60000;
-  var headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
-  if (updatedAt) {
-    var r = await fetch(SUPABASE_REST_URL + '?id=eq.' + SUPABASE_ROW_ID + '&updated_at=eq.' + encodeURIComponent(updatedAt), {
-      method: 'PATCH', headers: Object.assign({ 'Prefer': 'return=representation' }, headers),
-      body: JSON.stringify({ data: payload, updated_at: now }), keepalive: keep
-    });
-    if (r.ok) {
-      var rows = []; try { rows = await r.json(); } catch (e) {}
-      if (rows && rows.length) { _nissaLastCloudUpdatedAt = rows[0].updated_at || now; return 'ok'; }
-      return 'conflict';
-    }
-    // PATCH refusé par le serveur : repli sur l'enregistrement classique
-  }
-  var r2 = await fetch(SUPABASE_REST_URL + '?on_conflict=id', {
-    method: 'POST', headers: Object.assign({ 'Prefer': 'resolution=merge-duplicates' }, headers),
-    body: JSON.stringify({ id: SUPABASE_ROW_ID, data: payload, updated_at: now }), keepalive: keep
-  });
-  if (!r2.ok) throw new Error('envoi cloud impossible (erreur ' + r2.status + ')');
-  _nissaLastCloudUpdatedAt = now;
-  return 'ok';
+  var r = await staffRpc('staff_save', { p_token: staffToken(), p_data: payload, p_expected: updatedAt || null }, { keepalive: keep });
+  if (r && r.status === 'ok') { _nissaLastCloudUpdatedAt = r.updated_at; return 'ok'; }
+  if (r && r.status === 'conflict') return 'conflict';
+  throw new Error('envoi cloud impossible');
 }
 function nissaMarkSent(payload, sentAt) {
   var d = nissaGetDirty();
@@ -14448,6 +14529,7 @@ function nissaBuildPayload(cloudData) {
 
 async function nissaSyncCycle(opts) {
   opts = opts || {};
+  if (typeof staffToken === 'function' && !staffToken()) return;
   if (_nissaSyncBusy) {
     // Une synchro tourne déjà : on garde la demande (avec ses options !) pour
     // juste après. Avant, un clic sur « Cet ordinateur fait référence » ou
