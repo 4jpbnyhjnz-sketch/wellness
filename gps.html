@@ -2545,6 +2545,7 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
     <button class="hub-topnav-link" id="topnav-rapports" onclick="switchHub('rapports')"><span>📑</span>Rapports GPS</button>
     <button class="hub-topnav-link" id="topnav-comparaison" onclick="switchHub('comparaison')"><span>📉</span>Comparaison saison</button>
   </nav>
+  <button class="hub-topnav-link" id="topnav-reglages" style="flex-shrink:0" onclick="switchHub('reglages')" title="Réglages"><span>⚙️</span>Réglages</button>
   <button class="hub-back-btn" id="backBtn" onclick="switchHub('accueil')">← Accueil</button>
   <div id="globalSyncPill" class="no-print" style="display:flex;align-items:center;gap:6px;margin-left:auto;padding:5px 12px;border-radius:20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);font-size:11px;color:rgba(255,255,255,.65);cursor:pointer;flex-shrink:0" onclick="syncSave()" title="Cliquer pour forcer une sauvegarde cloud">
     <span id="globalSyncDot" style="width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0;transition:background .2s"></span>
@@ -2611,6 +2612,10 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
     <div class="hub-sb-item" id="nav-comparaison" onclick="switchHub('comparaison');closeSidebar()">
       <span class="hub-sb-icon">📉</span><span>Comparaison saison</span>
     </div>
+    <div class="hub-sb-div"></div>
+    <div class="hub-sb-item" id="nav-reglages" onclick="switchHub('reglages');closeSidebar()">
+      <span class="hub-sb-icon">⚙️</span><span>Réglages</span>
+    </div>
   </nav>
   <div class="hub-sb-footer">
     <button class="hub-refresh-pill" onclick="hubRefresh();closeSidebar()">⟳ Actualiser les données</button>
@@ -2651,6 +2656,9 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
       </button>
       <button class="ac-side-link" style="--c:#2F9E5A" onclick="switchHub('comparaison');closeAcSideNav()">
         <span class="ac-side-icon">📉</span><span class="ac-side-label">Comparaison saison</span><span class="ac-side-arrow">›</span>
+      </button>
+      <button class="ac-side-link" style="--c:#6B6B67" onclick="switchHub('reglages');closeAcSideNav()">
+        <span class="ac-side-icon">⚙️</span><span class="ac-side-label">Réglages</span><span class="ac-side-arrow">›</span>
       </button>
     </div>
   </aside>
@@ -2783,7 +2791,7 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
         <button class="tab-btn" data-tab="match">Importer un match</button>
         <button class="tab-btn" data-tab="stats">Statistiques</button>
         <button class="tab-btn" data-tab="p1">Suivi Joueurs P1</button>
-        <button class="tab-btn" data-tab="reglages" onclick="setTimeout(renderStaffAccounts,0)">Réglages</button>
+        
       </nav>
     </div>
   </header>
@@ -3171,160 +3179,9 @@ html.theme-light #perfUndoToast { background:#fff !important; color:#1d1d1b !imp
 
   <!-- ===================== ONGLET REGLAGES ===================== -->
   <section id="tab-reglages" class="tab-panel">
-<div id="staffAccounts" class="staff-accounts no-light-fix"></div>
 
 
-    <div class="settings-card" id="coachThemesCard" style="margin-bottom:16px">
-      <h2 class="section-title" style="margin-top:0">Thèmes de séance — rapport coach</h2>
-      <p class="panel-help">
-        Créez ici vos types de séance (Collectif, Skills, Réathlé…) et, si vous les connaissez, les valeurs de
-        référence attendues pour chacun. Le rapport coach compare la séance à ces valeurs ; si un champ est vide,
-        il utilise la moyenne des séances déjà enregistrées avec ce thème.
-      </p>
-      <div id="coachThemesList"></div>
-      <button class="btn btn-secondary" style="margin-top:10px" onclick="coachAddTheme()">+ Ajouter un thème</button>
-    </div>
-
-    <div class="settings-card" id="storageDiagCard" style="margin-bottom:16px">
-      <h2 class="section-title" style="margin-top:0">🔧 Diagnostic stockage</h2>
-      <p class="panel-help">Si l'appli plante ou se recharge de façon inattendue, c'est souvent un stockage du navigateur saturé. Cliquez pour voir ce qui prend de la place.</p>
-      <button onclick="runStorageDiagnostic()" class="btn btn-secondary">Vérifier le stockage</button>
-      <div id="storageDiagResult" style="margin-top:12px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap"></div>
-    </div>
-
-    <div class="settings-card" id="syncDiagCard" style="margin-bottom:16px;border:2px solid #D6001C">
-      <h2 class="section-title" style="margin-top:0">🔍 Comparer cet appareil et le cloud</h2>
-      <p class="panel-help">Avant de synchroniser ou de restaurer quoi que ce soit, vérifie ici ce qu'il y a réellement sur CET appareil et dans le cloud, côte à côte. Ce bouton ne modifie rien.</p>
-      <button onclick="runSyncComparisonDiagnostic()" class="btn btn-primary">Comparer maintenant</button>
-      <div id="syncDiagResult" style="margin-top:12px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap"></div>
-    </div>
-
-    <!-- BOUTON TEMPORAIRE - SUPPRIMER APRÈS USAGE -->
-    <div class="settings-card" style="border:2px solid #e0b341;margin-bottom:16px">
-      <h2 class="section-title" style="margin-top:0;color:#e0b341">🛠 Correction horodateurs</h2>
-      <p class="panel-help">Supprime tous les horodateurs personnalisés (dates modifiées manuellement). Les séances reviennent à leur date d'origine.</p>
-      <button onclick="
-        var o = JSON.parse(localStorage.getItem('nissa_espoirs_rpe_overrides_v1') || '{}');
-        if (!o.tsFixes) { alert('Aucun horodateur trouvé.'); return; }
-        var removed = 0;
-        Object.keys(o.tsFixes).forEach(function(k) {
-          if (k.includes('31/08/2026') || o.tsFixes[k].includes('31/08/2026')) {
-            delete o.tsFixes[k]; removed++;
-          }
-        });
-        if (removed === 0) { alert('Aucun horodateur du 31/08/2026 trouvé.'); return; }
-        localStorage.setItem('nissa_espoirs_rpe_overrides_v1', JSON.stringify(o));
-        if (typeof markLocalDataChanged === 'function') markLocalDataChanged();
-        alert('✓ ' + removed + ' horodateur(s) du 31/08/2026 supprimé(s). La page va recharger.');
-        location.reload();
-      " style="background:#e0b341;border:none;border-radius:6px;padding:10px 20px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
-        🔄 Supprimer uniquement les horodateurs du 31/08/2026
-      </button>
-    </div>
-
-
-    <!-- SYNCHRONISATION CLOUD (SUPABASE) -->
-    <div class="settings-card" style="border:2px solid #5bc4f5;margin-bottom:16px">
-      <h2 class="section-title" style="margin-top:0;color:#5bc4f5">☁️ Synchronisation — Tous les ordinateurs</h2>
-      <p class="panel-help">
-        Les données se sauvegardent et se chargent automatiquement sur tous les ordinateurs, sans configuration.
-      </p>
-
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-        <span id="syncConfiguredBadge" style="display:inline-flex;background:rgba(46,204,138,.15);border:1px solid #2ecc8a;border-radius:20px;padding:5px 14px;color:#2ecc8a;font-size:12px;font-weight:700">
-          ✓ Synchronisation active
-        </span>
-        <button onclick="syncSave()" style="background:#5bc4f5;border:none;border-radius:6px;padding:9px 18px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
-          ☁️ Sauvegarder maintenant
-        </button>
-        <button onclick="syncLoad(false)" style="background:rgba(91,196,245,.15);border:1px solid rgba(91,196,245,.4);border-radius:6px;padding:9px 18px;color:#5bc4f5;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-          ⬇ Recharger
-        </button>
-        <button onclick="syncUseThisDeviceAsReference()" title="À utiliser sur l'ordinateur qui a les bonnes données : elles remplacent celles du cloud et des autres ordinateurs" style="background:rgba(214,0,28,.12);border:1px solid rgba(214,0,28,.5);border-radius:6px;padding:9px 18px;color:#ff6b6b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-          ⬆ Cet ordinateur fait référence
-        </button>
-      </div>
-      <p id="syncStatus" style="font-size:12px;color:#888;margin:4px 0 0"></p>
-    </div>
-
-
-    <!-- SAUVEGARDE GLOBALE -->
-    <div class="settings-card" style="border:2px solid var(--red);">
-      <h2 class="section-title" style="margin-top:0;">💾 Sauvegarde complète</h2>
-      <p class="settings-help">
-        Exportez toutes vos données en un seul fichier (séances, records, effectif, objectifs).
-        Réimportez-le à tout moment pour tout restaurer — sur un autre ordinateur ou après une réinstallation.
-      </p>
-      <div class="settings-actions">
-        <button id="backupAllBtn" class="btn btn-primary">⬇ Tout exporter (sauvegarde)</button>
-        <button id="restoreAllBtn" class="btn btn-secondary">⬆ Tout importer (restaurer)</button>
-        <input type="file" id="restoreAllInput" accept=".json" hidden>
-      </div>
-      <p id="backupStatus" style="font-size:12px;color:#888;margin:4px 0 0;"></p>
-    </div>
-
-    <div class="settings-card" style="margin-top:20px;">
-      <h2 class="section-title">Listing pro &amp; postes</h2>
-      <p class="settings-help">
-        Groupe (3/4 ou Avant) et poste de chaque joueur. Utilisés pour le tri et les objectifs du rapport de match.
-      </p>
-
-      <div class="settings-actions">
-        <button id="exportRosterBtn" class="btn btn-secondary">Exporter la liste (JSON)</button>
-        <button id="importRosterBtn" class="btn btn-secondary">Importer une liste (JSON)</button>
-        <button class="btn btn-secondary" onclick="repairRosterGroups()" title="Retrouve les avants passés en 3/4 par erreur (via leur poste ou les séances enregistrées)">🔧 Réparer les groupes 3/4 / Avant</button>
-        <input type="file" id="importRosterInput" accept=".json" hidden>
-      </div>
-
-      <table class="roster-table" id="rosterTable">
-        <thead>
-          <tr>
-            <th>Joueur</th>
-            <th>Groupe</th>
-            <th>Poste</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="rosterBody"></tbody>
-      </table>
-
-      <div class="add-player-row">
-        <input type="text" id="newPlayerName" placeholder="Nom du joueur (nom officiel)">
-        <select id="newPlayerGroup">
-          <option value="3/4">3/4</option>
-          <option value="Avant">Avant</option>
-        </select>
-        <select id="newPlayerPosition">
-          <option value="">— Poste —</option>
-        </select>
-        <button id="addPlayerBtn" class="btn btn-secondary">Ajouter</button>
-      </div>
-
-      <div class="bulk-roster-box" style="margin-top:18px;padding-top:16px;border-top:1px dashed #ccc;">
-        <h3 style="font-size:14px;margin:0 0 6px;">Collage rapide (plusieurs joueurs d'un coup)</h3>
-        <p class="settings-help">
-          Une ligne par joueur, au format <strong>Nom ; Poste</strong> (le groupe 3/4 ou Avant est
-          détecté automatiquement à partir du poste). Exemple :
-        </p>
-        <pre style="background:#f5f4f2;border:1px solid #ddd;border-radius:4px;padding:8px 10px;font-size:12px;margin:0 0 10px;white-space:pre-wrap;">Dupont Léo ; Ailier
-Martin Hugo ; Pilier
-Petit Enzo ; 9</pre>
-        <textarea id="bulkRosterInput" rows="6" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px;border:1px solid #ccc;border-radius:4px;" placeholder="Nom ; Poste (un joueur par ligne)"></textarea>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-          <button id="bulkRosterBtn" class="btn btn-secondary">Importer la liste</button>
-          <span id="bulkRosterStatus" style="font-size:12px;color:#888;"></span>
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-card" style="margin-top: 20px;">
-      <h2 class="section-title">Objectifs match — par poste</h2>
-      <p class="settings-help">
-        Objectifs utilisés uniquement dans le rapport de match (page 1 et mi-temps), définis poste par poste.
-      </p>
-      <div id="matchObjectivesPanel"></div>
-    </div>
-
+    
   </section>
 
   <!-- Conteneurs d'impression -->
@@ -3677,16 +3534,6 @@ Petit Enzo ; 9</pre>
       </div>
 
       <div id="rpetab-reglages" class="tab-panel">
-        <div class="section-label">Pop-up RPE de la veille</div>
-        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
-            <input type="checkbox" id="prevDayPopupToggle" onchange="togglePrevDayPopup(this.checked)" style="width:18px;height:18px;accent-color:#cc1122">
-            Activer la pop-up
-          </label>
-          <button class="btn-nav" style="width:auto;padding:0 14px;font-size:12px" onclick="checkPrevDayRpe(true)">V&eacute;rifier maintenant</button>
-        </div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:22px">Quand un RPE est envoy&eacute; entre minuit et 16h du lundi au vendredi, une pop-up propose de le rattacher &agrave; la s&eacute;ance de la veille (RPE envoy&eacute;s depuis le 17/11/2026).</div>
-
         <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
           <span>Durée des séances — <span id="reglages-date-label"></span></span>
           <button class="btn-nav" style="width:auto;padding:0 12px;font-size:12px" onclick="resetReglagesDay()">Réinitialiser ce jour</button>
@@ -4187,6 +4034,211 @@ Petit Enzo ; 9</pre>
   </div>
 </div>
 
+
+<!-- SECTION REGLAGES (tous les réglages du site) -->
+<div id="hub-reglages" class="hub-section">
+  <div class="rg-page no-light-fix">
+    <div class="rg-hd"><h1>Réglages</h1><p>Tous les réglages du site au même endroit.</p></div>
+    <nav class="rg-tabs" role="tablist"><button class="rg-tab" role="tab" id="rgt-comptes" onclick="reglagesTab('comptes')"><span>🔐</span>Comptes et accès</button><button class="rg-tab" role="tab" id="rgt-effectif" onclick="reglagesTab('effectif')"><span>👥</span>Effectif et postes</button><button class="rg-tab" role="tab" id="rgt-objectifs" onclick="reglagesTab('objectifs')"><span>🎯</span>Objectifs et thèmes</button><button class="rg-tab" role="tab" id="rgt-wellness" onclick="reglagesTab('wellness')"><span>💚</span>Wellness / RPE</button><button class="rg-tab" role="tab" id="rgt-donnees" onclick="reglagesTab('donnees')"><span>☁️</span>Données et sauvegarde</button></nav>
+    <div class="rg-panel" id="rgp-comptes" role="tabpanel">
+      <div id="staffAccounts" class="staff-accounts no-light-fix"></div>
+      <div class="settings-card rg-note"><h2 class="section-title" style="margin-top:0">Niveaux d’accès</h2>
+        <ul class="rg-list"><li><b>Admin</b> : tout le site, et la gestion des comptes.</li><li><b>Prépa</b> : Wellness / RPE seulement ; la base refuse toute autre modification.</li><li><b>Lecture seule</b> : voit le site, ne peut rien enregistrer.</li></ul>
+        <p class="settings-help">Les mots de passe sont vérifiés par la base et ne sont jamais écrits dans la page. Un compte est bloqué 15 minutes après 5 essais ratés ; une session dure 30 jours sur un appareil.</p></div>
+    </div>
+    <div class="rg-panel" id="rgp-effectif" role="tabpanel"><div class="settings-card" style="margin-top:20px;">
+      <h2 class="section-title">Listing pro &amp; postes</h2>
+      <p class="settings-help">
+        Groupe (3/4 ou Avant) et poste de chaque joueur. Utilisés pour le tri et les objectifs du rapport de match.
+      </p>
+
+      <div class="settings-actions">
+        <button id="exportRosterBtn" class="btn btn-secondary">Exporter la liste (JSON)</button>
+        <button id="importRosterBtn" class="btn btn-secondary">Importer une liste (JSON)</button>
+        <button class="btn btn-secondary" onclick="repairRosterGroups()" title="Retrouve les avants passés en 3/4 par erreur (via leur poste ou les séances enregistrées)">🔧 Réparer les groupes 3/4 / Avant</button>
+        <input type="file" id="importRosterInput" accept=".json" hidden>
+      </div>
+
+      <table class="roster-table" id="rosterTable">
+        <thead>
+          <tr>
+            <th>Joueur</th>
+            <th>Groupe</th>
+            <th>Poste</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rosterBody"></tbody>
+      </table>
+
+      <div class="add-player-row">
+        <input type="text" id="newPlayerName" placeholder="Nom du joueur (nom officiel)">
+        <select id="newPlayerGroup">
+          <option value="3/4">3/4</option>
+          <option value="Avant">Avant</option>
+        </select>
+        <select id="newPlayerPosition">
+          <option value="">— Poste —</option>
+        </select>
+        <button id="addPlayerBtn" class="btn btn-secondary">Ajouter</button>
+      </div>
+
+      <div class="bulk-roster-box" style="margin-top:18px;padding-top:16px;border-top:1px dashed #ccc;">
+        <h3 style="font-size:14px;margin:0 0 6px;">Collage rapide (plusieurs joueurs d'un coup)</h3>
+        <p class="settings-help">
+          Une ligne par joueur, au format <strong>Nom ; Poste</strong> (le groupe 3/4 ou Avant est
+          détecté automatiquement à partir du poste). Exemple :
+        </p>
+        <pre style="background:#f5f4f2;border:1px solid #ddd;border-radius:4px;padding:8px 10px;font-size:12px;margin:0 0 10px;white-space:pre-wrap;">Dupont Léo ; Ailier
+Martin Hugo ; Pilier
+Petit Enzo ; 9</pre>
+        <textarea id="bulkRosterInput" rows="6" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px;border:1px solid #ccc;border-radius:4px;" placeholder="Nom ; Poste (un joueur par ligne)"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+          <button id="bulkRosterBtn" class="btn btn-secondary">Importer la liste</button>
+          <span id="bulkRosterStatus" style="font-size:12px;color:#888;"></span>
+        </div>
+      </div>
+    </div>
+
+    </div>
+    <div class="rg-panel" id="rgp-objectifs" role="tabpanel"><div class="settings-card" style="margin-top: 20px;">
+      <h2 class="section-title">Objectifs match — par poste</h2>
+      <p class="settings-help">
+        Objectifs utilisés uniquement dans le rapport de match (page 1 et mi-temps), définis poste par poste.
+      </p>
+      <div id="matchObjectivesPanel"></div>
+    </div>
+
+  <div class="settings-card" id="coachThemesCard" style="margin-bottom:16px">
+      <h2 class="section-title" style="margin-top:0">Thèmes de séance — rapport coach</h2>
+      <p class="panel-help">
+        Créez ici vos types de séance (Collectif, Skills, Réathlé…) et, si vous les connaissez, les valeurs de
+        référence attendues pour chacun. Le rapport coach compare la séance à ces valeurs ; si un champ est vide,
+        il utilise la moyenne des séances déjà enregistrées avec ce thème.
+      </p>
+      <div id="coachThemesList"></div>
+      <button class="btn btn-secondary" style="margin-top:10px" onclick="coachAddTheme()">+ Ajouter un thème</button>
+    </div>
+
+    </div>
+    <div class="rg-panel" id="rgp-wellness" role="tabpanel"><div class="settings-card rg-rpe"><div class="section-label">Pop-up RPE de la veille</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="prevDayPopupToggle" onchange="togglePrevDayPopup(this.checked)" style="width:18px;height:18px;accent-color:#cc1122">
+            Activer la pop-up
+          </label>
+          <button class="btn-nav" style="width:auto;padding:0 14px;font-size:12px" onclick="checkPrevDayRpe(true)">V&eacute;rifier maintenant</button>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:22px">Quand un RPE est envoy&eacute; entre minuit et 16h du lundi au vendredi, une pop-up propose de le rattacher &agrave; la s&eacute;ance de la veille (RPE envoy&eacute;s depuis le 17/11/2026).</div>
+
+        </div>
+      <p class="settings-help rg-out">Les durées de séance et les corrections de type se règlent jour par jour dans RPE → Réglages séance.</p></div>
+    <div class="rg-panel" id="rgp-donnees" role="tabpanel"><!-- SYNCHRONISATION CLOUD (SUPABASE) -->
+    <div class="settings-card" style="border:2px solid #5bc4f5;margin-bottom:16px">
+      <h2 class="section-title" style="margin-top:0;color:#5bc4f5">☁️ Synchronisation — Tous les ordinateurs</h2>
+      <p class="panel-help">
+        Les données se sauvegardent et se chargent automatiquement sur tous les ordinateurs, sans configuration.
+      </p>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <span id="syncConfiguredBadge" style="display:inline-flex;background:rgba(46,204,138,.15);border:1px solid #2ecc8a;border-radius:20px;padding:5px 14px;color:#2ecc8a;font-size:12px;font-weight:700">
+          ✓ Synchronisation active
+        </span>
+        <button onclick="syncSave()" style="background:#5bc4f5;border:none;border-radius:6px;padding:9px 18px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
+          ☁️ Sauvegarder maintenant
+        </button>
+        <button onclick="syncLoad(false)" style="background:rgba(91,196,245,.15);border:1px solid rgba(91,196,245,.4);border-radius:6px;padding:9px 18px;color:#5bc4f5;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          ⬇ Recharger
+        </button>
+        <button onclick="syncUseThisDeviceAsReference()" title="À utiliser sur l'ordinateur qui a les bonnes données : elles remplacent celles du cloud et des autres ordinateurs" style="background:rgba(214,0,28,.12);border:1px solid rgba(214,0,28,.5);border-radius:6px;padding:9px 18px;color:#ff6b6b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          ⬆ Cet ordinateur fait référence
+        </button>
+      </div>
+      <p id="syncStatus" style="font-size:12px;color:#888;margin:4px 0 0"></p>
+    </div>
+
+
+    <!-- SAUVEGARDE GLOBALE -->
+    <div class="settings-card" style="border:2px solid var(--red);">
+      <h2 class="section-title" style="margin-top:0;">💾 Sauvegarde complète</h2>
+      <p class="settings-help">
+        Exportez toutes vos données en un seul fichier (séances, records, effectif, objectifs).
+        Réimportez-le à tout moment pour tout restaurer — sur un autre ordinateur ou après une réinstallation.
+      </p>
+      <div class="settings-actions">
+        <button id="backupAllBtn" class="btn btn-primary">⬇ Tout exporter (sauvegarde)</button>
+        <button id="restoreAllBtn" class="btn btn-secondary">⬆ Tout importer (restaurer)</button>
+        <input type="file" id="restoreAllInput" accept=".json" hidden>
+      </div>
+      <p id="backupStatus" style="font-size:12px;color:#888;margin:4px 0 0;"></p>
+    </div>
+
+    <div class="settings-card" id="syncDiagCard" style="margin-bottom:16px;border:2px solid #D6001C">
+      <h2 class="section-title" style="margin-top:0">🔍 Comparer cet appareil et le cloud</h2>
+      <p class="panel-help">Avant de synchroniser ou de restaurer quoi que ce soit, vérifie ici ce qu'il y a réellement sur CET appareil et dans le cloud, côte à côte. Ce bouton ne modifie rien.</p>
+      <button onclick="runSyncComparisonDiagnostic()" class="btn btn-primary">Comparer maintenant</button>
+      <div id="syncDiagResult" style="margin-top:12px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap"></div>
+    </div>
+
+    <div class="settings-card" id="storageDiagCard" style="margin-bottom:16px">
+      <h2 class="section-title" style="margin-top:0">🔧 Diagnostic stockage</h2>
+      <p class="panel-help">Si l'appli plante ou se recharge de façon inattendue, c'est souvent un stockage du navigateur saturé. Cliquez pour voir ce qui prend de la place.</p>
+      <button onclick="runStorageDiagnostic()" class="btn btn-secondary">Vérifier le stockage</button>
+      <div id="storageDiagResult" style="margin-top:12px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap"></div>
+    </div>
+
+    <!-- BOUTON TEMPORAIRE - SUPPRIMER APRÈS USAGE -->
+    <div class="settings-card" style="border:2px solid #e0b341;margin-bottom:16px">
+      <h2 class="section-title" style="margin-top:0;color:#e0b341">🛠 Correction horodateurs</h2>
+      <p class="panel-help">Supprime tous les horodateurs personnalisés (dates modifiées manuellement). Les séances reviennent à leur date d'origine.</p>
+      <button onclick="
+        var o = JSON.parse(localStorage.getItem('nissa_espoirs_rpe_overrides_v1') || '{}');
+        if (!o.tsFixes) { alert('Aucun horodateur trouvé.'); return; }
+        var removed = 0;
+        Object.keys(o.tsFixes).forEach(function(k) {
+          if (k.includes('31/08/2026') || o.tsFixes[k].includes('31/08/2026')) {
+            delete o.tsFixes[k]; removed++;
+          }
+        });
+        if (removed === 0) { alert('Aucun horodateur du 31/08/2026 trouvé.'); return; }
+        localStorage.setItem('nissa_espoirs_rpe_overrides_v1', JSON.stringify(o));
+        if (typeof markLocalDataChanged === 'function') markLocalDataChanged();
+        alert('✓ ' + removed + ' horodateur(s) du 31/08/2026 supprimé(s). La page va recharger.');
+        location.reload();
+      " style="background:#e0b341;border:none;border-radius:6px;padding:10px 20px;color:#000;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
+        🔄 Supprimer uniquement les horodateurs du 31/08/2026
+      </button>
+    </div>
+
+
+    </div>
+  </div>
+</div>
+
+<style>
+#hub-reglages { background:#F3F2EE; min-height:100vh; padding-top:52px; color:#1D1D1B; }
+.rg-page { max-width:1180px; margin:0 auto; padding:22px max(3vw,16px) 60px; font-family:Inter, Arial, sans-serif; box-sizing:border-box; }
+.rg-hd h1 { font:800 clamp(28px,3.4vw,40px)/1.05 Bitter, Georgia, serif; margin:0; color:#1D1D1B; letter-spacing:-.02em; }
+.rg-hd p { margin:4px 0 16px; color:#6B6B67; }
+.rg-tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; border-bottom:2px solid #DDDAD3; padding-bottom:10px; }
+.rg-tab { display:flex; align-items:center; gap:6px; font:700 14px Inter, Arial, sans-serif; padding:9px 14px; min-height:40px; border-radius:10px; border:1px solid #CFCCC4; background:#fff; color:#1D1D1B; cursor:pointer; }
+.rg-tab.on { background:#1D1D1B !important; color:#F3F2EE !important; border-color:#1D1D1B; }
+.rg-panel { display:none; flex-direction:column; gap:16px; }
+.rg-panel.on { display:flex; }
+#hub-reglages .settings-card { background:#FBFBF8 !important; border:1px solid #DDDAD3 !important; box-shadow:none !important; border-radius:14px; margin:0 !important; color:#1D1D1B; backdrop-filter:none; }
+#hub-reglages .panel-help, #hub-reglages .settings-help, #hub-reglages .empty-state { color:#55554f !important; }
+#hub-reglages .btn-secondary { background:#1D1D1B !important; color:#fff !important; border:1px solid #1D1D1B; }
+#hub-reglages .btn-secondary:hover { background:#3B3B38 !important; }
+#hub-reglages .add-player-row input[type=text] { background:#fff !important; color:#1D1D1B !important; border-color:#CFCCC4 !important; }
+#hub-reglages .add-player-row input::placeholder { color:#8d8b84 !important; }
+#hub-reglages .staff-accounts { margin:0; border:1px solid #DDDAD3; }
+#hub-reglages .section-label { font-weight:800; font-size:15px; margin-bottom:8px; }
+#hub-reglages .rg-rpe .btn-nav { background:#fff; border:1px solid #CFCCC4; border-radius:8px; color:#1D1D1B; min-height:34px; cursor:pointer; }
+#hub-reglages .rg-rpe div[style*="var(--text2)"] { color:#55554f !important; }
+.rg-list { margin:0 0 10px; padding-left:20px; font-size:14px; line-height:1.6; }
+.rg-out { margin:0; }
+#hub-reglages h2.section-title { color:#fff !important; }
+</style>
 <!-- SECTION MEDICAL -->
 <div id="hub-medical" class="hub-section">
   <div style="padding:16px 20px 8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
@@ -4630,7 +4682,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <script>
 var wellnessLoaded = false;
 var currentSection = 'accueil';
-var SECTIONS = ['gps','wellness','joueur','perf-physique','medical','analyses','rapports','comparaison'];
+var SECTIONS = ['gps','wellness','joueur','perf-physique','medical','analyses','rapports','comparaison','reglages'];
 
 function switchHub(name) {
   // Compte "prépa" : accès restreint au seul dashboard Wellness.
@@ -4646,7 +4698,7 @@ function switchHub(name) {
   });
   var back = document.getElementById('backBtn');
   if (back) back.classList.toggle('visible', name!=='accueil');
-  ['accueil','gps','wellness','rpe','joueur','perf-physique','medical','analyses','rapports','comparaison'].forEach(function(s){
+  ['accueil','gps','wellness','rpe','joueur','perf-physique','medical','analyses','rapports','comparaison','reglages'].forEach(function(s){
     var ni = document.getElementById('nav-'+s);
     if (ni) ni.classList.toggle('active', s===name);
     var tn = document.getElementById('topnav-'+s);
@@ -4658,6 +4710,7 @@ function switchHub(name) {
   if (name==='analyses' && typeof openGpsAnalyses==='function') openGpsAnalyses();
   if (name==='rapports' && window.NRG && NRG.openRapports) NRG.openRapports();
   if (name==='comparaison' && window.NRG && NRG.renderCompare) NRG.renderCompare();
+  if (name==='reglages' && typeof reglagesTab==='function') reglagesTab(window.__rgTab || 'comptes');
   // Wellness
   if ((name==='wellness'||name==='rpe') && !wellnessLoaded) {
     wellnessLoaded = true;
@@ -17490,9 +17543,8 @@ function renderCoachThemesSettings(){
 }
 function coachGoToSettings(){
   closeCoachReport();
-  const btn=document.querySelector('#hub-gps .tab-btn[data-tab="reglages"]');
-  if(btn) btn.click();
-  renderCoachThemesSettings();
+  window.__rgTab = 'objectifs';
+  switchHub('reglages');
 }
 function coachAddTheme(){ const l=coachLoadThemes(); l.push({name:"",ref:{}}); coachSaveThemes(l); renderCoachThemesSettings(); }
 function coachDeleteTheme(i){ const l=coachLoadThemes(); const name=(l[i]&&l[i].name)||'ce thème'; if(!confirm('Supprimer '+name+' des thèmes de rapport coach ?')) return; l.splice(i,1); coachSaveThemes(l); renderCoachThemesSettings(); renderCoachRadar(); }
@@ -18866,6 +18918,20 @@ NRG.SEED_ALBI="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAACnCAYAAAC4j3Y
   document.addEventListener('DOMContentLoaded', function () { try { seed(); } catch (e) {} });
 })(NRG);
 
+</script>
+<script>
+/* Réglages : sous-onglets */
+function reglagesTab(k) {
+  window.__rgTab = k;
+  document.querySelectorAll('#hub-reglages .rg-tab').forEach(function (b) { var on = b.id === 'rgt-' + k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+  document.querySelectorAll('#hub-reglages .rg-panel').forEach(function (p) { p.classList.toggle('on', p.id === 'rgp-' + k); });
+  try {
+    if (k === 'comptes' && typeof renderStaffAccounts === 'function') renderStaffAccounts();
+    if (k === 'effectif' && typeof renderRosterTable === 'function') renderRosterTable();
+    if (k === 'objectifs') { if (typeof renderMatchObjectivesPanel === 'function') renderMatchObjectivesPanel(); if (typeof renderCoachThemesSettings === 'function') renderCoachThemesSettings(); }
+    if (k === 'wellness' && typeof syncPrevDayToggle === 'function') syncPrevDayToggle();
+  } catch (e) { console.warn('Réglages :', e); }
+}
 </script>
 </body>
 </html>
